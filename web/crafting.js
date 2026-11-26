@@ -599,10 +599,13 @@ function teachingSources(itemId) {
   return sources;
 }
 
+function appendNpcSource(line, prefix, source) {
+  line.append(prefix);
+  line.appendChild(wowheadPageLink("npc", source.npcId, source.npc));
+  line.append(" in " + source.zone);
+}
+
 function recipeSourceText(teachingName, source) {
-  if (source.type === "drop") {
-    return teachingName + ": drops from " + source.npc + " in " + source.zone;
-  }
   if (source.type === "world-drop") {
     return teachingName + ": world drop";
   }
@@ -624,9 +627,9 @@ function renderRecipeSource(recipe) {
   for (const source of sources.slice(0, RECIPE_SOURCES_SHOWN)) {
     const line = createElement("div", "recipe-source-line");
     if (source.type === "vendor") {
-      line.append(teachingName + ": sold by ");
-      line.appendChild(wowheadPageLink("npc", source.npcId, source.npc));
-      line.append(" in " + source.zone);
+      appendNpcSource(line, teachingName + ": sold by ", source);
+    } else if (source.type === "drop") {
+      appendNpcSource(line, teachingName + ": drops from ", source);
     } else {
       line.textContent = recipeSourceText(teachingName, source);
     }
