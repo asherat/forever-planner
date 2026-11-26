@@ -281,7 +281,7 @@ function itemDetails(reader, zones, itemId) {
     const vendor = npcInfo(reader, zones, npcId);
     const place = npcLocation(reader, zones, npcId);
     vendors.push(vendor);
-    sources.push({ type: "vendor", npc: vendor.name, title: vendor.title, zone: place.zone || vendor.zone, x: place.x, y: place.y, friendlyTo: vendor.friendlyTo });
+    sources.push({ type: "vendor", npcId: npcId, npc: vendor.name, title: vendor.title, zone: place.zone || vendor.zone, x: place.x, y: place.y, friendlyTo: vendor.friendlyTo });
   }
 
   const dropNpcIds = entityTable(reader, "Item", itemId, ITEM_FIELDS.npcDrops);
