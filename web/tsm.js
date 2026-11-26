@@ -83,11 +83,6 @@ function tsmScopeForCharacter(sets, rulesetName, factionName) {
       return scope;
     }
   }
-  for (const scope of localScopes) {
-    if (scope.toLowerCase().endsWith("-" + factionName.toLowerCase())) {
-      return scope;
-    }
-  }
   return null;
 }
 
@@ -126,8 +121,19 @@ const TSM_INVENTORY_LINE_PATTERN = /^\s*\["s@(.+?) - (Horde|Alliance) - (.+?)@in
 const TSM_INVENTORY_FIELDS = ["bagQuantity", "bankQuantity", "mailQuantity", "auctionQuantity", "money", "playerProfessions", "classKey"];
 
 function skipLuaWhitespace(cursor) {
-  while (cursor.offset < cursor.text.length && /\s/.test(cursor.text[cursor.offset])) {
-    cursor.offset += 1;
+  while (cursor.offset < cursor.text.length) {
+    if (/\s/.test(cursor.text[cursor.offset])) {
+      cursor.offset += 1;
+    } else if (cursor.text.startsWith("--", cursor.offset)) {
+      const lineEnd = cursor.text.indexOf("\n", cursor.offset);
+      if (lineEnd === -1) {
+        cursor.offset = cursor.text.length;
+      } else {
+        cursor.offset = lineEnd + 1;
+      }
+    } else {
+      break;
+    }
   }
 }
 
@@ -306,7 +312,11 @@ function parseTsmInventory(text) {
     if (!characters[name]) {
       characters[name] = emptyInventoryCharacter(name, match[2], match[3]);
     }
-    storeInventoryField(characters[name], match[4], parseLuaValue(valueText.replace(/,\s*$/, "")));
+    try {
+      storeInventoryField(characters[name], match[4], parseLuaValue(valueText.replace(/,\s*$/, "")));
+    } catch (error) {
+      continue;
+    }
   }
   return characters;
 }

@@ -9,6 +9,9 @@ const WOWHEAD_TOOLTIP_URL = "https://nether.wowhead.com/forever/tooltip/item/";
 const MAX_TOOLTIP_CHECKS_PER_RUN = 60;
 const TOOLTIP_CHECK_BATCH = 4;
 const TOOLTIP_CHECKS_PER_SLOT = 5;
+const itemIndex = new Map();
+const TOOLTIP_CACHE_DAYS = 14;
+const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000;
 const tooltipChecks = { pending: new Set(), running: false };
 const REPUTATION_TIER_NAMES = ["Hated", "Hostile", "Unfriendly", "Neutral", "Friendly", "Honored", "Revered", "Exalted"];
 const CREATURE_RANKS = { 1: "elite", 2: "rare elite", 3: "boss", 4: "rare" };
@@ -18,15 +21,25 @@ function fetchProfile(characterSlugValue, path) {
 }
 
 async function fetchItemIcon(itemId) {
-  const media = await fetchFromBattleNet("/data/wow/media/item/" + itemId, "static");
-  return mediaAsset(media, "icon");
+  try {
+    const media = await fetchFromBattleNet("/data/wow/media/item/" + itemId, "static");
+    return mediaAsset(media, "icon");
+  } catch (error) {
+    return null;
+  }
 }
 
 async function addEquipmentIcons(equippedBySlot) {
   const slotKeys = Object.keys(equippedBySlot);
   const iconRequests = [];
   for (const slotKey of slotKeys) {
-    iconRequests.push(fetchItemIcon(equippedBySlot[slotKey].id));
+    const known = itemById(equippedBySlot[slotKey].id);
+    if (known !== null && known.icon) {
+      equippedBySlot[slotKey].icon = known.icon;
+      iconRequests.push(null);
+    } else {
+      iconRequests.push(fetchItemIcon(equippedBySlot[slotKey].id));
+    }
   }
   const icons = await Promise.all(iconRequests);
   for (let index = 0; index < slotKeys.length; index += 1) {
@@ -162,8 +175,20 @@ function reputationRequirementText(item, snapshot) {
   return requirement.text + " (you're " + current + ")";
 }
 
+function isTooltipLookupFresh(itemId) {
+  const looked = state.tooltipRequirements[itemId];
+  if (!looked) {
+    return false;
+  }
+  let maximumAge = TOOLTIP_CACHE_DAYS * DAY_IN_MILLISECONDS;
+  if (looked.failed) {
+    maximumAge = DAY_IN_MILLISECONDS;
+  }
+  return Date.now() - (looked.checkedAt || 0) < maximumAge;
+}
+
 function needsTooltipCheck(item, snapshot) {
-  if (item.reputationRequirement || state.tooltipRequirements[item.id]) {
+  if (item.reputationRequirement || isTooltipLookupFresh(item.id)) {
     return false;
   }
   for (const source of sourcesForCharacter(item, snapshot)) {
@@ -198,12 +223,13 @@ async function lookUpTooltipRequirement(itemId) {
   try {
     const response = await fetch(WOWHEAD_TOOLTIP_URL + itemId + "?locale=0");
     if (!response.ok) {
+      state.tooltipRequirements[itemId] = { reputations: [], failed: true, checkedAt: Date.now() };
       return;
     }
     const tooltip = await response.json();
     state.tooltipRequirements[itemId] = { reputations: parseTooltipRequirements(tooltip.tooltip || ""), checkedAt: Date.now() };
   } catch (error) {
-    return;
+    state.tooltipRequirements[itemId] = { reputations: [], failed: true, checkedAt: Date.now() };
   }
 }
 
@@ -411,9 +437,22 @@ function canUseItem(item, snapshot) {
     return proficiencies.armor.indexOf(item.itemSubclass) !== -1;
   }
   if (item.itemClass === "Weapon") {
-    return proficiencies.weapons.indexOf(item.itemSubclass) !== -1;
+    return weaponProficiency(proficiencies, item).indexOf(item.itemSubclass) !== -1;
   }
   return false;
+}
+
+function weaponProficiency(proficiencies, item) {
+  if (item.slot === "TWOHWEAPON") {
+    return proficiencies.twoHand;
+  }
+  if (item.slot === "RANGED" || item.slot === "RANGEDRIGHT" || item.slot === "THROWN") {
+    return proficiencies.ranged;
+  }
+  if (item.slot === "WEAPONOFFHAND" && !proficiencies.dualWield) {
+    return [];
+  }
+  return proficiencies.oneHand;
 }
 
 function isTwoHanded(item) {
@@ -424,7 +463,7 @@ function slotItemTypes(slotDefinition, snapshot) {
   const types = slotDefinition.itemSlots.slice();
   const proficiencies = window.GAME_RULES.classProficiencies[snapshot.className];
   if (slotDefinition.key === "OFF_HAND" && proficiencies && proficiencies.dualWield) {
-    types.push("WEAPON");
+    types.push("WEAPON", "WEAPONOFFHAND");
   }
   return types;
 }
@@ -1195,6 +1234,8 @@ function renderSlot(slotDefinition, snapshot, character, optionsBySlot) {
     equippedLink.appendChild(createElement("span", "item-icon icon-large icon-empty"));
     equippedLink.appendChild(renderTooltip([slotDefinition.label, "Empty"]));
     equippedLink.setAttribute("aria-label", slotDefinition.label + ": empty");
+    equippedLink.setAttribute("role", "img");
+    equippedLink.tabIndex = 0;
   }
   slot.appendChild(equippedLink);
 
@@ -1577,9 +1618,10 @@ function renderCharacterList() {
       summary = "Level " + snapshot.level + " " + snapshot.className + " · " + specNames.join(" / ");
     }
     row.appendChild(createElement("span", "muted", summary));
-    const removeButton = createElement("button", "link", "Remove");
+    const removeButton = createElement("button", "character-remove", "×");
     removeButton.type = "button";
     removeButton.dataset.removeCharacterSlug = character.slug;
+    removeButton.setAttribute("aria-label", "Remove " + character.displayName);
     row.appendChild(removeButton);
     list.appendChild(row);
   }
@@ -1651,12 +1693,12 @@ function renderHiddenItems(character) {
 }
 
 function itemById(itemId) {
-  for (const item of window.FOREVER_ITEMS) {
-    if (item.id === itemId) {
-      return item;
+  if (itemIndex.size === 0) {
+    for (const item of window.FOREVER_ITEMS) {
+      itemIndex.set(item.id, item);
     }
   }
-  return null;
+  return itemIndex.get(itemId) || null;
 }
 
 function removeCharacter(slug) {
@@ -1762,7 +1804,41 @@ function openSettings() {
   document.getElementById("lookahead-input").value = String(state.settings.lookaheadLevels);
   renderFolderStatus();
   renderCharacterList();
+  let firstTab = "characters";
+  if (!state.credentials.clientId || !state.credentials.clientSecret) {
+    firstTab = "battlenet";
+  }
+  showSettingsTab(firstTab);
   document.getElementById("settings-dialog").showModal();
+}
+
+function showSettingsTab(tabKey) {
+  for (const tab of document.querySelectorAll("[data-settings-tab]")) {
+    const isSelected = tab.dataset.settingsTab === tabKey;
+    tab.setAttribute("aria-selected", String(isSelected));
+    tab.tabIndex = -1;
+    if (isSelected) {
+      tab.tabIndex = 0;
+    }
+    document.getElementById("settings-panel-" + tab.dataset.settingsTab).hidden = !isSelected;
+  }
+}
+
+function handleSettingsTabClick(event) {
+  const tab = event.target.closest("[data-settings-tab]");
+  if (tab !== null) {
+    showSettingsTab(tab.dataset.settingsTab);
+  }
+}
+
+function handleSettingsKeydown(event) {
+  if (event.key !== "Enter" || event.target.tagName !== "INPUT") {
+    return;
+  }
+  event.preventDefault();
+  if (event.target.id === "new-character-name" || event.target.id === "new-character-surname") {
+    addCharacter();
+  }
 }
 
 function closeSettings() {
@@ -1788,10 +1864,46 @@ function exportSettings() {
   URL.revokeObjectURL(link.href);
 }
 
+function validatedSettings(imported) {
+  if (imported === null || typeof imported !== "object" || !Array.isArray(imported.characters)) {
+    return null;
+  }
+  const settings = defaultSettings();
+  if (REGIONS.indexOf(imported.region) !== -1) {
+    settings.region = imported.region;
+  }
+  const lookahead = Number(imported.lookaheadLevels);
+  if (lookahead >= 0 && lookahead <= 10) {
+    settings.lookaheadLevels = lookahead;
+  }
+  for (const character of imported.characters) {
+    if (character === null || typeof character !== "object" || typeof character.slug !== "string" || typeof character.displayName !== "string") {
+      return null;
+    }
+    if (!Array.isArray(character.hiddenItemIds)) {
+      character.hiddenItemIds = [];
+    }
+    settings.characters.push(character);
+  }
+  for (const character of settings.characters) {
+    if (character.slug === imported.selectedCharacterSlug) {
+      settings.selectedCharacterSlug = character.slug;
+    }
+  }
+  if (settings.selectedCharacterSlug === null && settings.characters.length > 0) {
+    settings.selectedCharacterSlug = settings.characters[0].slug;
+  }
+  return settings;
+}
+
 function handleSettingsFileLoaded(event) {
   try {
-    const imported = JSON.parse(String(event.target.result));
-    state.settings = Object.assign(defaultSettings(), imported);
+    const imported = validatedSettings(JSON.parse(String(event.target.result)));
+    if (imported === null) {
+      setStatus("That file is not a valid settings file. Nothing was changed.", "error");
+      return;
+    }
+    state.settings = imported;
     saveSettings();
     renderCharacterList();
     render();
@@ -1840,6 +1952,12 @@ function questieItemIds() {
   return Array.from(itemIds);
 }
 
+function setSourceStatus(elementId, text, isFound) {
+  const element = document.getElementById(elementId);
+  element.textContent = text;
+  element.classList.toggle("source-found", isFound);
+}
+
 function renderFolderStatus() {
   const folderStatus = document.getElementById("wow-folder-status");
   if (!state.wowFolderConnected) {
@@ -1850,9 +1968,9 @@ function renderFolderStatus() {
   } else {
     folderStatus.textContent = "Connected.";
   }
-  document.getElementById("questie-status").textContent = questieStatusText();
-  document.getElementById("tsm-status").textContent = tsmStatusText();
-  document.getElementById("inventory-status").textContent = inventoryStatusText();
+  setSourceStatus("questie-status", questieStatusText(), state.questie !== null);
+  setSourceStatus("tsm-status", tsmStatusText(), state.tsm !== null);
+  setSourceStatus("inventory-status", inventoryStatusText(), state.inventory !== null);
   renderFoundCharacters();
 }
 
@@ -1886,6 +2004,7 @@ async function handleWowFolderDisconnectClick() {
   await window.WOW_FOLDER.forgetHandle(window.WOW_FOLDER.legacyTsmFileKey);
   state.tsm = null;
   state.questie = null;
+  state.inventory = null;
   state.wowFolderConnected = false;
   renderFolderStatus();
   render();
@@ -2098,8 +2217,10 @@ function handleImportChange(event) {
 
 function handleCharacterSelectChange(event) {
   state.settings.selectedCharacterSlug = event.target.value;
+  routeEditor.pendingGap = null;
   saveSettings();
   render();
+  readWowFolder(false).then(render).catch(handleTsmStartupError);
 }
 
 function bindEvents() {
@@ -2118,6 +2239,8 @@ function bindEvents() {
   document.getElementById("hidden-items").addEventListener("click", handleHiddenItemsClick);
   document.getElementById("route-panel").addEventListener("click", handleRouteClick);
   document.getElementById("found-characters").addEventListener("click", handleFoundCharacterClick);
+  document.querySelector(".settings-tabs").addEventListener("click", handleSettingsTabClick);
+  document.getElementById("settings-form").addEventListener("keydown", handleSettingsKeydown);
   document.getElementById("crafting-cart").addEventListener("click", handleCartClick);
   document.getElementById("crafting-cart").addEventListener("change", handleCartChange);
   document.getElementById("route-panel").addEventListener("change", handleRouteChange);

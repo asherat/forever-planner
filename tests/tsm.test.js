@@ -82,3 +82,25 @@ test("parses inventory with Unix line endings too", () => {
   const characters = tsm.parseInventory(savedVariables.replace(/\r\n/g, "\n"));
   assert.equal(characters["Asherat Vaelthorn"].bank[4234], 73);
 });
+
+test("skips WoW's index comments and keeps going after a broken section", () => {
+  const withComments = [
+    "TradeSkillMasterDB = {",
+    '["s@Gominolo Azul - Horde - PvP@internalData@bagQuantity"] = {',
+    '["i:2589"] = 12, -- [1]',
+    "},",
+    '["s@Gominolo Azul - Horde - PvP@internalData@bankQuantity"] = {',
+    '["i:2589"] = = broken,',
+    "},",
+    '["s@Gominolo Azul - Horde - PvP@internalData@money"] = 500,',
+    "}"
+  ].join("\r\n");
+  const characters = tsm.parseInventory(withComments);
+  assert.equal(characters["Gominolo Azul"].bags[2589], 12);
+  assert.equal(characters["Gominolo Azul"].money, 500);
+});
+
+test("does not borrow another ruleset's auction house for the same faction", () => {
+  const result = tsm.readPrices(appData, "Normal", "Horde");
+  assert.equal(result.scope, null);
+});
