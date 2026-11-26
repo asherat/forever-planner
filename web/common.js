@@ -8,11 +8,10 @@ const STORAGE_KEYS = {
 };
 
 const DEFAULT_LOOKAHEAD_LEVELS = 3;
-const SVG_NAMESPACE_URI = "http://www.w3.org/2000/svg";
-const MAP_WIDTH = 300;
-const MAP_OVERVIEW_PADDING = 0.04;
-const MAP_CLOSE_UP_PADDING = 0.6;
 const MAP_POPOVER_GAP = 8;
+const MAP_IMAGE_DIRECTORY = "maps/";
+const MAP_IMAGE_WIDTH = 560;
+const MAP_IMAGE_HEIGHT = 373;
 const REGIONS = ["eu", "us", "kr", "tw"];
 const BARTERING_DISCOUNT_PER_RANK = 0.05;
 const VENDOR_PREFERENCE_MARGIN = 0.15;
@@ -450,14 +449,6 @@ function tsmStatusText() {
   return "TSM prices: " + scopeText + ", from " + new Date(state.tsm.downloadedAt).toLocaleString() + ".";
 }
 
-function svgElement(tagName, attributes) {
-  const element = document.createElementNS(SVG_NAMESPACE_URI, tagName);
-  for (const name of Object.keys(attributes)) {
-    element.setAttribute(name, String(attributes[name]));
-  }
-  return element;
-}
-
 function mapZone(zoneName) {
   if (!window.FOREVER_MAPS || !zoneName) {
     return null;
@@ -465,97 +456,44 @@ function mapZone(zoneName) {
   return window.FOREVER_MAPS.zones[zoneName] || null;
 }
 
-function continentBounds(continent) {
-  const bounds = { left: 1, top: 1, right: 0, bottom: 0 };
-  for (const name of Object.keys(window.FOREVER_MAPS.zones)) {
-    const zone = window.FOREVER_MAPS.zones[name];
-    if (zone.continent !== continent) {
-      continue;
-    }
-    bounds.left = Math.min(bounds.left, zone.rectangle[0]);
-    bounds.top = Math.min(bounds.top, zone.rectangle[1]);
-    bounds.right = Math.max(bounds.right, zone.rectangle[2]);
-    bounds.bottom = Math.max(bounds.bottom, zone.rectangle[3]);
+function mapImageUrl(uiMapId) {
+  return MAP_IMAGE_DIRECTORY + uiMapId + ".jpg";
+}
+
+function renderMapMarker(x, y, className) {
+  const marker = createElement("span", className);
+  marker.style.left = x + "%";
+  marker.style.top = y + "%";
+  return marker;
+}
+
+function renderMapFigure(uiMapId, markers, label) {
+  const figure = createElement("div", "map-figure");
+  const image = createElement("img", "map-image");
+  image.src = mapImageUrl(uiMapId);
+  image.alt = label;
+  image.width = MAP_IMAGE_WIDTH;
+  image.height = MAP_IMAGE_HEIGHT;
+  figure.appendChild(image);
+  for (const marker of markers) {
+    figure.appendChild(marker);
   }
-  return padBounds(bounds, MAP_OVERVIEW_PADDING);
+  return figure;
 }
 
-function padBounds(bounds, padding) {
-  const width = bounds.right - bounds.left;
-  const height = bounds.bottom - bounds.top;
-  return {
-    left: bounds.left - width * padding,
-    top: bounds.top - height * padding,
-    right: bounds.right + width * padding,
-    bottom: bounds.bottom + height * padding
-  };
-}
-
-function closeUpBounds(zone) {
+function continentMarkers(zone, pins) {
   const rectangle = zone.rectangle;
-  const bounds = { left: rectangle[0], top: rectangle[1], right: rectangle[2], bottom: rectangle[3] };
-  return padBounds(bounds, MAP_CLOSE_UP_PADDING);
-}
-
-function rectanglesOverlap(rectangle, bounds) {
-  return rectangle[0] < bounds.right && rectangle[2] > bounds.left && rectangle[1] < bounds.bottom && rectangle[3] > bounds.top;
-}
-
-function compareCurrentZoneLast(currentZone, first, second) {
-  return Number(first === currentZone) - Number(second === currentZone);
-}
-
-function renderMapView(zoneName, pins, bounds, showLabels, className) {
-  const zone = mapZone(zoneName);
-  const aspectRatio = window.FOREVER_MAPS.continents[zone.continent].aspectRatio;
-  const viewWidth = MAP_WIDTH;
-  const scaleX = viewWidth / (bounds.right - bounds.left);
-  const scaleY = scaleX / aspectRatio;
-  const viewHeight = (bounds.bottom - bounds.top) * scaleY;
-  const svg = svgElement("svg", { viewBox: "0 0 " + viewWidth + " " + Math.round(viewHeight), class: className });
-  svg.setAttribute("aria-hidden", "true");
-  svg.appendChild(svgElement("rect", { x: 0, y: 0, width: viewWidth, height: viewHeight, class: "map-sea" }));
-  const labels = [];
-  const names = Object.keys(window.FOREVER_MAPS.zones);
-  names.sort(compareCurrentZoneLast.bind(null, zoneName));
-  for (const name of names) {
-    const other = window.FOREVER_MAPS.zones[name];
-    if (other.continent !== zone.continent || !rectanglesOverlap(other.rectangle, bounds)) {
-      continue;
-    }
-    const rectangle = other.rectangle;
-    const box = {
-      x: (rectangle[0] - bounds.left) * scaleX,
-      y: (rectangle[1] - bounds.top) * scaleY,
-      width: (rectangle[2] - rectangle[0]) * scaleX,
-      height: (rectangle[3] - rectangle[1]) * scaleY
-    };
-    let zoneClass = "map-zone";
-    if (name === zoneName) {
-      zoneClass = "map-zone map-zone-current";
-    }
-    svg.appendChild(svgElement("rect", { x: box.x, y: box.y, width: box.width, height: box.height, class: zoneClass }));
-    if (showLabels || name === zoneName) {
-      labels.push({ name: name, box: box, current: name === zoneName });
-    }
-  }
-  for (const label of labels) {
-    let labelClass = "map-label";
-    if (label.current) {
-      labelClass = "map-label map-label-current";
-    }
-    const text = svgElement("text", { x: label.box.x + label.box.width / 2, y: label.box.y + label.box.height / 2, class: labelClass });
-    text.textContent = label.name;
-    svg.appendChild(text);
+  const markers = [];
+  if (pins.length === 0) {
+    markers.push(renderMapMarker((rectangle[0] + rectangle[2]) * 50, (rectangle[1] + rectangle[3]) * 50, "map-marker map-marker-zone"));
+    return markers;
   }
   for (const pin of pins) {
-    const rectangle = zone.rectangle;
-    const pointX = (rectangle[0] + (rectangle[2] - rectangle[0]) * pin.x / 100 - bounds.left) * scaleX;
-    const pointY = (rectangle[1] + (rectangle[3] - rectangle[1]) * pin.y / 100 - bounds.top) * scaleY;
-    svg.appendChild(svgElement("circle", { cx: pointX, cy: pointY, r: 7, class: "map-pin-halo" }));
-    svg.appendChild(svgElement("circle", { cx: pointX, cy: pointY, r: 3.5, class: "map-pin" }));
+    const x = (rectangle[0] + (rectangle[2] - rectangle[0]) * pin.x / 100) * 100;
+    const y = (rectangle[1] + (rectangle[3] - rectangle[1]) * pin.y / 100) * 100;
+    markers.push(renderMapMarker(x, y, "map-marker"));
   }
-  return svg;
+  return markers;
 }
 
 function renderContinentMap(zoneName, pins) {
@@ -563,11 +501,14 @@ function renderContinentMap(zoneName, pins) {
   if (zone === null) {
     return null;
   }
+  const continent = window.FOREVER_MAPS.continents[zone.continent];
   const container = createElement("div", "map-views");
-  container.setAttribute("role", "img");
-  container.setAttribute("aria-label", zoneName + " on the map of " + zone.continent);
-  container.appendChild(renderMapView(zoneName, [], continentBounds(zone.continent), false, "continent-map map-overview"));
-  container.appendChild(renderMapView(zoneName, pins, closeUpBounds(zone), true, "continent-map map-close-up"));
+  container.appendChild(renderMapFigure(continent.uiMapId, continentMarkers(zone, pins), zone.continent + ", " + zoneName + " marked"));
+  const zoneMarkers = [];
+  for (const pin of pins) {
+    zoneMarkers.push(renderMapMarker(pin.x, pin.y, "map-marker"));
+  }
+  container.appendChild(renderMapFigure(zone.uiMapId, zoneMarkers, zoneName + " map"));
   return container;
 }
 
