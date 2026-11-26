@@ -382,12 +382,12 @@ function characterPlaystyle(character) {
   return window.GAME_RULES.defaultPlaystyle;
 }
 
-function activeSpecs(character) {
+function activeSpec(character) {
   const specs = characterSpecs(character, state.snapshots[character.slug]);
   if (character.gearFor === "off" && specs.length > 1) {
-    return [specs[1], specs[0]];
+    return specs[1];
   }
-  return specs;
+  return specs[0];
 }
 
 function specWeights(specKey, playstyle) {
@@ -492,13 +492,7 @@ function rankedCandidatesForSlot(slotDefinition, snapshot, character) {
   }
   const itemTypes = slotItemTypes(slotDefinition, snapshot);
   const maximumLevel = snapshot.level + Number(state.settings.lookaheadLevels);
-  const specs = activeSpecs(character);
-  const playstyle = characterPlaystyle(character);
-  const primaryWeights = specWeights(specs[0], playstyle);
-  let secondaryWeights = null;
-  if (specs.length > 1) {
-    secondaryWeights = specWeights(specs[1], playstyle);
-  }
+  const weights = specWeights(activeSpec(character), characterPlaystyle(character));
   const equippedIds = new Set();
   for (const slotKey of Object.keys(equipment)) {
     equippedIds.add(equipment[slotKey].id);
@@ -535,20 +529,15 @@ function rankedCandidatesForSlot(slotDefinition, snapshot, character) {
     if (availableLevel > maximumLevel) {
       continue;
     }
-    const primaryGain = itemScore(item, primaryWeights) - comparisonBaseline(slotDefinition, snapshot, item, primaryWeights);
-    if (primaryGain <= 0) {
+    const gain = itemScore(item, weights) - comparisonBaseline(slotDefinition, snapshot, item, weights);
+    if (gain <= 0) {
       continue;
-    }
-    let secondaryGain = 0;
-    if (secondaryWeights !== null) {
-      secondaryGain = itemScore(item, secondaryWeights) - comparisonBaseline(slotDefinition, snapshot, item, secondaryWeights);
     }
     candidates.push({
       item: item,
       availableLevel: availableLevel,
       routeLeg: routeLeg,
-      primaryGain: Math.round(primaryGain * 10) / 10,
-      secondaryGain: Math.round(secondaryGain * 10) / 10
+      gain: Math.round(gain * 10) / 10
     });
   }
   candidates.sort(compareCandidates);
@@ -587,7 +576,7 @@ function routeAvailability(item, snapshot, character) {
 }
 
 function compareCandidates(first, second) {
-  return second.primaryGain - first.primaryGain;
+  return second.gain - first.gain;
 }
 
 function gainBadge(value, label) {
@@ -606,11 +595,7 @@ function gainBadge(value, label) {
 
 function gainBadges(candidate, character) {
   const gains = createElement("div", "gains");
-  const specs = activeSpecs(character);
-  gains.appendChild(gainBadge(candidate.primaryGain, specLabel(specs[0])));
-  if (specs.length > 1) {
-    gains.appendChild(gainBadge(candidate.secondaryGain, specLabel(specs[1])));
-  }
+  gains.appendChild(gainBadge(candidate.gain, specLabel(activeSpec(character))));
   return gains;
 }
 
@@ -988,9 +973,9 @@ function quickerOption(best, candidates, snapshot) {
 
 function candidatePriority(candidate, snapshot) {
   if (isUsableNow(candidate, snapshot)) {
-    return candidate.primaryGain;
+    return candidate.gain;
   }
-  return candidate.primaryGain * FUTURE_UPGRADE_WEIGHT;
+  return candidate.gain * FUTURE_UPGRADE_WEIGHT;
 }
 
 function questOnlyIds(item, snapshot) {
@@ -1062,7 +1047,7 @@ function upgradeOptions(slotDefinition, snapshot, character, blocked) {
 }
 
 function pairedUpgradeOptions(slotDefinition, snapshot, character) {
-  const weights = specWeights(activeSpecs(character)[0], characterPlaystyle(character));
+  const weights = specWeights(activeSpec(character), characterPlaystyle(character));
   const keys = [slotDefinition.key, slotDefinition.pairedWith];
   if (itemScore(snapshot.equipment[keys[1]], weights) < itemScore(snapshot.equipment[keys[0]], weights)) {
     keys.reverse();
@@ -1176,13 +1161,8 @@ function differenceClass(difference) {
   return "";
 }
 
-function specsUseWeaponDamage(character) {
-  for (const specKey of activeSpecs(character)) {
-    if (specWeights(specKey, characterPlaystyle(character)).WEAPON_DPS) {
-      return true;
-    }
-  }
-  return false;
+function specUsesWeaponDamage(character) {
+  return Boolean(specWeights(activeSpec(character), characterPlaystyle(character)).WEAPON_DPS);
 }
 
 function renderComparisonTooltip(slotDefinition, snapshot, character, candidate) {
@@ -1210,7 +1190,7 @@ function renderComparisonTooltip(slotDefinition, snapshot, character, candidate)
     const damageDifference = Math.round((newDamage - currentDamage) * 10) / 10;
     let damageClass = differenceClass(damageDifference);
     let damageText = newDamage.toFixed(1) + " damage per second" + differenceText(damageDifference);
-    if (!specsUseWeaponDamage(character)) {
+    if (!specUsesWeaponDamage(character)) {
       damageClass = "tooltip-irrelevant";
       damageText += ", not used by your specs";
     }
@@ -1739,13 +1719,8 @@ function render() {
   document.getElementById("character-meta").textContent =
     "Level " + snapshot.level + " " + snapshot.raceName + " " + snapshot.className + " · " + snapshot.faction +
     " · " + snapshot.ruleset;
-  const specs = activeSpecs(character);
-  const specNames = [];
-  for (const specKey of specs) {
-    specNames.push(specLabel(specKey));
-  }
   document.getElementById("character-specs").textContent =
-    "Comparing for " + specNames.join(" and ") +
+    "Comparing for " + specLabel(activeSpec(character)) +
     " · gear as of your logout on " + new Date(snapshot.lastLogout).toLocaleString();
 
   document.getElementById("paperdoll").dataset.faction = String(snapshot.factionType || "").toLowerCase();

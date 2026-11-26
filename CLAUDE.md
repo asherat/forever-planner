@@ -58,6 +58,7 @@ Battle.net Forever namespaces are `static-forever-{region}`, `profile-forever-{r
 - **No QuestieDB data in the repo.** Its licence is unclear, so it is always read from the user's own install.
 - **Zone level ranges come from Icy Veins' guide, not from Questie quest levels.** Ranges derived from Questie were tried and rejected because they disagree with how people actually level. The one exception, Mount Hyjal, is kept at 55–60.
 - **Reputation items are suggested only within one standing of the current one.** Grinding reputation is slower than levelling to the next item.
+- **Only the selected spec counts.** The main/off selector switches the whole gear page to that spec; the other spec's gains are never shown.
 - **Every slot pairs a best upgrade with a quicker option you can reach now.** Rings and trinkets are paired so both picks never come from the same quest.
 - **Upgrade cards show only sources, the region-average AH price and the crafted price.** Recipe knowledge belongs in the crafting tool.
 - **The crafting tool does not persist its items.** The crafting list on the gear page feeds it through "Craft all".
