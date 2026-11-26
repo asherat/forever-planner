@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Forever Crafting</title>
+<link rel="stylesheet" href="style.css?build=__BUILD__">
+</head>
+<body>
+<header class="topbar">
+  <nav class="page-nav" aria-label="Pages">
+    <span class="brand">Forever Planner</span>
+    <a href="index.html" class="page-link">Gear</a>
+    <a href="crafting.html" class="page-link" aria-current="page">Crafting</a>
+  </nav>
+  <div class="topbar-controls">
+    <select id="character-select" aria-label="Prices and faction for character"></select>
+    <button id="crafting-refresh-button" type="button" class="primary">Refresh</button>
+  </div>
+</header>
+
+<main>
+  <p id="status-line" class="status-line" role="status"></p>
+
+  <section class="panel crafting-intro">
+    <h1>Crafting</h1>
+    <p id="crafting-data-status" class="muted"></p>
+    <div class="inline-fields">
+      <button id="crafting-connect-button" type="button" hidden>Connect WoW folder</button>
+    </div>
+  </section>
+
+  <section class="crafting-add">
+    <label for="crafting-search">Add something to craft</label>
+    <div class="inline-fields">
+      <input id="crafting-search" list="crafting-search-options" placeholder="Item name, e.g. Nightscape Cloak" autocomplete="off">
+      <datalist id="crafting-search-options"></datalist>
+      <input id="crafting-search-quantity" type="number" min="1" value="1" aria-label="Quantity">
+      <button id="crafting-add-button" type="button" class="primary">Add</button>
+    </div>
+  </section>
+
+  <section class="crafting-layout">
+    <div class="crafting-list-column">
+      <h2>Your crafting list</h2>
+      <div id="crafting-empty" class="panel muted">Nothing here yet. Add an item above, or use "Open in crafting tool" on a crafted item in the gear planner.</div>
+      <ol id="crafting-list" class="crafting-list"></ol>
+    </div>
+    <aside class="crafting-summary">
+      <section class="panel">
+        <h2>Total</h2>
+        <div id="crafting-total"></div>
+      </section>
+      <section class="panel">
+        <h2>Shopping list</h2>
+        <ul id="shopping-list" class="summary-list"></ul>
+      </section>
+      <section class="panel">
+        <h2>Take from your characters</h2>
+        <ul id="take-list" class="summary-list"></ul>
+      </section>
+      <section class="panel">
+        <h2>Who can craft</h2>
+        <ul id="crafter-list" class="summary-list"></ul>
+      </section>
+      <section class="panel">
+        <h2>Whose bags count</h2>
+        <label class="checkbox-line"><input id="use-inventory" type="checkbox"> Use materials my characters have</label>
+        <div id="inventory-characters"></div>
+      </section>
+    </aside>
+  </section>
+</main>
+
+<script src="data/build-info.js?build=__BUILD__"></script>
+<script src="data/zones.js?build=__BUILD__"></script>
+<script src="data/recipes.js?build=__BUILD__"></script>
+<script src="data/crafting-items.js?build=__BUILD__"></script>
+<script src="game-rules.js?build=__BUILD__"></script>
+<script src="wow-folder.js?build=__BUILD__"></script>
+<script src="tsm.js?build=__BUILD__"></script>
+<script src="questie.js?build=__BUILD__"></script>
+<script src="common.js?build=__BUILD__"></script>
+<script src="crafting.js?build=__BUILD__"></script>
+</body>
+</html>

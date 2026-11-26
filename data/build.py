@@ -373,6 +373,62 @@ def record_id(record):
     return record["id"]
 
 
+def build_recipe_list():
+    profession_index = cached_get("profession-index", "/data/wow/profession/index")
+    recipes = []
+    for profession in profession_index.get("professions", []):
+        profession_detail = cached_get(f"profession/{profession['id']}", f"/data/wow/profession/{profession['id']}")
+        if profession_detail is None:
+            continue
+        for tier in profession_detail.get("skill_tiers", []):
+            tier_detail = cached_get(
+                f"profession-tier/{profession['id']}-{tier['id']}",
+                f"/data/wow/profession/{profession['id']}/skill-tier/{tier['id']}",
+            )
+            if tier_detail is None:
+                continue
+            for category in tier_detail.get("categories", []):
+                for recipe_reference in category.get("recipes", []):
+                    recipe = cached_get(f"recipe/{recipe_reference['id']}", f"/data/wow/recipe/{recipe_reference['id']}")
+                    if recipe is None:
+                        continue
+                    crafted_item = recipe.get("crafted_item") or recipe.get("horde_crafted_item") or recipe.get("alliance_crafted_item")
+                    if crafted_item is None or not recipe.get("reagents"):
+                        continue
+                    reagents = []
+                    for reagent in recipe["reagents"]:
+                        reagents.append([reagent["reagent"]["id"], reagent["quantity"]])
+                    recipes.append({
+                        "id": recipe["id"],
+                        "profession": profession["name"],
+                        "itemId": crafted_item["id"],
+                        "quantity": max(1, int(recipe.get("crafted_quantity", {}).get("value", 1))),
+                        "reagents": reagents,
+                    })
+    return recipes
+
+
+def build_crafting_items(recipes):
+    item_ids = set()
+    for recipe in recipes:
+        item_ids.add(recipe["itemId"])
+        for reagent_id, quantity in recipe["reagents"]:
+            item_ids.add(reagent_id)
+    items = fetch_many("item", "/data/wow/item/{}", item_ids, "crafting items")
+    icons = item_icons(items)
+    crafting_items = {}
+    for item_id, item in items.items():
+        record = {
+            "name": item["name"],
+            "quality": item["quality"]["type"],
+            "vendorPrice": item.get("purchase_price", 0),
+        }
+        if item_id in icons:
+            record["icon"] = icons[item_id]
+        crafting_items[item_id] = record
+    return crafting_items
+
+
 def merge_sources(*source_maps):
     merged = {}
     for source_map in source_maps:
@@ -433,6 +489,9 @@ def main():
     write_javascript_global("items.js", "FOREVER_ITEMS", compact_items)
     write_javascript_global("quests.js", "FOREVER_QUESTS", sorted(quest_records, key=record_id))
     write_javascript_global("zones.js", "FOREVER_ZONES", zone_names())
+    recipes = build_recipe_list()
+    write_javascript_global("recipes.js", "FOREVER_RECIPES", recipes)
+    write_javascript_global("crafting-items.js", "FOREVER_CRAFTING_ITEMS", build_crafting_items(recipes))
     write_javascript_global("build-info.js", "FOREVER_BUILD_INFO", {
         "builtAt": time.strftime("%Y-%m-%d %H:%M"),
         "itemCount": len(compact_items),

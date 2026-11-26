@@ -1,168 +1,11 @@
-const STORAGE_KEYS = {
-  credentials: "foreverPlanner.credentials",
-  settings: "foreverPlanner.settings",
-  snapshots: "foreverPlanner.snapshots"
-};
-
-const DEFAULT_LOOKAHEAD_LEVELS = 3;
 const FUTURE_UPGRADE_WEIGHT = 0.5;
 const MAX_SOURCES_SHOWN = 4;
 const NEUTRAL_REPUTATION_TIER = 3;
 const REPUTATION_TIER_NAMES = ["Hated", "Hostile", "Unfriendly", "Neutral", "Friendly", "Honored", "Revered", "Exalted"];
 const CREATURE_RANKS = { 1: "elite", 2: "rare elite", 3: "boss", 4: "rare" };
-const WOWHEAD_ITEM_URL = "https://www.wowhead.com/forever/item=";
-
-const state = {
-  credentials: null,
-  settings: null,
-  snapshots: {},
-  accessToken: null,
-  tsm: null,
-  questie: null,
-  wowFolderConnected: false,
-  accessTokenExpiresAt: 0
-};
-
-function readStorage(key, fallback) {
-  try {
-    const raw = window.localStorage.getItem(key);
-    if (raw === null) {
-      return fallback;
-    }
-    return JSON.parse(raw);
-  } catch (error) {
-    return fallback;
-  }
-}
-
-function writeStorage(key, value) {
-  try {
-    window.localStorage.setItem(key, JSON.stringify(value));
-  } catch (error) {
-    setStatus("Could not save to browser storage: " + error.message, "error");
-  }
-}
-
-function defaultSettings() {
-  return {
-    region: "eu",
-    characters: [],
-    selectedCharacterSlug: null,
-    lookaheadLevels: DEFAULT_LOOKAHEAD_LEVELS,
-    hiddenItemIds: []
-  };
-}
-
-function loadState() {
-  state.credentials = readStorage(STORAGE_KEYS.credentials, { clientId: "", clientSecret: "" });
-  state.settings = Object.assign(defaultSettings(), readStorage(STORAGE_KEYS.settings, {}));
-  state.snapshots = readStorage(STORAGE_KEYS.snapshots, {});
-  moveSharedHiddenItemsToCharacters();
-}
-
-function moveSharedHiddenItemsToCharacters() {
-  const sharedHiddenIds = state.settings.hiddenItemIds || [];
-  if (sharedHiddenIds.length === 0) {
-    return;
-  }
-  for (const character of state.settings.characters) {
-    character.hiddenItemIds = (character.hiddenItemIds || []).concat(sharedHiddenIds);
-  }
-  state.settings.hiddenItemIds = [];
-  saveSettings();
-}
-
-function saveSettings() {
-  writeStorage(STORAGE_KEYS.settings, state.settings);
-}
-
-function saveSnapshots() {
-  writeStorage(STORAGE_KEYS.snapshots, state.snapshots);
-}
-
-function setStatus(message, kind) {
-  const statusLine = document.getElementById("status-line");
-  statusLine.textContent = message;
-  statusLine.dataset.kind = kind || "info";
-}
-
-function createElement(tagName, className, text) {
-  const element = document.createElement(tagName);
-  if (className) {
-    element.className = className;
-  }
-  if (text !== undefined && text !== null) {
-    element.textContent = text;
-  }
-  return element;
-}
-
-function characterSlug(name, surname) {
-  return (name + "-" + surname).toLowerCase();
-}
-
-function selectedCharacter() {
-  return findCharacter(state.settings.selectedCharacterSlug);
-}
-
-async function fetchAccessToken() {
-  if (state.accessToken !== null && Date.now() < state.accessTokenExpiresAt) {
-    return state.accessToken;
-  }
-  const clientId = state.credentials.clientId;
-  const clientSecret = state.credentials.clientSecret;
-  if (!clientId || !clientSecret) {
-    throw new Error("Add your Battle.net client ID and secret in Settings first.");
-  }
-  const response = await fetch("https://oauth.battle.net/token", {
-    method: "POST",
-    headers: {
-      "Authorization": "Basic " + btoa(clientId + ":" + clientSecret),
-      "Content-Type": "application/x-www-form-urlencoded"
-    },
-    body: "grant_type=client_credentials"
-  });
-  if (response.status === 401) {
-    throw new Error("Battle.net rejected the client ID or secret. Check them in Settings.");
-  }
-  if (!response.ok) {
-    throw new Error("Battle.net login failed with status " + response.status + ".");
-  }
-  const payload = await response.json();
-  state.accessToken = payload.access_token;
-  state.accessTokenExpiresAt = Date.now() + (payload.expires_in - 60) * 1000;
-  return state.accessToken;
-}
-
-async function fetchFromBattleNet(path, namespacePrefix) {
-  const token = await fetchAccessToken();
-  const region = state.settings.region;
-  const url = "https://" + region + ".api.blizzard.com" + path +
-    "?namespace=" + namespacePrefix + "-forever-" + region + "&locale=en_GB";
-  const response = await fetch(url, { headers: { "Authorization": "Bearer " + token } });
-  if (response.status === 404) {
-    return null;
-  }
-  if (!response.ok) {
-    throw new Error("Battle.net returned status " + response.status + " for " + path + ".");
-  }
-  return response.json();
-}
 
 function fetchProfile(characterSlugValue, path) {
   return fetchFromBattleNet("/profile/wow/character/" + encodeURIComponent(characterSlugValue) + path, "profile");
-}
-
-function mediaAsset(media, assetKey) {
-  if (media === null) {
-    return null;
-  }
-  for (const asset of media.assets || []) {
-    if (asset.key === assetKey) {
-      return asset.value;
-    }
-  }
-  return null;
 }
 
 async function fetchItemIcon(itemId) {
@@ -555,41 +398,6 @@ function compareCandidates(first, second) {
   return second.primaryGain - first.primaryGain;
 }
 
-function qualityClass(quality) {
-  return "quality-" + String(quality || "COMMON").toLowerCase();
-}
-
-function iconUrlForItem(item) {
-  if (item.iconUrl) {
-    return item.iconUrl;
-  }
-  let iconId = window.GAME_RULES.unknownIconId;
-  if (item.icon) {
-    iconId = item.icon;
-  }
-  return "https://render.worldofwarcraft.com/forever-" + state.settings.region + "/icons/56/" + iconId + ".jpg";
-}
-
-function wowheadUrl(item) {
-  return WOWHEAD_ITEM_URL + item.id;
-}
-
-function wowheadLink(item) {
-  const link = createElement("a", qualityClass(item.quality), item.name);
-  link.href = wowheadUrl(item);
-  link.target = "_blank";
-  link.rel = "noopener";
-  return link;
-}
-
-function itemIcon(item, sizeClass) {
-  const image = createElement("img", "item-icon " + sizeClass + " " + qualityClass(item.quality));
-  image.src = iconUrlForItem(item);
-  image.alt = "";
-  image.loading = "lazy";
-  return image;
-}
-
 function gainBadge(value, label) {
   const badge = createElement("span", "gain");
   if (value > 0) {
@@ -736,38 +544,6 @@ function sourcesForCharacter(item, snapshot) {
   return sources;
 }
 
-function priceFor(itemId) {
-  if (state.tsm === null) {
-    return null;
-  }
-  const price = state.tsm.prices[itemId];
-  if (!price) {
-    return null;
-  }
-  let usual = price.marketValue || price.marketValueRecent || price.regionMarketValue || price.regionSale || 0;
-  let buyNow = 0;
-  let listed = 0;
-  if (price.minBuyout && price.numAuctions) {
-    buyNow = price.minBuyout;
-    listed = price.numAuctions;
-  }
-  if (!usual && !buyNow) {
-    return null;
-  }
-  return { buyNow: buyNow, listed: listed, usual: usual };
-}
-
-function unitCost(itemId) {
-  const price = priceFor(itemId);
-  if (price === null) {
-    return null;
-  }
-  if (price.buyNow) {
-    return price.buyNow;
-  }
-  return price.usual;
-}
-
 function materialCost(source) {
   let total = 0;
   let missing = 0;
@@ -787,23 +563,6 @@ function unknownSourceText() {
     return "Connect your WoW folder in Settings to see where this comes from, or check Wowhead.";
   }
   return "No known source. Often a PvP rank or reputation reward; check Wowhead.";
-}
-
-function formatMoney(copper) {
-  const gold = Math.floor(copper / 10000);
-  const silver = Math.floor((copper % 10000) / 100);
-  const copperLeft = copper % 100;
-  const parts = [];
-  if (gold > 0) {
-    parts.push(gold + "g");
-  }
-  if (silver > 0) {
-    parts.push(silver + "s");
-  }
-  if (copperLeft > 0 || parts.length === 0) {
-    parts.push(copperLeft + "c");
-  }
-  return parts.join(" ");
 }
 
 function isListedOnAuctionHouse(item) {
@@ -1190,16 +949,16 @@ function renderOption(label, candidate, snapshot, character, slotDefinition) {
 
   const price = priceFor(item.id);
   if (price !== null) {
-    const priceParts = [];
+    const priceLine = createElement("div", "option-price");
     if (price.buyNow) {
-      priceParts.push("AH now " + formatMoney(price.buyNow) + " (" + price.listed + " listed)");
+      priceLine.append("AH now ", renderMoney(price.buyNow), " (" + price.listed + " listed)");
     } else {
-      priceParts.push("Not on the AH right now");
+      priceLine.append("Not on the AH right now");
     }
     if (price.usual) {
-      priceParts.push("usually " + formatMoney(price.usual));
+      priceLine.append(" · usually ", renderMoney(price.usual));
     }
-    option.appendChild(createElement("div", "option-price", priceParts.join(" · ")));
+    option.appendChild(priceLine);
   }
 
   const sources = sourcesForCharacter(item, snapshot);
@@ -1215,13 +974,17 @@ function renderOption(label, candidate, snapshot, character, slotDefinition) {
         reagentTexts.push(reagent.quantity + "× " + reagent.name);
       }
       entry.appendChild(createElement("div", "muted", reagentTexts.join(", ")));
+      const craftingLink = createElement("a", "crafting-link", "Open in crafting tool");
+      craftingLink.href = "crafting.html#add=" + item.id;
+      entry.appendChild(craftingLink);
       if (state.tsm !== null) {
         const cost = materialCost(source);
-        let costText = "Materials on the AH: " + formatMoney(cost.total);
+        const costLine = createElement("div", "option-price");
+        costLine.append("Materials on the AH: ", renderMoney(cost.total));
         if (cost.missing > 0) {
-          costText += " (" + cost.missing + " without a price)";
+          costLine.append(" (" + cost.missing + " without a price)");
         }
-        entry.appendChild(createElement("div", "option-price", costText));
+        entry.appendChild(costLine);
       }
     }
     sourceList.appendChild(entry);
@@ -1582,90 +1345,12 @@ function importSettings(file) {
   reader.readAsText(file);
 }
 
-function selectedRulesetAndFaction() {
-  const character = selectedCharacter();
-  if (character !== null && state.snapshots[character.slug]) {
-    return { ruleset: state.snapshots[character.slug].ruleset, faction: state.snapshots[character.slug].faction };
-  }
-  return { ruleset: "", faction: "" };
-}
-
-function allItemIds() {
+function questieItemIds() {
   const itemIds = [];
   for (const item of window.FOREVER_ITEMS) {
     itemIds.push(item.id);
   }
   return itemIds;
-}
-
-async function readQuestieFile(folder) {
-  const questieFile = await window.WOW_FOLDER.readAddonFile(folder, window.QUESTIE.addonName, window.QUESTIE.fileName);
-  if (questieFile === null) {
-    state.questie = null;
-    return;
-  }
-  if (state.questie !== null && state.questie.modifiedAt === questieFile.modifiedAt) {
-    return;
-  }
-  const details = window.QUESTIE.buildDetails(questieFile.text, allItemIds(), window.FOREVER_ZONES);
-  details.modifiedAt = questieFile.modifiedAt;
-  state.questie = details;
-}
-
-async function readTsmFromFolder(folder) {
-  const tsmFile = await window.WOW_FOLDER.readAddonFile(folder, window.TSM.addonName, window.TSM.fileName);
-  if (tsmFile === null) {
-    state.tsm = null;
-    return;
-  }
-  const scope = selectedRulesetAndFaction();
-  state.tsm = window.TSM.readPrices(tsmFile.text, scope.ruleset, scope.faction);
-}
-
-async function readLegacyTsmFile(askPermission) {
-  const handle = await window.WOW_FOLDER.loadHandle(window.WOW_FOLDER.legacyTsmFileKey);
-  if (handle === null || !(await window.WOW_FOLDER.ensureReadPermission(handle, askPermission))) {
-    state.tsm = null;
-    return;
-  }
-  const file = await handle.getFile();
-  const scope = selectedRulesetAndFaction();
-  state.tsm = window.TSM.readPrices(await file.text(), scope.ruleset, scope.faction);
-}
-
-async function readWowFolder(askPermission) {
-  const folder = await window.WOW_FOLDER.loadHandle(window.WOW_FOLDER.folderKey);
-  if (folder === null) {
-    state.wowFolderConnected = false;
-    state.questie = null;
-    await readLegacyTsmFile(askPermission);
-    return;
-  }
-  if (!(await window.WOW_FOLDER.ensureReadPermission(folder, askPermission))) {
-    state.wowFolderConnected = false;
-    return;
-  }
-  state.wowFolderConnected = true;
-  await readQuestieFile(folder);
-  await readTsmFromFolder(folder);
-}
-
-function questieStatusText() {
-  if (state.questie === null) {
-    return "Questie: not found. Install Questie for item sources.";
-  }
-  return "Questie " + state.questie.version + ": sources for " + Object.keys(state.questie.items).length + " items.";
-}
-
-function tsmStatusText() {
-  if (state.tsm === null) {
-    return "TSM prices: not found. Install the TSM desktop app for auction prices.";
-  }
-  let scopeText = "region prices only";
-  if (state.tsm.scope !== null) {
-    scopeText = state.tsm.scope + " auction house and region prices";
-  }
-  return "TSM prices: " + scopeText + ", from " + new Date(state.tsm.downloadedAt).toLocaleString() + ".";
 }
 
 function renderFolderStatus() {
@@ -1680,6 +1365,7 @@ function renderFolderStatus() {
   }
   document.getElementById("questie-status").textContent = questieStatusText();
   document.getElementById("tsm-status").textContent = tsmStatusText();
+  document.getElementById("inventory-status").textContent = inventoryStatusText();
 }
 
 async function handleWowFolderConnectClick() {
@@ -1734,15 +1420,6 @@ async function handleRefreshClick() {
   } finally {
     refreshButton.disabled = false;
   }
-}
-
-function findCharacter(slug) {
-  for (const character of state.settings.characters) {
-    if (character.slug === slug) {
-      return character;
-    }
-  }
-  return null;
 }
 
 function handlePriorityListClick(event) {
