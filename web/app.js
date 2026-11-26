@@ -1,4 +1,5 @@
 const FUTURE_UPGRADE_WEIGHT = 0.5;
+const completedQuestCache = { snapshot: null, questIds: new Set() };
 const CLASS_BITS = { Warrior: 1, Paladin: 2, Hunter: 4, Rogue: 8, Priest: 16, Shaman: 64, Mage: 128, Warlock: 256, Druid: 1024 };
 const QUICKER_PASSES = ["easy-now", "easy-soon", "own-profession", "usable-now"];
 const MAX_SOURCES_SHOWN = 2;
@@ -81,6 +82,25 @@ function compactEquipment(equipment) {
     equippedBySlot[equippedItem.slot.type] = record;
   }
   return equippedBySlot;
+}
+
+function compactCompletedQuests(completed) {
+  const questIds = [];
+  if (completed === null) {
+    return questIds;
+  }
+  for (const quest of completed.quests || []) {
+    questIds.push(quest.id);
+  }
+  return questIds;
+}
+
+function completedQuests(snapshot) {
+  if (completedQuestCache.snapshot !== snapshot) {
+    completedQuestCache.snapshot = snapshot;
+    completedQuestCache.questIds = new Set(snapshot.completedQuestIds || []);
+  }
+  return completedQuestCache.questIds;
 }
 
 function compactReputations(reputations) {
@@ -236,7 +256,8 @@ async function refreshCharacter(character) {
     fetchProfile(character.slug, "/professions"),
     fetchProfile(character.slug, "/character-media"),
     fetchProfile(character.slug, "/specializations"),
-    fetchProfile(character.slug, "/reputations")
+    fetchProfile(character.slug, "/reputations"),
+    fetchProfile(character.slug, "/quests/completed")
   ]);
   const equippedBySlot = compactEquipment(results[0]);
   await addEquipmentIcons(equippedBySlot);
@@ -258,7 +279,8 @@ async function refreshCharacter(character) {
     avatar: mediaAsset(results[2], "avatar"),
     render: mediaAsset(results[2], "main-raw"),
     talentSpecs: detectTalentSpecs(profile.character_class.name, results[3]),
-    reputations: compactReputations(results[4])
+    reputations: compactReputations(results[4]),
+    completedQuestIds: compactCompletedQuests(results[5])
   };
   saveSnapshots();
   setStatus("Updated from your last logout (" + new Date(profile.last_login_timestamp).toLocaleString() + ").", "success");
@@ -584,6 +606,9 @@ function questieQuestsForCharacter(detail, snapshot) {
   const quests = [];
   const classBit = CLASS_BITS[snapshot.className];
   for (const quest of detail.quests) {
+    if (completedQuests(snapshot).has(quest.id)) {
+      continue;
+    }
     const factionMatches = quest.faction === null || quest.faction === snapshot.factionType;
     const classMatches = !quest.classes || !classBit || Boolean(quest.classes & classBit);
     if (factionMatches && classMatches) {
@@ -644,6 +669,9 @@ function questieQuest(questId) {
 }
 
 function isQuestForCharacter(questId, snapshot) {
+  if (completedQuests(snapshot).has(questId)) {
+    return false;
+  }
   const quest = questieQuest(questId);
   if (quest === null) {
     return true;
