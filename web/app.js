@@ -3,6 +3,7 @@ const completedQuestCache = { snapshot: null, questIds: new Set() };
 const CLASS_BITS = { Warrior: 1, Paladin: 2, Hunter: 4, Rogue: 8, Priest: 16, Shaman: 64, Mage: 128, Warlock: 256, Druid: 1024 };
 const QUICKER_PASSES = ["easy-now", "easy-soon", "own-profession", "usable-now"];
 const MAX_SOURCES_SHOWN = 2;
+const AVAILABLE_STEPS_SHOWN = 2;
 const NEUTRAL_REPUTATION_TIER = 3;
 const REPUTATION_TIERS_WITHIN_REACH = 1;
 const WOWHEAD_TOOLTIP_URL = "https://nether.wowhead.com/forever/tooltip/item/";
@@ -493,10 +494,7 @@ function rankedCandidatesForSlot(slotDefinition, snapshot, character) {
   const itemTypes = slotItemTypes(slotDefinition, snapshot);
   const maximumLevel = snapshot.level + Number(state.settings.lookaheadLevels);
   const weights = specWeights(activeSpec(character), characterPlaystyle(character));
-  const equippedIds = new Set();
-  for (const slotKey of Object.keys(equipment)) {
-    equippedIds.add(equipment[slotKey].id);
-  }
+  const equippedIds = equippedItemIds(snapshot);
   const hiddenIds = new Set(character.hiddenItemIds || []);
   const routeActive = isRouteActive(character);
   const candidates = [];
@@ -1504,27 +1502,84 @@ function renderQuestEntry(entry, character, snapshot) {
     }
   }
   const completed = completedQuests(snapshot);
-  let nextIndex = -1;
-  for (let index = 0; index < steps.length; index += 1) {
-    if (!completed.has(steps[index].id)) {
-      nextIndex = index;
-      break;
-    }
-  }
-  if (nextIndex === -1) {
+  const available = window.QUESTIE.availableSteps(steps, completed);
+  if (available.length === 0) {
     row.appendChild(createElement("div", "quest-done", "Done: you completed the whole chain."));
     return row;
   }
-  const step = steps[nextIndex];
-  const stepLine = createElement("div", "quest-step");
   if (steps.length > 1) {
-    stepLine.append("Step " + (nextIndex + 1) + " of " + steps.length + ": ");
+    row.appendChild(createElement("div", "muted", completedStepCount(steps, completed) + " of " + steps.length + " quests in this chain done"));
   }
-  stepLine.appendChild(wowheadPageLink("quest", step.id, step.name));
-  stepLine.append(" (level " + step.questLevel + ")");
-  row.appendChild(stepLine);
-  row.appendChild(renderPlace(step.starter));
+  for (const step of available.slice(0, AVAILABLE_STEPS_SHOWN)) {
+    const stepLine = createElement("div", "quest-step");
+    stepLine.appendChild(wowheadPageLink("quest", step.id, step.name));
+    stepLine.append(" (level " + step.questLevel + ")");
+    row.appendChild(stepLine);
+    row.appendChild(renderPlace(step.starter));
+  }
+  if (available.length > AVAILABLE_STEPS_SHOWN) {
+    row.appendChild(createElement("div", "muted", "+" + (available.length - AVAILABLE_STEPS_SHOWN) + " more you can pick up now"));
+  }
   return row;
+}
+
+function completedStepCount(steps, completed) {
+  let count = 0;
+  for (const step of steps) {
+    if (completed.has(step.id)) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+function equippedItemIds(snapshot) {
+  const itemIds = new Set();
+  for (const slotKey of Object.keys(snapshot.equipment)) {
+    itemIds.add(snapshot.equipment[slotKey].id);
+  }
+  return itemIds;
+}
+
+function pruneQuestList(character, snapshot) {
+  const equipped = equippedItemIds(snapshot);
+  const completed = completedQuests(snapshot);
+  const kept = [];
+  const removedNames = [];
+  for (const entry of characterQuestList(character)) {
+    if (completed.has(entry.questId) || equipped.has(entry.itemId)) {
+      removedNames.push(itemName(entry.itemId));
+    } else {
+      kept.push(entry);
+    }
+  }
+  character.questList = kept;
+  saveSettings();
+  return removedNames;
+}
+
+function pruneCraftingCart(snapshot) {
+  const equipped = equippedItemIds(snapshot);
+  const kept = [];
+  const removedNames = [];
+  for (const entry of state.craftingCart) {
+    if (equipped.has(entry.itemId)) {
+      removedNames.push(itemName(entry.itemId));
+    } else {
+      kept.push(entry);
+    }
+  }
+  state.craftingCart = kept;
+  writeStorage(STORAGE_KEYS.craftingCart, state.craftingCart);
+  return removedNames;
+}
+
+function itemName(itemId) {
+  const item = itemById(itemId);
+  if (item === null) {
+    return "item " + itemId;
+  }
+  return item.name;
 }
 
 function renderQuestList(character, snapshot) {
@@ -2271,6 +2326,11 @@ async function handleRefreshClick() {
   try {
     await refreshCharacter(character);
     await readWowFolder(true);
+    const snapshot = state.snapshots[character.slug];
+    const removedNames = pruneQuestList(character, snapshot).concat(pruneCraftingCart(snapshot));
+    if (removedNames.length > 0) {
+      setStatus("Updated. Removed from your lists because you finished or equipped them: " + Array.from(new Set(removedNames)).join(", ") + ".", "success");
+    }
     render();
   } catch (error) {
     setStatus(error.message, "error");
