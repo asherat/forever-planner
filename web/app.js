@@ -1,6 +1,7 @@
 const FUTURE_UPGRADE_WEIGHT = 0.5;
 const MAX_SOURCES_SHOWN = 4;
 const NEUTRAL_REPUTATION_TIER = 3;
+const REPUTATION_TIERS_WITHIN_REACH = 1;
 const REPUTATION_TIER_NAMES = ["Hated", "Hostile", "Unfriendly", "Neutral", "Friendly", "Honored", "Revered", "Exalted"];
 const CREATURE_RANKS = { 1: "elite", 2: "rare elite", 3: "boss", 4: "rare" };
 
@@ -100,6 +101,13 @@ function meetsReputation(item, snapshot) {
   return reputationTier(snapshot, item.reputationRequirement.factionId) >= item.reputationRequirement.tier;
 }
 
+function isReputationWithinReach(item, snapshot) {
+  if (!item.reputationRequirement) {
+    return true;
+  }
+  return reputationTier(snapshot, item.reputationRequirement.factionId) >= item.reputationRequirement.tier - REPUTATION_TIERS_WITHIN_REACH;
+}
+
 function reputationRequirementText(item, snapshot) {
   const current = REPUTATION_TIER_NAMES[reputationTier(snapshot, item.reputationRequirement.factionId)];
   if (meetsReputation(item, snapshot)) {
@@ -115,10 +123,14 @@ function compactProfessions(professions) {
   }
   for (const entry of (professions.primaries || []).concat(professions.secondaries || [])) {
     let skillPoints = entry.skill_points;
-    if (entry.tiers && entry.tiers.length > 0) {
-      skillPoints = entry.tiers[0].skill_points;
+    const recipeIds = [];
+    for (const tier of entry.tiers || []) {
+      skillPoints = tier.skill_points;
+      for (const recipe of tier.known_recipes || []) {
+        recipeIds.push(recipe.id);
+      }
     }
-    names.push({ name: entry.profession.name, skillPoints: skillPoints });
+    names.push({ name: entry.profession.name, skillPoints: skillPoints, recipeIds: recipeIds });
   }
   return names;
 }
@@ -376,6 +388,9 @@ function rankedCandidatesForSlot(slotDefinition, snapshot, character) {
     if (!canUseItem(item, snapshot)) {
       continue;
     }
+    if (!isReputationWithinReach(item, snapshot)) {
+      continue;
+    }
     const primaryGain = itemScore(item, primaryWeights) - comparisonBaseline(slotDefinition, snapshot, item, primaryWeights);
     if (primaryGain <= 0) {
       continue;
@@ -570,12 +585,21 @@ function isListedOnAuctionHouse(item) {
   return price !== null && price.listed > 0;
 }
 
+function knowsRecipe(snapshot, source) {
+  for (const profession of snapshot.professions) {
+    if (profession.name === source.profession && (profession.recipeIds || []).indexOf(source.recipeId) !== -1) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function isEasySource(source, snapshot) {
   if (source.type === "quest" || source.type === "vendor") {
     return true;
   }
   if (source.type === "craft") {
-    return hasProfession(snapshot, source.profession);
+    return knowsRecipe(snapshot, source);
   }
   return false;
 }
@@ -651,8 +675,10 @@ function describeSource(source, snapshot) {
   }
   if (source.type === "craft") {
     let text = "Crafted: " + source.profession;
-    if (hasProfession(snapshot, source.profession)) {
-      text += " (you have it)";
+    if (knowsRecipe(snapshot, source)) {
+      text += " (you know the recipe)";
+    } else if (hasProfession(snapshot, source.profession)) {
+      text += " (you have the profession, not the recipe yet)";
     }
     return text;
   }
