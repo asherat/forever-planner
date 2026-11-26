@@ -1,5 +1,11 @@
 const MAX_RECIPE_DEPTH = 6;
 const CRAFTING_MODES = { own: "Have", buy: "Buy", craft: "Craft" };
+const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
+const MODE_ICON_PATHS = {
+  own: "M5 7h14l-1.2 12.2a2 2 0 0 1-2 1.8H8.2a2 2 0 0 1-2-1.8L5 7zm4 0V6a3 3 0 0 1 6 0v1",
+  buy: "M12 3c4.4 0 8 1.3 8 3s-3.6 3-8 3-8-1.3-8-3 3.6-3 8-3zm-8 3v4c0 1.7 3.6 3 8 3s8-1.3 8-3V6m-16 4v4c0 1.7 3.6 3 8 3s8-1.3 8-3v-4m-16 4v4c0 1.7 3.6 3 8 3s8-1.3 8-3v-4",
+  craft: "M14.5 4.5l5 5-2 2-1.5-1.5-8.5 8.5a1.8 1.8 0 0 1-2.5-2.5L13.5 7.5 12 6l2.5-1.5z"
+};
 const PLACE_LABELS = { bags: "bags", bank: "bank", mail: "mailbox", auctions: "on the AH" };
 const INVENTORY_PLACES = ["bags", "bank", "mail"];
 
@@ -46,6 +52,11 @@ function craftingItem(itemId) {
   return { id: itemId, name: "Item " + itemId, quality: "COMMON", icon: null, vendorPrice: 0 };
 }
 
+function isBindOnPickup(itemId) {
+  const known = window.FOREVER_CRAFTING_ITEMS[itemId];
+  return Boolean(known && known.bindOnPickup);
+}
+
 function selectedSnapshot() {
   const character = selectedCharacter();
   if (character === null) {
@@ -82,7 +93,7 @@ function buyOffer(itemId) {
     offers.push({ price: item.vendorPrice, where: "vendor" });
   }
   const auctionPrice = unitCost(itemId);
-  if (auctionPrice !== null && auctionPrice > 0) {
+  if (auctionPrice !== null && auctionPrice > 0 && !isBindOnPickup(itemId)) {
     offers.push({ price: auctionPrice, where: "auction house" });
   }
   if (offers.length === 0) {
@@ -252,8 +263,18 @@ function planNode(itemId, quantity, pool, depth, path) {
     cost: 0,
     missingPrice: false,
     canCraft: anyRecipe(itemId, depth, path) !== null,
-    canBuy: buyOffer(itemId) !== null
+    canBuy: buyOffer(itemId) !== null,
+    buyTotal: null,
+    craftTotal: null
   };
+  const offer = buyOffer(itemId);
+  if (offer !== null) {
+    node.buyTotal = offer.price * quantity;
+  }
+  const cheapest = cheapestRecipe(itemId, depth, path);
+  if (cheapest !== null) {
+    node.craftTotal = cheapest.unitCost * quantity;
+  }
   let remaining = quantity;
   let howToGetRest = mode;
   if (mode === "own") {
@@ -376,7 +397,10 @@ function renderModeButtons(node) {
     modes.push("craft");
   }
   for (const mode of modes) {
-    const button = createElement("button", "mode-button", CRAFTING_MODES[mode]);
+    const button = createElement("button", "mode-button");
+    button.appendChild(modeIcon(mode));
+    button.append(CRAFTING_MODES[mode] + " ");
+    button.appendChild(modeButtonValue(node, mode));
     button.type = "button";
     button.dataset.modeItemId = String(node.itemId);
     button.dataset.mode = mode;
@@ -384,6 +408,33 @@ function renderModeButtons(node) {
     group.appendChild(button);
   }
   return group;
+}
+
+function modeIcon(mode) {
+  const svg = document.createElementNS(SVG_NAMESPACE, "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("class", "mode-icon");
+  svg.setAttribute("aria-hidden", "true");
+  const path = document.createElementNS(SVG_NAMESPACE, "path");
+  path.setAttribute("d", MODE_ICON_PATHS[mode]);
+  svg.appendChild(path);
+  return svg;
+}
+
+function modeButtonValue(node, mode) {
+  if (mode === "own") {
+    return createElement("span", "mode-value", String(node.available));
+  }
+  let total = node.craftTotal;
+  if (mode === "buy") {
+    total = node.buyTotal;
+  }
+  if (total === null) {
+    return createElement("span", "mode-value", "?");
+  }
+  const value = createElement("span", "mode-value");
+  value.appendChild(renderMoney(total));
+  return value;
 }
 
 function nodeExplanation(node) {
@@ -456,6 +507,65 @@ function renderVerdict(plan) {
   return verdict;
 }
 
+function charactersKnowingRecipe(recipe) {
+  const names = [];
+  for (const character of state.settings.characters) {
+    const snapshot = state.snapshots[character.slug];
+    if (!snapshot) {
+      continue;
+    }
+    for (const profession of snapshot.professions) {
+      if (profession.name === recipe.profession && (profession.recipeIds || []).indexOf(recipe.id) !== -1) {
+        names.push(character.displayName);
+      }
+    }
+  }
+  return names;
+}
+
+function planRequirements(plan) {
+  const recipes = new Map();
+  const bindOnPickup = new Map();
+  for (const node of collectNodes(plan.root, [])) {
+    if (node.recipe !== null) {
+      recipes.set(node.recipe.id, node);
+    }
+    if (isBindOnPickup(node.itemId) && node !== plan.root && node.recipe === null && node.buyOffer === null && node.buyQuantity > 0) {
+      bindOnPickup.set(node.itemId, (bindOnPickup.get(node.itemId) || 0) + node.buyQuantity);
+    }
+  }
+  return { recipes: Array.from(recipes.values()), bindOnPickup: bindOnPickup };
+}
+
+function renderRequirements(plan) {
+  const requirements = planRequirements(plan);
+  const list = createElement("ul", "requirements");
+  for (const node of requirements.recipes) {
+    const line = createElement("li", "requirement");
+    const knownBy = charactersKnowingRecipe(node.recipe);
+    line.append(node.recipe.profession + " recipe: ");
+    line.appendChild(itemLabel(node.itemId));
+    if (knownBy.length > 0) {
+      line.appendChild(createElement("span", "requirement-met", " known by " + knownBy.join(", ")));
+    } else {
+      line.appendChild(createElement("span", "requirement-missing", " none of your characters knows it yet"));
+    }
+    list.appendChild(line);
+  }
+  for (const itemId of requirements.bindOnPickup.keys()) {
+    const line = createElement("li", "requirement");
+    line.appendChild(itemLabel(itemId));
+    line.appendChild(createElement("span", "requirement-missing", " ×" + requirements.bindOnPickup.get(itemId) + " bind on pickup: gather or craft it on the crafting character"));
+    list.appendChild(line);
+  }
+  if (isBindOnPickup(plan.entry.itemId)) {
+    const line = createElement("li", "requirement muted");
+    line.append("Bind on pickup: the character who crafts it keeps it.");
+    list.appendChild(line);
+  }
+  return list;
+}
+
 function renderPlan(plan, index) {
   const entry = createElement("li", "crafting-entry panel");
   const header = createElement("div", "crafting-entry-header");
@@ -476,6 +586,7 @@ function renderPlan(plan, index) {
   header.appendChild(removeButton);
   entry.appendChild(header);
   entry.appendChild(renderVerdict(plan));
+  entry.appendChild(renderRequirements(plan));
   const tree = createElement("ul", "tree");
   tree.appendChild(renderNode(plan.root));
   entry.appendChild(tree);

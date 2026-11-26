@@ -1009,3 +1009,48 @@ legend {
   flex-wrap: wrap;
   gap: 4px;
 }
+
+.mode-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.mode-icon {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  flex: 0 0 auto;
+}
+
+.mode-value {
+  font-variant-numeric: tabular-nums;
+}
+
+.requirements {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+  font-size: 0.85rem;
+}
+
+.requirement {
+  display: list-item;
+}
+
+.requirement .crafting-item {
+  vertical-align: middle;
+}
+
+.requirement-met {
+  color: var(--gain-positive);
+}
+
+.requirement-missing {
+  color: var(--gain-negative);
+}
