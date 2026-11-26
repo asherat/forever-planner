@@ -1559,3 +1559,74 @@ legend {
     grid-column: 1 / -1;
   }
 }
+
+.quest-list-panel {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+}
+
+.quest-list-panel h2 {
+  margin: 0;
+}
+
+.quest-list-panel p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.quest-list-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.quest-entry {
+  display: grid;
+  gap: 3px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+
+.quest-entry:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.quest-entry-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.95rem;
+}
+
+.quest-entry-header a {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quest-step {
+  font-weight: 600;
+}
+
+.quest-step-place {
+  color: var(--muted);
+}
+
+.quest-done {
+  color: var(--gain-positive);
+}
+
+.waypoint {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--accent);
+  text-decoration: underline dotted;
+  font-variant-numeric: tabular-nums;
+}

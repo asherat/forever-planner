@@ -83,3 +83,27 @@ test("joins values split into numbered chunks", () => {
   const details = questie.buildDetails(toc, [700], zones, []);
   assert.equal(details.items[700].sources[0].npc, "Vendor");
 });
+
+test("decodes half-precision floats used for coordinates", () => {
+  assert.equal(questie.decodeCbor(Uint8Array.from([0xf9, 0x3e, 0x00])), 1.5);
+  assert.equal(questie.decodeCbor(Uint8Array.from([0xf9, 0xc0, 0x00])), -2);
+});
+
+test("orders a quest chain from its first step and finds each quest giver", () => {
+  const toc = buildToc([
+    tocLine("Quest-1-S", encodeBase64({ 1: "First Step", 5: 40, 17: 17 })),
+    tocLine("Quest-1-2", encodeBase64([[10]])),
+    tocLine("Quest-2-S", encodeBase64({ 1: "Second Step", 5: 41, 17: 17 })),
+    tocLine("Quest-2-13", encodeBase64([1])),
+    tocLine("Quest-2-2", encodeBase64([[10]])),
+    tocLine("Npc-10-S", encodeBase64({ 1: "Quest Giver", 9: 17, 14: "Fight Promoter" })),
+    tocLine("Npc-10-7", encodeBase64({ 17: [[65, 21]] }))
+  ]);
+  const details = questie.buildDetails(toc, [], zones, []);
+  const chain = questie.questChain(details, 2);
+  assert.deepEqual([chain[0].name, chain[1].name], ["First Step", "Second Step"]);
+  assert.equal(chain[1].starter.name, "Quest Giver");
+  assert.equal(chain[1].starter.zone, "The Barrens");
+  assert.equal(chain[1].starter.x, 65);
+  assert.equal(chain[1].starter.y, 21);
+});

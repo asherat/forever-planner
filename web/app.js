@@ -1305,6 +1305,14 @@ function renderOption(label, candidate, snapshot, character, slotDefinition) {
   }
 
   const actions = createElement("div", "option-actions");
+  const questSource = firstQuestSource(sources);
+  if (questSource !== null && !isInQuestList(character, questSource.questId)) {
+    const questButton = createElement("button", "link", "Add quest");
+    questButton.type = "button";
+    questButton.dataset.questAdd = String(questSource.questId);
+    questButton.dataset.questItem = String(item.id);
+    actions.appendChild(questButton);
+  }
   if (craftSource !== null) {
     const cartButton = createElement("button", "link", "Add to crafting list");
     cartButton.type = "button";
@@ -1317,6 +1325,171 @@ function renderOption(label, candidate, snapshot, character, slotDefinition) {
   actions.appendChild(hideButton);
   option.appendChild(actions);
   return option;
+}
+
+function firstQuestSource(sources) {
+  for (const source of sources) {
+    if (source.type === "quest") {
+      return source;
+    }
+  }
+  return null;
+}
+
+function characterQuestList(character) {
+  if (!character.questList) {
+    character.questList = [];
+  }
+  return character.questList;
+}
+
+function isInQuestList(character, questId) {
+  for (const entry of characterQuestList(character)) {
+    if (entry.questId === questId) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function addToQuestList(questId, itemId) {
+  const character = selectedCharacter();
+  if (character === null || isInQuestList(character, questId)) {
+    return;
+  }
+  characterQuestList(character).push({ questId: questId, itemId: itemId });
+  saveSettings();
+  render();
+}
+
+function removeFromQuestList(questId) {
+  const character = selectedCharacter();
+  const remaining = [];
+  for (const entry of characterQuestList(character)) {
+    if (entry.questId !== questId) {
+      remaining.push(entry);
+    }
+  }
+  character.questList = remaining;
+  saveSettings();
+  render();
+}
+
+function waypointText(place) {
+  return "/way " + place.zone + " " + place.x.toFixed(1) + " " + place.y.toFixed(1);
+}
+
+function renderPlace(place) {
+  const line = createElement("div", "quest-step-place");
+  if (place === null) {
+    line.textContent = "Quest giver unknown";
+    return line;
+  }
+  let text = "From " + place.name;
+  if (place.title) {
+    text += ", " + place.title;
+  }
+  if (place.kind === "item") {
+    text = "Starts from " + place.name;
+  }
+  if (place.zone) {
+    text += " in " + place.zone;
+  }
+  line.append(text);
+  if (place.x !== null) {
+    const waypoint = createElement("button", "waypoint", "(" + place.x.toFixed(1) + ", " + place.y.toFixed(1) + ")");
+    waypoint.type = "button";
+    waypoint.dataset.waypoint = waypointText(place);
+    waypoint.title = "Copy " + waypointText(place) + " for Questie or TomTom";
+    line.append(" ");
+    line.appendChild(waypoint);
+  }
+  return line;
+}
+
+function isChainStepForCharacter(step, snapshot) {
+  if (step.faction !== null && step.faction !== snapshot.factionType) {
+    return false;
+  }
+  const classBit = CLASS_BITS[snapshot.className];
+  return !step.classes || !classBit || Boolean(step.classes & classBit);
+}
+
+function renderQuestEntry(entry, snapshot) {
+  const row = createElement("li", "quest-entry");
+  const header = createElement("div", "quest-entry-header");
+  const item = itemById(entry.itemId);
+  if (item !== null) {
+    header.appendChild(itemIcon(item, "icon-small"));
+    header.appendChild(wowheadLink(item));
+  }
+  const removeButton = createElement("button", "cart-remove", "×");
+  removeButton.type = "button";
+  removeButton.dataset.questRemove = String(entry.questId);
+  removeButton.setAttribute("aria-label", "Remove from quest list");
+  header.appendChild(removeButton);
+  row.appendChild(header);
+  if (state.questie === null || !state.questie.reader) {
+    row.appendChild(createElement("div", "muted", "Connect your WoW folder to see this quest's chain."));
+    return row;
+  }
+  const steps = [];
+  for (const step of window.QUESTIE.questChain(state.questie, entry.questId)) {
+    if (isChainStepForCharacter(step, snapshot)) {
+      steps.push(step);
+    }
+  }
+  const completed = completedQuests(snapshot);
+  let nextIndex = -1;
+  for (let index = 0; index < steps.length; index += 1) {
+    if (!completed.has(steps[index].id)) {
+      nextIndex = index;
+      break;
+    }
+  }
+  if (nextIndex === -1) {
+    row.appendChild(createElement("div", "quest-done", "Done: you completed the whole chain."));
+    return row;
+  }
+  const step = steps[nextIndex];
+  let stepText = step.name + " (level " + step.questLevel + ")";
+  if (steps.length > 1) {
+    stepText = "Step " + (nextIndex + 1) + " of " + steps.length + ": " + stepText;
+  }
+  row.appendChild(createElement("div", "quest-step", stepText));
+  row.appendChild(renderPlace(step.starter));
+  return row;
+}
+
+function renderQuestList(character, snapshot) {
+  const list = document.getElementById("quest-list-items");
+  list.replaceChildren();
+  const entries = characterQuestList(character);
+  document.getElementById("quest-list-empty").hidden = entries.length > 0;
+  for (const entry of entries) {
+    list.appendChild(renderQuestEntry(entry, snapshot));
+  }
+}
+
+function handleQuestListClick(event) {
+  const target = event.target.closest("button");
+  if (target === null) {
+    return;
+  }
+  if (target.dataset.questRemove !== undefined) {
+    removeFromQuestList(Number(target.dataset.questRemove));
+  } else if (target.dataset.waypoint !== undefined) {
+    copyWaypoint(target.dataset.waypoint);
+  }
+}
+
+async function copyWaypoint(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    setStatus("Copied \"" + text + "\". Paste it in the game chat.", "success");
+  } catch (error) {
+    setStatus(text, "info");
+  }
 }
 
 function firstCraftSource(sources) {
@@ -1598,6 +1771,7 @@ function render() {
   }
   state.craftedUpgradePicks = craftedUpgradePicks(allOptions, snapshot);
   renderCart();
+  renderQuestList(character, snapshot);
   runTooltipChecks();
 }
 
@@ -2167,6 +2341,10 @@ function handleCartChange(event) {
 }
 
 function handlePriorityListClick(event) {
+  if (event.target.dataset.questAdd !== undefined) {
+    addToQuestList(Number(event.target.dataset.questAdd), Number(event.target.dataset.questItem));
+    return;
+  }
   if (event.target.dataset.cartAdd !== undefined) {
     addToCart(Number(event.target.dataset.cartAdd));
     return;
@@ -2240,6 +2418,7 @@ function bindEvents() {
   document.getElementById("route-panel").addEventListener("click", handleRouteClick);
   document.getElementById("found-characters").addEventListener("click", handleFoundCharacterClick);
   document.querySelector(".settings-tabs").addEventListener("click", handleSettingsTabClick);
+  document.getElementById("quest-list-panel").addEventListener("click", handleQuestListClick);
   document.getElementById("settings-form").addEventListener("keydown", handleSettingsKeydown);
   document.getElementById("crafting-cart").addEventListener("click", handleCartClick);
   document.getElementById("crafting-cart").addEventListener("change", handleCartChange);
