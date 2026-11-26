@@ -1,65 +1,9 @@
-const TSM_DATABASE_NAME = "foreverPlannerFiles";
-const TSM_STORE_NAME = "handles";
-const TSM_HANDLE_KEY = "tsmAppData";
 const TSM_LINE_PATTERN = /LoadData\("([A-Z_]+)","([^"]+)",\[\[return (.*)\]\]\)/;
 const TSM_FIELDS_PATTERN = /fields=\{([^}]*)\}/;
 const TSM_DOWNLOAD_TIME_PATTERN = /downloadTime=(\d+)/;
 const TSM_ROW_PATTERN = /\{([^{}]*)\}/g;
 const TSM_REGION_SETS = ["AUCTIONDB_REGION_STAT", "AUCTIONDB_REGION_SALE", "AUCTIONDB_REGION_HISTORICAL"];
 const TSM_LOCAL_SETS = ["AUCTIONDB_NON_COMMODITY_DATA", "AUCTIONDB_NON_COMMODITY_SCAN_STAT", "AUCTIONDB_NON_COMMODITY_HISTORICAL"];
-
-function openHandleDatabase() {
-  return new Promise(function executeOpen(resolve, reject) {
-    const request = indexedDB.open(TSM_DATABASE_NAME, 1);
-    request.onupgradeneeded = function createStore() {
-      request.result.createObjectStore(TSM_STORE_NAME);
-    };
-    request.onsuccess = function openSucceeded() {
-      resolve(request.result);
-    };
-    request.onerror = function openFailed() {
-      reject(request.error);
-    };
-  });
-}
-
-async function storeTsmFileHandle(handle) {
-  const database = await openHandleDatabase();
-  return new Promise(function executeStore(resolve, reject) {
-    const transaction = database.transaction(TSM_STORE_NAME, "readwrite");
-    transaction.objectStore(TSM_STORE_NAME).put(handle, TSM_HANDLE_KEY);
-    transaction.oncomplete = function storeSucceeded() {
-      resolve();
-    };
-    transaction.onerror = function storeFailed() {
-      reject(transaction.error);
-    };
-  });
-}
-
-async function loadTsmFileHandle() {
-  const database = await openHandleDatabase();
-  return new Promise(function executeLoad(resolve, reject) {
-    const request = database.transaction(TSM_STORE_NAME).objectStore(TSM_STORE_NAME).get(TSM_HANDLE_KEY);
-    request.onsuccess = function loadSucceeded() {
-      resolve(request.result || null);
-    };
-    request.onerror = function loadFailed() {
-      reject(request.error);
-    };
-  });
-}
-
-async function forgetTsmFileHandle() {
-  const database = await openHandleDatabase();
-  return new Promise(function executeDelete(resolve) {
-    const transaction = database.transaction(TSM_STORE_NAME, "readwrite");
-    transaction.objectStore(TSM_STORE_NAME).delete(TSM_HANDLE_KEY);
-    transaction.oncomplete = function deleteSucceeded() {
-      resolve();
-    };
-  });
-}
 
 function decodeTsmValue(rawValue) {
   return parseInt(rawValue, 32);
@@ -169,9 +113,7 @@ function mergeTsmPrices(sets, localScope) {
   return { prices: prices, scope: localScope, downloadedAt: newestDownload };
 }
 
-async function readTsmPrices(handle, rulesetName, factionName) {
-  const file = await handle.getFile();
-  const text = await file.text();
+function readTsmPrices(text, rulesetName, factionName) {
   const sets = parseTsmAppData(text);
   if (sets.length === 0) {
     throw new Error("That file has no TSM price data. Pick AppData.lua from the TradeSkillMaster_AppHelper folder.");
@@ -181,9 +123,8 @@ async function readTsmPrices(handle, rulesetName, factionName) {
 }
 
 window.TSM = {
-  storeFileHandle: storeTsmFileHandle,
-  loadFileHandle: loadTsmFileHandle,
-  forgetFileHandle: forgetTsmFileHandle,
+  addonName: "TradeSkillMaster_AppHelper",
+  fileName: "AppData.lua",
   readPrices: readTsmPrices,
   parseAppData: parseTsmAppData
 };

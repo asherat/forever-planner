@@ -89,12 +89,14 @@
     </fieldset>
 
     <fieldset>
-      <legend>Auction prices (TSM)</legend>
+      <legend>Your WoW folder</legend>
+      <p class="muted">Pick your <code>World of Warcraft</code> or <code>_forever_</code> folder. The planner reads item sources from Questie and auction prices from TSM there, on every Refresh. Nothing leaves your PC.</p>
+      <p id="wow-folder-status"></p>
+      <p id="questie-status" class="muted"></p>
       <p id="tsm-status" class="muted"></p>
-      <p class="muted">Pick <code>AppData.lua</code> in <code>Interface/AddOns/TradeSkillMaster_AppHelper</code>. The planner reads it on every Refresh; the TSM desktop app keeps it up to date.</p>
       <div class="inline-fields">
-        <button id="tsm-connect-button" type="button">Connect TSM prices</button>
-        <button id="tsm-disconnect-button" type="button" class="link">Disconnect</button>
+        <button id="wow-folder-connect-button" type="button">Connect WoW folder</button>
+        <button id="wow-folder-disconnect-button" type="button" class="link">Disconnect</button>
       </div>
     </fieldset>
 
@@ -124,7 +126,10 @@
 <script src="data/items.js"></script>
 <script src="data/quests.js"></script>
 <script src="game-rules.js"></script>
+<script src="data/zones.js"></script>
+<script src="wow-folder.js"></script>
 <script src="tsm.js"></script>
+<script src="questie.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

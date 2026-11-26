@@ -544,6 +544,11 @@ button:disabled {
   color: var(--accent);
 }
 
+.option-requirement-met {
+  color: var(--gain-positive);
+  font-size: 0.85rem;
+}
+
 .option-requirement {
   color: var(--error);
   font-size: 0.85rem;

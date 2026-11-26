@@ -6,7 +6,10 @@ const STORAGE_KEYS = {
 
 const DEFAULT_LOOKAHEAD_LEVELS = 3;
 const FUTURE_UPGRADE_WEIGHT = 0.5;
-const MAX_SOURCES_SHOWN = 2;
+const MAX_SOURCES_SHOWN = 4;
+const NEUTRAL_REPUTATION_TIER = 3;
+const REPUTATION_TIER_NAMES = ["Hated", "Hostile", "Unfriendly", "Neutral", "Friendly", "Honored", "Revered", "Exalted"];
+const CREATURE_RANKS = { 1: "elite", 2: "rare elite", 3: "boss", 4: "rare" };
 const WOWHEAD_ITEM_URL = "https://www.wowhead.com/forever/item=";
 
 const state = {
@@ -15,6 +18,8 @@ const state = {
   snapshots: {},
   accessToken: null,
   tsm: null,
+  questie: null,
+  wowFolderConnected: false,
   accessTokenExpiresAt: 0
 };
 
@@ -227,6 +232,39 @@ function compactEquipment(equipment) {
   return equippedBySlot;
 }
 
+function compactReputations(reputations) {
+  const tiers = {};
+  if (reputations === null) {
+    return tiers;
+  }
+  for (const entry of reputations.reputations || []) {
+    tiers[entry.faction.id] = entry.standing.tier;
+  }
+  return tiers;
+}
+
+function reputationTier(snapshot, factionId) {
+  if (snapshot.reputations && snapshot.reputations[factionId] !== undefined) {
+    return snapshot.reputations[factionId];
+  }
+  return NEUTRAL_REPUTATION_TIER;
+}
+
+function meetsReputation(item, snapshot) {
+  if (!item.reputationRequirement) {
+    return true;
+  }
+  return reputationTier(snapshot, item.reputationRequirement.factionId) >= item.reputationRequirement.tier;
+}
+
+function reputationRequirementText(item, snapshot) {
+  const current = REPUTATION_TIER_NAMES[reputationTier(snapshot, item.reputationRequirement.factionId)];
+  if (meetsReputation(item, snapshot)) {
+    return item.reputation + " (you have it)";
+  }
+  return item.reputation + " (you're " + current + ")";
+}
+
 function compactProfessions(professions) {
   const names = [];
   if (professions === null) {
@@ -252,7 +290,8 @@ async function refreshCharacter(character) {
     fetchProfile(character.slug, "/equipment"),
     fetchProfile(character.slug, "/professions"),
     fetchProfile(character.slug, "/character-media"),
-    fetchProfile(character.slug, "/specializations")
+    fetchProfile(character.slug, "/specializations"),
+    fetchProfile(character.slug, "/reputations")
   ]);
   const equippedBySlot = compactEquipment(results[0]);
   await addEquipmentIcons(equippedBySlot);
@@ -273,7 +312,8 @@ async function refreshCharacter(character) {
     professions: compactProfessions(results[1]),
     avatar: mediaAsset(results[2], "avatar"),
     render: mediaAsset(results[2], "main-raw"),
-    talentSpecs: detectTalentSpecs(profile.character_class.name, results[3])
+    talentSpecs: detectTalentSpecs(profile.character_class.name, results[3]),
+    reputations: compactReputations(results[4])
   };
   saveSnapshots();
   setStatus("Updated from your last logout (" + new Date(profile.last_login_timestamp).toLocaleString() + ").", "success");
@@ -386,7 +426,8 @@ function canUseItem(item, snapshot) {
   if (item.classes && item.classes.indexOf(snapshot.className) === -1) {
     return false;
   }
-  if (item.faction && item.faction !== snapshot.factionType) {
+  const faction = itemFaction(item);
+  if (faction !== null && faction !== snapshot.factionType) {
     return false;
   }
   if (!proficiencies) {
@@ -440,10 +481,10 @@ function candidatesForSlot(slotDefinition, snapshot, character) {
   if (pairedCandidates.length === 0) {
     return candidates;
   }
-  const takenItemId = pairedCandidates[0].item.id;
+  const takenItemName = pairedCandidates[0].item.name;
   const remaining = [];
   for (const candidate of candidates) {
-    if (candidate.item.id !== takenItemId) {
+    if (candidate.item.name !== takenItemName) {
       remaining.push(candidate);
     }
   }
@@ -483,7 +524,7 @@ function rankedCandidatesForSlot(slotDefinition, snapshot, character) {
     if (itemTypes.indexOf(item.slot) === -1) {
       continue;
     }
-    if (item.usableLevel > maximumLevel) {
+    if (itemUsableLevel(item, snapshot) > maximumLevel) {
       continue;
     }
     if (equippedIds.has(item.id) || hiddenIds.has(item.id)) {
@@ -586,10 +627,108 @@ function hasProfession(snapshot, professionName) {
   return false;
 }
 
+function questieDetail(item) {
+  if (state.questie === null) {
+    return null;
+  }
+  return state.questie.items[item.id] || null;
+}
+
+function factionLetter(factionType) {
+  if (factionType === "ALLIANCE") {
+    return "A";
+  }
+  return "H";
+}
+
+function questieQuestsForCharacter(detail, snapshot) {
+  const quests = [];
+  for (const quest of detail.quests) {
+    if (quest.faction === null || quest.faction === snapshot.factionType) {
+      quests.push(quest);
+    }
+  }
+  return quests;
+}
+
+function itemFaction(item) {
+  if (item.faction) {
+    return item.faction;
+  }
+  const detail = questieDetail(item);
+  if (detail === null || detail.vendorFaction === null) {
+    return null;
+  }
+  for (const source of item.sources || []) {
+    if (source.type === "craft" || source.type === "quest") {
+      return null;
+    }
+  }
+  if (detail.quests.length > 0) {
+    return null;
+  }
+  return detail.vendorFaction;
+}
+
+function itemUsableLevel(item, snapshot) {
+  if (!item.levelEstimated) {
+    return item.usableLevel;
+  }
+  const detail = questieDetail(item);
+  if (detail === null) {
+    return item.usableLevel;
+  }
+  let lowestQuestLevel = 0;
+  for (const quest of questieQuestsForCharacter(detail, snapshot)) {
+    if (quest.questLevel > 0 && (lowestQuestLevel === 0 || quest.questLevel < lowestQuestLevel)) {
+      lowestQuestLevel = quest.questLevel;
+    }
+  }
+  if (lowestQuestLevel > 0) {
+    return lowestQuestLevel;
+  }
+  return item.usableLevel;
+}
+
+function isLevelEstimated(item, snapshot) {
+  return item.levelEstimated && itemUsableLevel(item, snapshot) === item.usableLevel;
+}
+
 function sourcesForCharacter(item, snapshot) {
   const sources = [];
+  const detail = questieDetail(item);
+  const questLevels = {};
+  const listedQuestIds = new Set();
+  if (detail !== null) {
+    for (const quest of questieQuestsForCharacter(detail, snapshot)) {
+      questLevels[quest.id] = quest;
+    }
+  }
   for (const source of item.sources || []) {
     if (source.faction && source.faction !== snapshot.factionType) {
+      continue;
+    }
+    if (source.type === "quest") {
+      listedQuestIds.add(source.questId);
+      if (questLevels[source.questId]) {
+        sources.push(Object.assign({}, source, { level: questLevels[source.questId].questLevel }));
+        continue;
+      }
+    }
+    sources.push(source);
+  }
+  if (detail === null) {
+    return sources;
+  }
+  for (const questId of Object.keys(questLevels)) {
+    const quest = questLevels[questId];
+    if (!listedQuestIds.has(quest.id)) {
+      sources.push({ type: "quest", questId: quest.id, quest: quest.name, zone: quest.zone, level: quest.questLevel });
+    }
+  }
+  const ownLetter = factionLetter(snapshot.factionType);
+  for (const source of detail.sources) {
+    if (source.type === "vendor" && source.friendlyTo && source.friendlyTo.indexOf(ownLetter) === -1) {
       continue;
     }
     sources.push(source);
@@ -643,6 +782,13 @@ function materialCost(source) {
   return { total: total, missing: missing };
 }
 
+function unknownSourceText() {
+  if (state.questie === null) {
+    return "Connect your WoW folder in Settings to see where this comes from, or check Wowhead.";
+  }
+  return "No known source. Often a PvP rank or reputation reward; check Wowhead.";
+}
+
 function formatMoney(copper) {
   const gold = Math.floor(copper / 10000);
   const silver = Math.floor((copper % 10000) / 100);
@@ -666,7 +812,7 @@ function isListedOnAuctionHouse(item) {
 }
 
 function isEasySource(source, snapshot) {
-  if (source.type === "quest") {
+  if (source.type === "quest" || source.type === "vendor") {
     return true;
   }
   if (source.type === "craft") {
@@ -676,6 +822,9 @@ function isEasySource(source, snapshot) {
 }
 
 function hasEasySource(item, snapshot) {
+  if (!meetsReputation(item, snapshot)) {
+    return false;
+  }
   if (isListedOnAuctionHouse(item)) {
     return true;
   }
@@ -687,13 +836,59 @@ function hasEasySource(item, snapshot) {
   return false;
 }
 
+function joinDetails(parts) {
+  const filled = [];
+  for (const part of parts) {
+    if (part) {
+      filled.push(part);
+    }
+  }
+  if (filled.length === 0) {
+    return "";
+  }
+  return " (" + filled.join(", ") + ")";
+}
+
+function creatureRankText(rank) {
+  return CREATURE_RANKS[rank] || "";
+}
+
+function creatureLevelText(source) {
+  if (!source.minLevel) {
+    return "";
+  }
+  if (source.maxLevel && source.maxLevel !== source.minLevel) {
+    return "level " + source.minLevel + "-" + source.maxLevel;
+  }
+  return "level " + source.minLevel;
+}
+
 function describeSource(source, snapshot) {
   if (source.type === "quest") {
-    let text = "Quest: " + source.quest;
-    if (source.zone) {
-      text += " (" + source.zone + ")";
+    let levelPart = "";
+    if (source.level) {
+      levelPart = "level " + source.level;
     }
-    return text;
+    return "Quest: " + source.quest + joinDetails([levelPart, source.zone]);
+  }
+  if (source.type === "vendor") {
+    let name = "Vendor: " + source.npc;
+    if (source.title) {
+      name += ", " + source.title;
+    }
+    return name + joinDetails([source.zone]);
+  }
+  if (source.type === "drop") {
+    return "Drops from " + source.npc + joinDetails([creatureLevelText(source), creatureRankText(source.rank), source.zone]);
+  }
+  if (source.type === "more-drops") {
+    return "…and " + source.count + " more creatures";
+  }
+  if (source.type === "world-drop") {
+    return "World drop (" + source.count + " creatures can drop it)";
+  }
+  if (source.type === "object") {
+    return "Found in " + source.name + joinDetails([source.zone]);
   }
   if (source.type === "craft") {
     let text = "Crafted: " + source.profession;
@@ -705,11 +900,12 @@ function describeSource(source, snapshot) {
   return "Unknown source";
 }
 
-function levelText(item, prefix) {
-  if (item.levelEstimated) {
-    return "about " + prefix + item.usableLevel;
+function levelText(item, snapshot, prefix) {
+  const level = itemUsableLevel(item, snapshot);
+  if (isLevelEstimated(item, snapshot)) {
+    return "about " + prefix + level;
   }
-  return prefix + item.usableLevel;
+  return prefix + level;
 }
 
 function statLabel(statKey) {
@@ -733,10 +929,10 @@ function statSummary(item) {
   return parts.join(", ");
 }
 
-function upgradeOptions(slotDefinition, snapshot, character, takenItemIds) {
+function upgradeOptions(slotDefinition, snapshot, character, takenItemNames) {
   const candidates = [];
   for (const candidate of candidatesForSlot(slotDefinition, snapshot, character)) {
-    if (!takenItemIds.has(candidate.item.id)) {
+    if (!takenItemNames.has(candidate.item.name)) {
       candidates.push(candidate);
     }
   }
@@ -746,14 +942,14 @@ function upgradeOptions(slotDefinition, snapshot, character, takenItemIds) {
   const best = candidates[0];
   let quicker = null;
   for (const candidate of candidates) {
-    if (candidate.item.usableLevel <= snapshot.level && hasEasySource(candidate.item, snapshot)) {
+    if (itemUsableLevel(candidate.item, snapshot) <= snapshot.level && hasEasySource(candidate.item, snapshot)) {
       quicker = candidate;
       break;
     }
   }
   if (quicker === null) {
     for (const candidate of candidates) {
-      if (candidate.item.usableLevel <= snapshot.level) {
+      if (itemUsableLevel(candidate.item, snapshot) <= snapshot.level) {
         quicker = candidate;
         break;
       }
@@ -763,7 +959,7 @@ function upgradeOptions(slotDefinition, snapshot, character, takenItemIds) {
     quicker = null;
   }
   let priority = best.primaryGain * FUTURE_UPGRADE_WEIGHT;
-  if (best.item.usableLevel <= snapshot.level) {
+  if (itemUsableLevel(best.item, snapshot) <= snapshot.level) {
     priority = best.primaryGain;
   }
   if (quicker !== null && quicker.primaryGain > priority) {
@@ -880,8 +1076,8 @@ function renderComparisonTooltip(slotDefinition, snapshot, character, candidate)
   if (upgradeItem.itemSubclass) {
     subtitle = slotDefinition.label + " · " + upgradeItem.itemSubclass;
   }
-  if (upgradeItem.usableLevel > snapshot.level) {
-    subtitle += " · " + levelText(upgradeItem, "level ");
+  if (itemUsableLevel(upgradeItem, snapshot) > snapshot.level) {
+    subtitle += " · " + levelText(upgradeItem, snapshot, "level ");
   }
   tooltipHeader(tooltip, upgradeItem, subtitle);
 
@@ -962,8 +1158,8 @@ function renderOption(label, candidate, snapshot, character, slotDefinition) {
   heading.appendChild(itemIcon(item, "icon-medium"));
   const title = createElement("div", "option-title");
   title.appendChild(wowheadLink(item));
-  let subtitle = item.itemSubclass + " · " + levelText(item, "level ");
-  if (item.usableLevel <= snapshot.level) {
+  let subtitle = item.itemSubclass + " · " + levelText(item, snapshot, "level ");
+  if (itemUsableLevel(item, snapshot) <= snapshot.level) {
     subtitle = item.itemSubclass + " · usable now";
   }
   title.appendChild(createElement("span", "muted", subtitle));
@@ -978,7 +1174,15 @@ function renderOption(label, candidate, snapshot, character, slotDefinition) {
     option.appendChild(createElement("div", "option-effect", effect));
   }
   if (item.reputation) {
-    option.appendChild(createElement("div", "option-requirement", item.reputation));
+    let requirementClass = "option-requirement";
+    let requirementText = item.reputation;
+    if (item.reputationRequirement) {
+      requirementText = reputationRequirementText(item, snapshot);
+      if (meetsReputation(item, snapshot)) {
+        requirementClass = "option-requirement-met";
+      }
+    }
+    option.appendChild(createElement("div", requirementClass, requirementText));
   }
   if (item.skill) {
     option.appendChild(createElement("div", "option-requirement", item.skill));
@@ -1001,7 +1205,7 @@ function renderOption(label, candidate, snapshot, character, slotDefinition) {
   const sources = sourcesForCharacter(item, snapshot);
   const sourceList = createElement("ul", "sources");
   if (sources.length === 0 && price === null) {
-    sourceList.appendChild(createElement("li", "muted", "Source not in Blizzard's data. Check Wowhead (drop, vendor or world item)."));
+    sourceList.appendChild(createElement("li", "muted", unknownSourceText()));
   }
   for (const source of sources.slice(0, MAX_SOURCES_SHOWN)) {
     const entry = createElement("li", null, describeSource(source, snapshot));
@@ -1151,21 +1355,21 @@ function render() {
 
   const optionsBySlot = {};
   const allOptions = [];
-  const takenItemIds = new Set();
+  const takenItemNames = new Set();
   for (const slotDefinition of window.GAME_RULES.equipmentSlots) {
     if (slotDefinition.cosmetic) {
       continue;
     }
-    const options = upgradeOptions(slotDefinition, snapshot, character, takenItemIds);
+    const options = upgradeOptions(slotDefinition, snapshot, character, takenItemNames);
     if (options === null) {
       continue;
     }
     optionsBySlot[slotDefinition.key] = options;
     allOptions.push(options);
     if (slotDefinition.pairedWith) {
-      takenItemIds.add(options.best.item.id);
+      takenItemNames.add(options.best.item.name);
       if (options.quicker !== null) {
-        takenItemIds.add(options.quicker.item.id);
+        takenItemNames.add(options.quicker.item.name);
       }
     }
   }
@@ -1331,7 +1535,7 @@ function openSettings() {
   document.getElementById("client-secret-input").value = state.credentials.clientSecret;
   document.getElementById("region-select").value = state.settings.region;
   document.getElementById("lookahead-input").value = String(state.settings.lookaheadLevels);
-  document.getElementById("tsm-status").textContent = tsmStatusText();
+  renderFolderStatus();
   renderCharacterList();
   document.getElementById("settings-dialog").showModal();
 }
@@ -1378,53 +1582,123 @@ function importSettings(file) {
   reader.readAsText(file);
 }
 
-async function readConnectedTsmPrices(askPermission) {
-  const handle = await window.TSM.loadFileHandle();
-  if (handle === null) {
-    state.tsm = null;
-    return;
-  }
-  let permission = await handle.queryPermission({ mode: "read" });
-  if (permission !== "granted" && askPermission) {
-    permission = await handle.requestPermission({ mode: "read" });
-  }
-  if (permission !== "granted") {
-    state.tsm = null;
-    return;
-  }
-  let rulesetName = "";
-  let factionName = "";
+function selectedRulesetAndFaction() {
   const character = selectedCharacter();
   if (character !== null && state.snapshots[character.slug]) {
-    rulesetName = state.snapshots[character.slug].ruleset;
-    factionName = state.snapshots[character.slug].faction;
+    return { ruleset: state.snapshots[character.slug].ruleset, faction: state.snapshots[character.slug].faction };
   }
-  state.tsm = await window.TSM.readPrices(handle, rulesetName, factionName);
+  return { ruleset: "", faction: "" };
+}
+
+function allItemIds() {
+  const itemIds = [];
+  for (const item of window.FOREVER_ITEMS) {
+    itemIds.push(item.id);
+  }
+  return itemIds;
+}
+
+async function readQuestieFile(folder) {
+  const questieFile = await window.WOW_FOLDER.readAddonFile(folder, window.QUESTIE.addonName, window.QUESTIE.fileName);
+  if (questieFile === null) {
+    state.questie = null;
+    return;
+  }
+  if (state.questie !== null && state.questie.modifiedAt === questieFile.modifiedAt) {
+    return;
+  }
+  const details = window.QUESTIE.buildDetails(questieFile.text, allItemIds(), window.FOREVER_ZONES);
+  details.modifiedAt = questieFile.modifiedAt;
+  state.questie = details;
+}
+
+async function readTsmFromFolder(folder) {
+  const tsmFile = await window.WOW_FOLDER.readAddonFile(folder, window.TSM.addonName, window.TSM.fileName);
+  if (tsmFile === null) {
+    state.tsm = null;
+    return;
+  }
+  const scope = selectedRulesetAndFaction();
+  state.tsm = window.TSM.readPrices(tsmFile.text, scope.ruleset, scope.faction);
+}
+
+async function readLegacyTsmFile(askPermission) {
+  const handle = await window.WOW_FOLDER.loadHandle(window.WOW_FOLDER.legacyTsmFileKey);
+  if (handle === null || !(await window.WOW_FOLDER.ensureReadPermission(handle, askPermission))) {
+    state.tsm = null;
+    return;
+  }
+  const file = await handle.getFile();
+  const scope = selectedRulesetAndFaction();
+  state.tsm = window.TSM.readPrices(await file.text(), scope.ruleset, scope.faction);
+}
+
+async function readWowFolder(askPermission) {
+  const folder = await window.WOW_FOLDER.loadHandle(window.WOW_FOLDER.folderKey);
+  if (folder === null) {
+    state.wowFolderConnected = false;
+    state.questie = null;
+    await readLegacyTsmFile(askPermission);
+    return;
+  }
+  if (!(await window.WOW_FOLDER.ensureReadPermission(folder, askPermission))) {
+    state.wowFolderConnected = false;
+    return;
+  }
+  state.wowFolderConnected = true;
+  await readQuestieFile(folder);
+  await readTsmFromFolder(folder);
+}
+
+function questieStatusText() {
+  if (state.questie === null) {
+    return "Questie: not found. Install Questie for item sources.";
+  }
+  return "Questie " + state.questie.version + ": sources for " + Object.keys(state.questie.items).length + " items.";
 }
 
 function tsmStatusText() {
   if (state.tsm === null) {
-    return "Not connected.";
+    return "TSM prices: not found. Install the TSM desktop app for auction prices.";
   }
   let scopeText = "region prices only";
   if (state.tsm.scope !== null) {
     scopeText = state.tsm.scope + " auction house and region prices";
   }
-  return "Connected: " + scopeText + ", from TSM data of " + new Date(state.tsm.downloadedAt).toLocaleString() + ".";
+  return "TSM prices: " + scopeText + ", from " + new Date(state.tsm.downloadedAt).toLocaleString() + ".";
 }
 
-async function handleTsmConnectClick() {
-  if (!window.showOpenFilePicker) {
-    setStatus("This browser can't read local files. Use Chrome.", "error");
+function renderFolderStatus() {
+  const folderStatus = document.getElementById("wow-folder-status");
+  if (!state.wowFolderConnected) {
+    folderStatus.textContent = "Not connected.";
+    if (state.tsm !== null) {
+      folderStatus.textContent = "Not connected. TSM prices still come from the AppData.lua file you picked earlier.";
+    }
+  } else {
+    folderStatus.textContent = "Connected.";
+  }
+  document.getElementById("questie-status").textContent = questieStatusText();
+  renderFolderStatus();
+}
+
+async function handleWowFolderConnectClick() {
+  if (!window.showDirectoryPicker) {
+    setStatus("This browser can't read local folders. Use Chrome.", "error");
     return;
   }
   try {
-    const handles = await window.showOpenFilePicker({
-      types: [{ description: "TSM AppData.lua", accept: { "text/plain": [".lua"] } }]
-    });
-    await window.TSM.storeFileHandle(handles[0]);
-    await readConnectedTsmPrices(true);
-    document.getElementById("tsm-status").textContent = tsmStatusText();
+    const folder = await window.showDirectoryPicker({ id: "wow-folder", mode: "read" });
+    if ((await window.WOW_FOLDER.addonsDirectory(folder)) === null) {
+      setStatus("That folder has no Interface/AddOns inside. Pick your World of Warcraft or _forever_ folder.", "error");
+      return;
+    }
+    await window.WOW_FOLDER.storeHandle(window.WOW_FOLDER.folderKey, folder);
+    await window.WOW_FOLDER.forgetHandle(window.WOW_FOLDER.legacyTsmFileKey);
+    setStatus("Reading Questie and TSM data…", "info");
+    await readWowFolder(true);
+    renderFolderStatus();
+    setStatus("WoW folder connected.", "success");
     render();
   } catch (error) {
     if (error.name !== "AbortError") {
@@ -1433,10 +1707,13 @@ async function handleTsmConnectClick() {
   }
 }
 
-async function handleTsmDisconnectClick() {
-  await window.TSM.forgetFileHandle();
+async function handleWowFolderDisconnectClick() {
+  await window.WOW_FOLDER.forgetHandle(window.WOW_FOLDER.folderKey);
+  await window.WOW_FOLDER.forgetHandle(window.WOW_FOLDER.legacyTsmFileKey);
   state.tsm = null;
-  document.getElementById("tsm-status").textContent = tsmStatusText();
+  state.questie = null;
+  state.wowFolderConnected = false;
+  renderFolderStatus();
   render();
 }
 
@@ -1450,7 +1727,7 @@ async function handleRefreshClick() {
   refreshButton.disabled = true;
   try {
     await refreshCharacter(character);
-    await readConnectedTsmPrices(true);
+    await readWowFolder(true);
     render();
   } catch (error) {
     setStatus(error.message, "error");
@@ -1522,8 +1799,8 @@ function bindEvents() {
   document.getElementById("settings-dialog").addEventListener("close", closeSettings);
   document.getElementById("add-character-button").addEventListener("click", addCharacter);
   document.getElementById("export-button").addEventListener("click", exportSettings);
-  document.getElementById("tsm-connect-button").addEventListener("click", handleTsmConnectClick);
-  document.getElementById("tsm-disconnect-button").addEventListener("click", handleTsmDisconnectClick);
+  document.getElementById("wow-folder-connect-button").addEventListener("click", handleWowFolderConnectClick);
+  document.getElementById("wow-folder-disconnect-button").addEventListener("click", handleWowFolderDisconnectClick);
   document.getElementById("import-input").addEventListener("change", handleImportChange);
   document.getElementById("character-select").addEventListener("change", handleCharacterSelectChange);
   document.getElementById("priority-list").addEventListener("click", handlePriorityListClick);
@@ -1533,7 +1810,7 @@ function bindEvents() {
 }
 
 function handleTsmStartupError(error) {
-  setStatus("Could not read TSM prices: " + error.message, "error");
+  setStatus("Could not read your WoW folder: " + error.message, "error");
 }
 
 function start() {
@@ -1544,7 +1821,7 @@ function start() {
     return;
   }
   render();
-  readConnectedTsmPrices(false).then(render).catch(handleTsmStartupError);
+  readWowFolder(false).then(render).catch(handleTsmStartupError);
   if (state.settings.characters.length === 0) {
     setStatus("Open Settings to add your API client and a character.", "info");
   }
