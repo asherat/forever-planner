@@ -1,7 +1,7 @@
 const FUTURE_UPGRADE_WEIGHT = 0.5;
 const CLASS_BITS = { Warrior: 1, Paladin: 2, Hunter: 4, Rogue: 8, Priest: 16, Shaman: 64, Mage: 128, Warlock: 256, Druid: 1024 };
 const QUICKER_PASSES = ["easy-now", "easy-soon", "own-profession", "usable-now"];
-const MAX_SOURCES_SHOWN = 4;
+const MAX_SOURCES_SHOWN = 2;
 const NEUTRAL_REPUTATION_TIER = 3;
 const REPUTATION_TIERS_WITHIN_REACH = 1;
 const WOWHEAD_TOOLTIP_URL = "https://nether.wowhead.com/forever/tooltip/item/";
@@ -742,20 +742,6 @@ function sourcesForCharacter(item, snapshot) {
   return sources;
 }
 
-function materialCost(source) {
-  let total = 0;
-  let missing = 0;
-  for (const reagent of source.reagents) {
-    const cost = unitCost(reagent.id);
-    if (cost === null) {
-      missing += 1;
-    } else {
-      total += cost * reagent.quantity;
-    }
-  }
-  return { total: total, missing: missing };
-}
-
 function isListedOnAuctionHouse(item) {
   const price = priceFor(item.id);
   return price !== null && price.listed > 0;
@@ -850,13 +836,7 @@ function describeSource(source, snapshot) {
     return "Found in " + source.name + joinDetails([source.zone]);
   }
   if (source.type === "craft") {
-    let text = "Crafted: " + source.profession;
-    if (knowsRecipe(snapshot, source)) {
-      text += " (you know the recipe)";
-    } else if (hasProfession(snapshot, source.profession)) {
-      text += " (you have the profession, not the recipe yet)";
-    }
-    return text;
+    return "Crafted: " + source.profession;
   }
   return "Unknown source";
 }
@@ -876,18 +856,6 @@ function statLabel(statKey) {
   }
   const words = statKey.toLowerCase().split("_").join(" ");
   return words.charAt(0).toUpperCase() + words.slice(1);
-}
-
-function statSummary(item) {
-  const parts = [];
-  for (const statKey of Object.keys(item.stats || {})) {
-    const label = statLabel(statKey);
-    parts.push("+" + item.stats[statKey] + " " + label);
-  }
-  if (item.weapon) {
-    parts.push(item.weapon.damagePerSecond.toFixed(1) + " DPS");
-  }
-  return parts.join(", ");
 }
 
 function sourceLevel(source, usableLevel) {
@@ -1200,72 +1168,99 @@ function renderOption(label, candidate, snapshot, character, slotDefinition) {
     }
     option.appendChild(createElement("div", "route-badge " + tierClass, "On your path: " + candidate.routeLeg.zone + " (" + candidate.routeLeg.fromLevel + "–" + candidate.routeLeg.toLevel + ")"));
   }
-  option.appendChild(createElement("div", "option-stats", statSummary(item)));
-  for (const effect of item.effects || []) {
-    option.appendChild(createElement("div", "option-effect", effect));
-  }
-  if (itemReputationRequirement(item, snapshot) !== null) {
-    let requirementClass = "option-requirement";
-    if (meetsReputation(item, snapshot)) {
-      requirementClass = "option-requirement-met";
-    }
-    option.appendChild(createElement("div", requirementClass, reputationRequirementText(item, snapshot)));
-  } else if (item.reputation) {
-    option.appendChild(createElement("div", "option-requirement", item.reputation));
-  }
-  if (item.skill) {
-    option.appendChild(createElement("div", "option-requirement", item.skill));
-  }
-
-  const price = priceFor(item.id);
-  if (price !== null) {
-    const priceLine = createElement("div", "option-price");
-    if (price.buyNow) {
-      priceLine.append("AH now ", renderMoney(price.buyNow), " (" + price.listed + " listed)");
-    } else {
-      priceLine.append("Not on the AH right now");
-    }
-    if (price.usual) {
-      priceLine.append(" · usually ", renderMoney(price.usual));
-    }
-    option.appendChild(priceLine);
+  if (itemReputationRequirement(item, snapshot) !== null && !meetsReputation(item, snapshot)) {
+    option.appendChild(createElement("div", "option-requirement", reputationRequirementText(item, snapshot)));
   }
 
   const sources = sourcesForCharacter(item, snapshot);
   const sourceList = createElement("ul", "sources");
   for (const source of sources.slice(0, MAX_SOURCES_SHOWN)) {
-    const entry = createElement("li", null, describeSource(source, snapshot));
-    if (source.type === "craft" && source.reagents.length > 0) {
-      const reagentTexts = [];
-      for (const reagent of source.reagents) {
-        reagentTexts.push(reagent.quantity + "× " + reagent.name);
-      }
-      entry.appendChild(createElement("div", "muted", reagentTexts.join(", ")));
-      const craftingLink = createElement("a", "crafting-link", "Open in crafting tool");
-      craftingLink.href = "crafting.html#add=" + item.id;
-      entry.appendChild(craftingLink);
-      if (state.tsm !== null) {
-        const cost = materialCost(source);
-        const costLine = createElement("div", "option-price");
-        costLine.append("Materials on the AH: ", renderMoney(cost.total));
-        if (cost.missing > 0) {
-          costLine.append(" (" + cost.missing + " without a price)");
-        }
-        entry.appendChild(costLine);
-      }
-    }
-    sourceList.appendChild(entry);
+    sourceList.appendChild(createElement("li", null, describeSource(source, snapshot)));
   }
   if (sources.length > MAX_SOURCES_SHOWN) {
-    sourceList.appendChild(createElement("li", "muted", (sources.length - MAX_SOURCES_SHOWN) + " more sources on Wowhead"));
+    sourceList.appendChild(createElement("li", "muted", "+" + (sources.length - MAX_SOURCES_SHOWN) + " more"));
   }
   option.appendChild(sourceList);
 
+  const craftSource = firstCraftSource(sources);
+  const prices = renderOptionPrices(item, craftSource);
+  if (prices !== null) {
+    option.appendChild(prices);
+  }
+
+  const actions = createElement("div", "option-actions");
+  if (craftSource !== null) {
+    const cartButton = createElement("button", "link", "Add to crafting list");
+    cartButton.type = "button";
+    cartButton.dataset.cartAdd = String(item.id);
+    actions.appendChild(cartButton);
+  }
   const hideButton = createElement("button", "link", "Not interested");
   hideButton.type = "button";
   hideButton.dataset.hideItemId = String(item.id);
-  option.appendChild(hideButton);
+  actions.appendChild(hideButton);
+  option.appendChild(actions);
   return option;
+}
+
+function firstCraftSource(sources) {
+  for (const source of sources) {
+    if (source.type === "craft") {
+      return source;
+    }
+  }
+  return null;
+}
+
+function averagePrice(itemId) {
+  if (state.tsm === null || !state.tsm.prices[itemId]) {
+    return null;
+  }
+  const price = state.tsm.prices[itemId];
+  return price.regionMarketValue || price.marketValue || price.marketValueRecent || price.regionSale || null;
+}
+
+function averageMaterialCost(source) {
+  let total = 0;
+  let missing = 0;
+  for (const reagent of source.reagents) {
+    const price = averagePrice(reagent.id);
+    if (price === null) {
+      missing += 1;
+    } else {
+      total += price * reagent.quantity;
+    }
+  }
+  return { total: total, missing: missing };
+}
+
+function renderOptionPrices(item, craftSource) {
+  if (state.tsm === null) {
+    return null;
+  }
+  const line = createElement("div", "option-price");
+  const auctionPrice = averagePrice(item.id);
+  if (auctionPrice !== null) {
+    line.append("AH ", renderMoney(auctionPrice));
+  }
+  if (craftSource !== null) {
+    const cost = averageMaterialCost(craftSource);
+    if (auctionPrice !== null) {
+      line.append(" · ");
+    }
+    if (cost.total === 0 && cost.missing > 0) {
+      line.append("Craft: no material prices yet");
+    } else {
+      line.append("Craft ", renderMoney(cost.total));
+      if (cost.missing > 0) {
+        line.append(" + unpriced materials");
+      }
+    }
+  }
+  if (line.childNodes.length === 0) {
+    return null;
+  }
+  return line;
 }
 
 function renderPriority(options, snapshot, character) {
@@ -1427,6 +1422,7 @@ function render() {
   for (const options of allOptions) {
     priorityList.appendChild(renderPriority(options, snapshot, character));
   }
+  renderCart();
   runTooltipChecks();
 }
 
@@ -1775,7 +1771,88 @@ async function handleRefreshClick() {
   }
 }
 
+function addToCart(itemId) {
+  for (const entry of state.craftingCart) {
+    if (entry.itemId === itemId) {
+      entry.quantity += 1;
+      writeStorage(STORAGE_KEYS.craftingCart, state.craftingCart);
+      renderCart();
+      return;
+    }
+  }
+  state.craftingCart.push({ itemId: itemId, quantity: 1 });
+  writeStorage(STORAGE_KEYS.craftingCart, state.craftingCart);
+  renderCart();
+}
+
+function cartHash() {
+  const parts = [];
+  for (const entry of state.craftingCart) {
+    parts.push(entry.itemId + ":" + entry.quantity);
+  }
+  return "#items=" + parts.join(",");
+}
+
+function renderCart() {
+  const container = document.getElementById("crafting-cart");
+  const list = document.getElementById("crafting-cart-items");
+  list.replaceChildren();
+  container.hidden = state.craftingCart.length === 0;
+  for (let index = 0; index < state.craftingCart.length; index += 1) {
+    const entry = state.craftingCart[index];
+    const row = createElement("li", "crafting-cart-row");
+    const item = itemById(entry.itemId);
+    if (item !== null) {
+      row.appendChild(itemIcon(item, "icon-small"));
+      row.appendChild(wowheadLink(item));
+    } else {
+      row.appendChild(createElement("span", null, "Item " + entry.itemId));
+    }
+    const quantity = createElement("input", "cart-quantity");
+    quantity.type = "number";
+    quantity.min = "1";
+    quantity.value = String(entry.quantity);
+    quantity.id = "cart-quantity-" + index;
+    quantity.dataset.cartIndex = String(index);
+    quantity.setAttribute("aria-label", "How many");
+    row.appendChild(quantity);
+    const removeButton = createElement("button", "link", "Remove");
+    removeButton.type = "button";
+    removeButton.dataset.cartRemove = String(index);
+    row.appendChild(removeButton);
+    list.appendChild(row);
+  }
+  document.getElementById("craft-all-link").href = "crafting.html" + cartHash();
+}
+
+function handleCartClick(event) {
+  const target = event.target;
+  if (target.dataset.cartRemove !== undefined) {
+    state.craftingCart.splice(Number(target.dataset.cartRemove), 1);
+  } else if (target.id === "clear-cart-button") {
+    state.craftingCart = [];
+  } else {
+    return;
+  }
+  writeStorage(STORAGE_KEYS.craftingCart, state.craftingCart);
+  renderCart();
+}
+
+function handleCartChange(event) {
+  const target = event.target;
+  if (target.dataset.cartIndex === undefined) {
+    return;
+  }
+  state.craftingCart[Number(target.dataset.cartIndex)].quantity = Math.max(1, Number(target.value) || 1);
+  writeStorage(STORAGE_KEYS.craftingCart, state.craftingCart);
+  renderCart();
+}
+
 function handlePriorityListClick(event) {
+  if (event.target.dataset.cartAdd !== undefined) {
+    addToCart(Number(event.target.dataset.cartAdd));
+    return;
+  }
   const itemId = event.target.dataset.hideItemId;
   if (itemId !== undefined) {
     hideItem(Number(itemId));
@@ -1842,6 +1919,8 @@ function bindEvents() {
   document.getElementById("hidden-items").addEventListener("click", handleHiddenItemsClick);
   document.getElementById("route-panel").addEventListener("click", handleRouteClick);
   document.getElementById("found-characters").addEventListener("click", handleFoundCharacterClick);
+  document.getElementById("crafting-cart").addEventListener("click", handleCartClick);
+  document.getElementById("crafting-cart").addEventListener("change", handleCartChange);
   document.getElementById("route-panel").addEventListener("change", handleRouteChange);
 }
 

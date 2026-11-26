@@ -21,10 +21,13 @@ function defaultCraftingList() {
 
 function loadCraftingList() {
   crafting.list = Object.assign(defaultCraftingList(), readStorage(STORAGE_KEYS.crafting, {}));
+  crafting.list.entries = [];
 }
 
 function saveCraftingList() {
-  writeStorage(STORAGE_KEYS.crafting, crafting.list);
+  const saved = Object.assign({}, crafting.list);
+  delete saved.entries;
+  writeStorage(STORAGE_KEYS.crafting, saved);
 }
 
 function indexRecipes() {
@@ -974,23 +977,21 @@ function handleSearchKeydown(event) {
 }
 
 function addFromLocationHash() {
-  const match = /^#add=(\d+)$/.exec(window.location.hash);
+  const match = /^#items=([\d:,]+)$/.exec(window.location.hash);
   if (match === null) {
     return;
   }
-  const itemId = Number(match[1]);
-  let alreadyListed = false;
-  for (const entry of crafting.list.entries) {
-    if (entry.itemId === itemId) {
-      alreadyListed = true;
+  const entries = [];
+  for (const part of match[1].split(",")) {
+    const pieces = part.split(":");
+    const itemId = Number(pieces[0]);
+    if (itemId > 0) {
+      entries.push({ itemId: itemId, quantity: Math.max(1, Number(pieces[1]) || 1) });
     }
   }
-  if (!alreadyListed) {
-    crafting.list.entries.push({ itemId: itemId, quantity: 1 });
-    saveCraftingList();
-  }
+  crafting.list.entries = entries;
   history.replaceState(null, "", window.location.pathname);
-  setStatus("Added " + craftingItem(itemId).name + " to your crafting list.", "success");
+  setStatus("Loaded " + entries.length + " items from your crafting list.", "success");
 }
 
 function handleCraftingStartupError(error) {
