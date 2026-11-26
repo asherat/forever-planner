@@ -1,5 +1,5 @@
 window.ZONE_GUIDE = {
-  credit: "Tiers and level ranges from the \"Every Zone in WoW Forever RANKED WORST to BEST\" video and its pinned zone list.",
+  credit: "Tiers from the \"Every Zone in WoW Forever RANKED WORST to BEST\" video. Level ranges come from Questie's quest levels for your faction, or the video's zone list when your WoW folder isn't connected.",
   tierOrder: ["S", "A", "B", "C", "D"],
   zones: [
     { name: "Mount Hyjal", tier: "S", minLevel: 58, maxLevel: 60, faction: "both", note: "Best max-level zone: dense quests, elite quests with blue rewards." },
