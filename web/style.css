@@ -129,6 +129,10 @@ button:disabled {
   outline-offset: 2px;
 }
 
+.masked-input {
+  -webkit-text-security: disc;
+}
+
 .muted {
   color: var(--muted);
 }
