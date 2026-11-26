@@ -2,13 +2,6 @@ const MAX_CHARACTER_LEVEL = 60;
 const LATER_ZONE_WINDOW = 5;
 const SUGGESTED_READY_ZONES = 4;
 const SUGGESTED_LATER_ZONES = 2;
-const ENDGAME_QUEST_LEVEL = 58;
-const ENDGAME_ZONE_LEVEL = 55;
-const MIN_QUESTS_FOR_RANGE = 5;
-const MIN_QUESTS_PER_LEVEL = 2;
-const MIN_BAND_COVERAGE = 0.5;
-const BAND_LOWER_PERCENTILE = 0.1;
-const BAND_UPPER_PERCENTILE = 0.9;
 const TIER_COLORS = { S: "tier-orange", A: "tier-yellow", B: "tier-green", C: "tier-grey", D: "tier-grey" };
 
 const routeEditor = {
@@ -16,118 +9,13 @@ const routeEditor = {
   showAllZones: false
 };
 
-function selectedFactionType() {
-  const character = selectedCharacter();
-  if (character !== null && state.snapshots[character.slug]) {
-    return state.snapshots[character.slug].factionType;
-  }
-  return "HORDE";
-}
-
-function effectiveZone(zone) {
-  const range = zoneRange(zone, selectedFactionType());
-  return Object.assign({}, zone, range);
-}
-
 function guideZone(zoneName) {
   for (const zone of window.ZONE_GUIDE.zones) {
     if (zone.name === zoneName) {
-      return effectiveZone(zone);
+      return zone;
     }
   }
   return null;
-}
-
-function levelHasQuests(counts, level, isEndgameZone) {
-  if (level < 1 || (!isEndgameZone && level >= ENDGAME_QUEST_LEVEL)) {
-    return false;
-  }
-  return (counts[level] || 0) >= MIN_QUESTS_PER_LEVEL;
-}
-
-function questLevelBand(counts, isEndgameZone) {
-  const levels = [];
-  for (const level of Object.keys(counts)) {
-    if (isEndgameZone || Number(level) < ENDGAME_QUEST_LEVEL) {
-      levels.push(Number(level));
-    }
-  }
-  let total = 0;
-  let peak = null;
-  for (const level of levels) {
-    total += counts[level];
-    if (peak === null || counts[level] > counts[peak]) {
-      peak = level;
-    }
-  }
-  if (peak === null || total < MIN_QUESTS_FOR_RANGE) {
-    return null;
-  }
-  let low = peak;
-  while (true) {
-    if (levelHasQuests(counts, low - 1, isEndgameZone)) {
-      low -= 1;
-    } else if (levelHasQuests(counts, low - 2, isEndgameZone)) {
-      low -= 2;
-    } else {
-      break;
-    }
-  }
-  let high = peak;
-  while (true) {
-    if (levelHasQuests(counts, high + 1, isEndgameZone)) {
-      high += 1;
-    } else if (levelHasQuests(counts, high + 2, isEndgameZone)) {
-      high += 2;
-    } else {
-      break;
-    }
-  }
-  let covered = 0;
-  for (const level of levels) {
-    if (level >= low && level <= high) {
-      covered += counts[level];
-    }
-  }
-  if (covered / total < MIN_BAND_COVERAGE) {
-    return percentileBand(counts, levels, total);
-  }
-  return { minLevel: low, maxLevel: high };
-}
-
-function percentileBand(counts, levels, total) {
-  levels.sort(compareNumbers);
-  let seen = 0;
-  let low = null;
-  let high = null;
-  for (const level of levels) {
-    seen += counts[level];
-    if (low === null && seen >= total * BAND_LOWER_PERCENTILE) {
-      low = level;
-    }
-    if (high === null && seen >= total * BAND_UPPER_PERCENTILE) {
-      high = level;
-    }
-  }
-  return { minLevel: low, maxLevel: high };
-}
-
-function compareNumbers(first, second) {
-  return first - second;
-}
-
-function zoneRange(zone, factionType) {
-  const questie = state.questie;
-  if (questie !== null && questie.zoneLevels && questie.zoneLevels[zone.name]) {
-    const counts = questie.zoneLevels[zone.name][factionType];
-    if (counts) {
-      const band = questLevelBand(counts, zone.minLevel >= ENDGAME_ZONE_LEVEL);
-      if (band !== null) {
-        return { minLevel: band.minLevel, maxLevel: band.maxLevel, fromQuestie: true };
-      }
-    }
-  }
-  return { minLevel: zone.minLevel, maxLevel: zone.maxLevel, fromQuestie: false };
 }
 
 function tierRank(tier) {
@@ -178,8 +66,7 @@ function compareZoneSuggestions(first, second) {
 function nextZoneSuggestions(level, factionType, previousZone) {
   const ready = [];
   const later = [];
-  for (const guideEntry of window.ZONE_GUIDE.zones) {
-    const zone = effectiveZone(guideEntry);
+  for (const zone of window.ZONE_GUIDE.zones) {
     if (!zoneAllowedForFaction(zone, factionType) || zone.name === previousZone) {
       continue;
     }
@@ -213,7 +100,7 @@ function legForZone(character, snapshot, zoneName) {
     }
     if (leg.dungeons) {
       const zone = guideZone(leg.zone);
-      if (zone !== null && (zone.dungeons || []).indexOf(zoneName) !== -1) {
+      if (zone !== null && zoneHasDungeon(zone, zoneName)) {
         return leg;
       }
     }
@@ -254,6 +141,30 @@ function tierBadge(tier) {
   return createElement("span", "tier-badge " + TIER_COLORS[tier], tier);
 }
 
+function zoneHasDungeon(zone, dungeonName) {
+  for (const dungeon of zone.dungeons || []) {
+    if (dungeon.name === dungeonName) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function dungeonNames(zone) {
+  const names = [];
+  for (const dungeon of zone.dungeons || []) {
+    names.push(dungeon.name);
+  }
+  return names;
+}
+
+function dungeonLabel(dungeon) {
+  if (dungeon.minLevel && dungeon.maxLevel) {
+    return dungeon.name + " (" + dungeon.minLevel + "–" + dungeon.maxLevel + ")";
+  }
+  return dungeon.name;
+}
+
 function renderZoneChoice(zone, label) {
   const button = createElement("button", "zone-choice " + TIER_COLORS[zone.tier]);
   button.type = "button";
@@ -264,6 +175,13 @@ function renderZoneChoice(zone, label) {
   title.appendChild(createElement("span", "zone-range", label));
   button.appendChild(title);
   button.appendChild(createElement("span", "zone-note", zone.note));
+  if (zone.dungeons && zone.dungeons.length > 0) {
+    const labels = [];
+    for (const dungeon of zone.dungeons) {
+      labels.push(dungeonLabel(dungeon));
+    }
+    button.appendChild(createElement("span", "zone-dungeons", "Dungeons: " + labels.join(", ")));
+  }
   return button;
 }
 
@@ -312,7 +230,7 @@ function renderLeg(leg, index, snapshot) {
     checkbox.checked = leg.dungeons;
     checkbox.dataset.legDungeons = String(index);
     dungeonLine.appendChild(checkbox);
-    dungeonLine.append(" Include " + zone.dungeons.join(", "));
+    dungeonLine.append(" Include " + dungeonNames(zone).join(", "));
     item.appendChild(dungeonLine);
   }
   return item;

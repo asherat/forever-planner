@@ -1359,3 +1359,8 @@ legend {
 #add-crafted-button {
   justify-self: start;
 }
+
+.zone-dungeons {
+  font-size: 0.8rem;
+  color: var(--fg);
+}
