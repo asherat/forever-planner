@@ -129,6 +129,31 @@ button:disabled {
   outline-offset: 2px;
 }
 
+.money {
+  display: inline-flex;
+  gap: 0.35em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.money-part {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15em;
+}
+
+.coin {
+  display: inline-block;
+  width: 0.75em;
+  height: 0.75em;
+  border-radius: 50%;
+  box-shadow: inset -1px -1px 0 rgba(0, 0, 0, 0.35), inset 1px 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.coin-gold { background: radial-gradient(circle at 35% 35%, #ffe680, #d9a521 60%, #8a6210); }
+.coin-silver { background: radial-gradient(circle at 35% 35%, #ffffff, #b8bec7 60%, #6d737c); }
+.coin-copper { background: radial-gradient(circle at 35% 35%, #f6b48a, #b86b3a 60%, #6e3a1b); }
+
 .masked-input {
   -webkit-text-security: disc;
 }
@@ -149,6 +174,33 @@ button:disabled {
   padding: 10px max(16px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px));
   background: var(--surface);
   border-bottom: 1px solid var(--border);
+}
+
+.page-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 18px;
+}
+
+.page-link {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.page-link[aria-current="page"] {
+  color: var(--fg);
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-underline-offset: 6px;
+}
+
+.crafting-link {
+  display: inline-block;
+  margin-top: 2px;
+  color: var(--accent);
+  text-decoration: underline;
+  font-size: 0.85rem;
 }
 
 .brand {
@@ -738,4 +790,222 @@ legend {
   .icon-large { width: 38px; height: 38px; }
   .icon-small { width: 24px; height: 24px; }
   .slot { gap: 4px; }
+}
+
+.crafting-intro {
+  display: grid;
+  gap: 6px;
+}
+
+.crafting-intro p {
+  margin: 0;
+}
+
+.crafting-add {
+  display: grid;
+  gap: 6px;
+}
+
+.crafting-add label {
+  font-weight: 600;
+}
+
+#crafting-search {
+  flex: 3 1 240px;
+}
+
+#crafting-search-quantity,
+.crafting-quantity {
+  width: 5.5em;
+  flex: 0 0 auto;
+}
+
+.crafting-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
+  gap: 20px;
+  align-items: start;
+}
+
+.crafting-list-column {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.crafting-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 14px;
+}
+
+.crafting-entry {
+  display: grid;
+  gap: 8px;
+}
+
+.crafting-entry-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+
+.crafting-entry-title {
+  flex: 1 1 200px;
+  margin: 0;
+}
+
+.crafting-verdict {
+  margin: 0;
+}
+
+.verdict-good {
+  color: var(--gain-positive);
+}
+
+.verdict-bad {
+  color: var(--gain-negative);
+}
+
+.crafting-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.tree,
+.tree-children {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tree-children {
+  margin-left: 14px;
+  padding-left: 12px;
+  border-left: 1px solid var(--border);
+}
+
+.tree-node {
+  padding: 4px 0;
+}
+
+.tree-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+}
+
+.tree-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.tree-quantity {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.tree-explanation {
+  font-size: 0.8rem;
+  margin-left: 34px;
+}
+
+.mode-buttons {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.mode-button {
+  border: none;
+  border-radius: 0;
+  padding: 3px 10px;
+  font-size: 0.85rem;
+}
+
+.mode-button + .mode-button {
+  border-left: 1px solid var(--border);
+}
+
+.mode-button[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-weight: 600;
+}
+
+.crafting-cost {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 7em;
+  justify-content: flex-end;
+}
+
+.crafting-summary {
+  display: grid;
+  gap: 12px;
+  position: sticky;
+  top: 72px;
+}
+
+.crafting-summary .panel {
+  padding: 14px 16px;
+  display: grid;
+  gap: 8px;
+}
+
+.summary-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  font-size: 0.9rem;
+}
+
+.summary-row {
+  display: grid;
+  gap: 2px;
+}
+
+.summary-value {
+  font-size: 0.85rem;
+}
+
+.checkbox-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 860px) {
+  .crafting-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .crafting-summary {
+    position: static;
+  }
+}
+
+.crafting-verdict .crafting-cost {
+  min-width: 0;
+}
+
+.summary-label {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
 }

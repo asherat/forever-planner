@@ -66,6 +66,9 @@ async function ensureReadPermission(handle, askPermission) {
 }
 
 async function childDirectory(directoryHandle, name) {
+  if (directoryHandle === null) {
+    return null;
+  }
   try {
     return await directoryHandle.getDirectoryHandle(name);
   } catch (error) {
@@ -94,6 +97,47 @@ async function addonsDirectory(rootHandle) {
   return null;
 }
 
+async function gameDirectory(rootHandle) {
+  const foreverFolder = await childDirectory(rootHandle, FOREVER_FOLDER_NAME);
+  if (foreverFolder !== null) {
+    return foreverFolder;
+  }
+  if ((await childDirectory(rootHandle, "WTF")) !== null) {
+    return rootHandle;
+  }
+  return null;
+}
+
+async function readSavedVariablesFiles(rootHandle, fileName) {
+  const game = await gameDirectory(rootHandle);
+  if (game === null) {
+    return [];
+  }
+  const wtf = await childDirectory(game, "WTF");
+  const accounts = await childDirectory(wtf, "Account");
+  if (accounts === null) {
+    return [];
+  }
+  const files = [];
+  for await (const entry of accounts.values()) {
+    if (entry.kind !== "directory") {
+      continue;
+    }
+    const savedVariables = await childDirectory(entry, "SavedVariables");
+    if (savedVariables === null) {
+      continue;
+    }
+    try {
+      const fileHandle = await savedVariables.getFileHandle(fileName);
+      const file = await fileHandle.getFile();
+      files.push({ account: entry.name, text: await file.text(), modifiedAt: file.lastModified });
+    } catch (error) {
+      continue;
+    }
+  }
+  return files;
+}
+
 async function readAddonFile(rootHandle, addonName, fileName) {
   const addons = await addonsDirectory(rootHandle);
   if (addons === null) {
@@ -120,5 +164,6 @@ window.WOW_FOLDER = {
   forgetHandle: forgetHandle,
   ensureReadPermission: ensureReadPermission,
   addonsDirectory: addonsDirectory,
-  readAddonFile: readAddonFile
+  readAddonFile: readAddonFile,
+  readSavedVariablesFiles: readSavedVariablesFiles
 };
