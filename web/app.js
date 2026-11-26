@@ -1679,7 +1679,7 @@ function renderFolderStatus() {
     folderStatus.textContent = "Connected.";
   }
   document.getElementById("questie-status").textContent = questieStatusText();
-  renderFolderStatus();
+  document.getElementById("tsm-status").textContent = tsmStatusText();
 }
 
 async function handleWowFolderConnectClick() {
