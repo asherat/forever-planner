@@ -1,16 +1,19 @@
 # Forever Planner
 
-A personal gear planner for WoW: Forever characters. It runs as a plain web page opened from disk in Chrome. Your browser talks to Battle.net directly. There is no server.
+A personal gear planner for WoW: Forever characters. It runs as a Chrome extension loaded straight from this repo. Your browser talks to Battle.net directly. There is no server.
+
+Opening `web/index.html` as a plain file does not work: Battle.net refuses requests from `file://` pages.
 
 ## Use it (gaming PC)
 
 1. Clone this repo (GitHub Desktop is fine).
-2. Open `web/index.html` in Chrome. Bookmark it.
-3. Settings → paste your Battle.net API client ID and secret (from https://develop.battle.net/access/clients). They are stored only in this browser and sent only to Battle.net.
-4. Settings → add a character by first name and surname.
-5. Log out in game, then press **Refresh**. Characters show up from level 10, after a logout.
+2. In Chrome, open `chrome://extensions`, switch on **Developer mode**, click **Load unpacked** and pick the repo's `web` folder. Pin the extension to the toolbar.
+3. Click the toolbar button to open the planner.
+4. Settings → paste your Battle.net API client ID and secret (from https://develop.battle.net/access/clients). They are stored only in this browser and sent only to Battle.net.
+5. Settings → add a character by first name and surname.
+6. Log out in game, then press **Refresh**. Characters show up from level 10, after a logout.
 
-To update: pull the repo, then reload the page.
+To update: pull the repo, then reload the planner tab. If an update changes `manifest.json`, also click the reload icon on the extension in `chrome://extensions`.
 
 Settings (characters, specs, weights, hidden items) live in this browser. Use **Save settings file** in Settings for a backup. The client secret is never included in that file.
 
