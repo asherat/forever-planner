@@ -28,7 +28,7 @@
     <p>Add your Battle.net API client in Settings, then add a character by first name and surname. Your client secret is stored only in this browser and is sent only to Battle.net.</p>
   </section>
 
-  <section id="armory" hidden>
+  <section id="armory" class="armory" hidden>
     <div class="character-header">
       <h1 id="character-name"></h1>
       <p id="character-meta" class="muted"></p>
@@ -50,6 +50,11 @@
       <div id="slots-right" class="slot-column slot-column-right"></div>
       <div id="slots-bottom" class="slot-row"></div>
     </div>
+    <aside id="route-panel" class="route-panel panel" aria-labelledby="route-title">
+      <h2 id="route-title">Leveling path</h2>
+      <div id="route-content"></div>
+      <p id="route-credit" class="muted route-credit"></p>
+    </aside>
   </section>
 
   <section id="priorities" hidden>
@@ -135,7 +140,9 @@
 <script src="wow-folder.js?build=__BUILD__"></script>
 <script src="tsm.js?build=__BUILD__"></script>
 <script src="questie.js?build=__BUILD__"></script>
+<script src="zone-guide.js?build=__BUILD__"></script>
 <script src="common.js?build=__BUILD__"></script>
+<script src="route.js?build=__BUILD__"></script>
 <script src="app.js?build=__BUILD__"></script>
 </body>
 </html>
