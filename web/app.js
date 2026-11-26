@@ -409,35 +409,10 @@ function slotItemTypes(slotDefinition, snapshot) {
 
 function comparisonBaseline(slotDefinition, snapshot, item, weights) {
   const equipment = snapshot.equipment;
-  if (slotDefinition.pairedWith) {
-    const ownScore = itemScore(equipment[slotDefinition.key], weights);
-    const pairedScore = itemScore(equipment[slotDefinition.pairedWith], weights);
-    return Math.min(ownScore, pairedScore);
-  }
   if (slotDefinition.key === "MAIN_HAND" && isTwoHanded(item)) {
     return itemScore(equipment.MAIN_HAND, weights) + itemScore(equipment.OFF_HAND, weights);
   }
   return itemScore(equipment[slotDefinition.key], weights);
-}
-
-function candidatesForSlot(slotDefinition, snapshot, character) {
-  const candidates = rankedCandidatesForSlot(slotDefinition, snapshot, character);
-  if (slotDefinition.pairedWith === undefined || slotDefinition.key.endsWith("_1")) {
-    return candidates;
-  }
-  const pairedDefinition = slotDefinitionByKey(slotDefinition.pairedWith);
-  const pairedCandidates = rankedCandidatesForSlot(pairedDefinition, snapshot, character);
-  if (pairedCandidates.length === 0) {
-    return candidates;
-  }
-  const takenItemName = pairedCandidates[0].item.name;
-  const remaining = [];
-  for (const candidate of candidates) {
-    if (candidate.item.name !== takenItemName) {
-      remaining.push(candidate);
-    }
-  }
-  return remaining;
 }
 
 function slotDefinitionByKey(slotKey) {
@@ -937,10 +912,59 @@ function candidatePriority(candidate, snapshot) {
   return candidate.primaryGain * FUTURE_UPGRADE_WEIGHT;
 }
 
-function upgradeOptions(slotDefinition, snapshot, character, takenItemNames) {
+function questOnlyIds(item, snapshot) {
+  if (isListedOnAuctionHouse(item)) {
+    return null;
+  }
+  const questIds = [];
+  for (const source of sourcesForCharacter(item, snapshot)) {
+    if (source.type !== "quest") {
+      return null;
+    }
+    questIds.push(source.questId);
+  }
+  return questIds;
+}
+
+function isBlockedByPartner(item, snapshot, blocked) {
+  if (blocked.names.has(item.name)) {
+    return true;
+  }
+  const questIds = questOnlyIds(item, snapshot);
+  if (questIds === null || questIds.length === 0) {
+    return false;
+  }
+  for (const questId of questIds) {
+    if (!blocked.questIds.has(questId)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function blockPicks(options, snapshot, blocked) {
+  const picks = [options.best];
+  if (options.quicker !== null) {
+    picks.push(options.quicker);
+  }
+  for (const pick of picks) {
+    blocked.names.add(pick.item.name);
+    for (const source of sourcesForCharacter(pick.item, snapshot)) {
+      if (source.type === "quest") {
+        blocked.questIds.add(source.questId);
+      }
+    }
+  }
+}
+
+function emptyBlockList() {
+  return { names: new Set(), questIds: new Set() };
+}
+
+function upgradeOptions(slotDefinition, snapshot, character, blocked) {
   const candidates = [];
-  for (const candidate of candidatesForSlot(slotDefinition, snapshot, character)) {
-    if (!takenItemNames.has(candidate.item.name)) {
+  for (const candidate of rankedCandidatesForSlot(slotDefinition, snapshot, character)) {
+    if (!isBlockedByPartner(candidate.item, snapshot, blocked)) {
       candidates.push(candidate);
     }
   }
@@ -954,6 +978,29 @@ function upgradeOptions(slotDefinition, snapshot, character, takenItemNames) {
     priority = candidatePriority(quicker, snapshot);
   }
   return { slotDefinition: slotDefinition, best: best, quicker: quicker, priority: priority };
+}
+
+function pairedUpgradeOptions(slotDefinition, snapshot, character) {
+  const weights = specWeights(activeSpecs(character)[0], characterPlaystyle(character));
+  const keys = [slotDefinition.key, slotDefinition.pairedWith];
+  if (itemScore(snapshot.equipment[keys[1]], weights) < itemScore(snapshot.equipment[keys[0]], weights)) {
+    keys.reverse();
+  }
+  const blocked = emptyBlockList();
+  const parts = [];
+  let priority = 0;
+  for (const key of keys) {
+    const options = upgradeOptions(slotDefinitionByKey(key), snapshot, character, blocked);
+    if (options === null) {
+      continue;
+    }
+    parts.push(options);
+    blockPicks(options, snapshot, blocked);
+    if (options.priority > priority) {
+      priority = options.priority;
+    }
+  }
+  return { group: true, slotDefinition: slotDefinition, parts: parts, priority: priority };
 }
 
 function compareUpgradeOptions(first, second) {
@@ -1263,7 +1310,40 @@ function renderOptionPrices(item, craftSource) {
   return line;
 }
 
+function renderReplacementPart(options, snapshot, character) {
+  const part = createElement("div", "priority-part");
+  part.id = "upgrade-" + options.slotDefinition.key;
+  const equipped = snapshot.equipment[options.slotDefinition.key];
+  const label = createElement("h4", "priority-part-heading");
+  if (equipped) {
+    label.append("Replace ");
+    label.appendChild(wowheadLink(equipped));
+  } else {
+    label.append("Fill your empty " + options.slotDefinition.label.toLowerCase() + " slot");
+  }
+  part.appendChild(label);
+  const optionRow = createElement("div", "option-row");
+  optionRow.appendChild(renderOption("Best upgrade", options.best, snapshot, character, options.slotDefinition));
+  if (options.quicker !== null) {
+    optionRow.appendChild(renderOption("Quicker option", options.quicker, snapshot, character, options.slotDefinition));
+  }
+  part.appendChild(optionRow);
+  return part;
+}
+
+function renderPriorityGroup(group, snapshot, character) {
+  const entry = createElement("li", "priority");
+  entry.appendChild(createElement("h3", "priority-heading", group.slotDefinition.groupLabel));
+  for (const part of group.parts) {
+    entry.appendChild(renderReplacementPart(part, snapshot, character));
+  }
+  return entry;
+}
+
 function renderPriority(options, snapshot, character) {
+  if (options.group) {
+    return renderPriorityGroup(options, snapshot, character);
+  }
   const slotDefinition = options.slotDefinition;
   const entry = createElement("li", "priority");
   entry.id = "upgrade-" + slotDefinition.key;
@@ -1345,6 +1425,7 @@ function render() {
     welcome.hidden = false;
     armory.hidden = true;
     priorities.hidden = true;
+    document.getElementById("planner-sidebar").hidden = true;
     if (character !== null) {
       setStatus("Press Refresh to load " + character.displayName + ".", "info");
     }
@@ -1353,6 +1434,7 @@ function render() {
   welcome.hidden = true;
   armory.hidden = false;
   priorities.hidden = false;
+  document.getElementById("planner-sidebar").hidden = false;
 
   document.getElementById("character-name").textContent = character.displayName;
   document.getElementById("character-meta").textContent =
@@ -1380,23 +1462,29 @@ function render() {
 
   const optionsBySlot = {};
   const allOptions = [];
-  const takenItemNames = new Set();
+  const handledPairs = new Set();
   for (const slotDefinition of window.GAME_RULES.equipmentSlots) {
-    if (slotDefinition.cosmetic) {
+    if (slotDefinition.cosmetic || handledPairs.has(slotDefinition.key)) {
       continue;
     }
-    const options = upgradeOptions(slotDefinition, snapshot, character, takenItemNames);
+    if (slotDefinition.pairedWith) {
+      handledPairs.add(slotDefinition.key);
+      handledPairs.add(slotDefinition.pairedWith);
+      const group = pairedUpgradeOptions(slotDefinition, snapshot, character);
+      for (const part of group.parts) {
+        optionsBySlot[part.slotDefinition.key] = part;
+      }
+      if (group.parts.length > 0) {
+        allOptions.push(group);
+      }
+      continue;
+    }
+    const options = upgradeOptions(slotDefinition, snapshot, character, emptyBlockList());
     if (options === null) {
       continue;
     }
     optionsBySlot[slotDefinition.key] = options;
     allOptions.push(options);
-    if (slotDefinition.pairedWith) {
-      takenItemNames.add(options.best.item.name);
-      if (options.quicker !== null) {
-        takenItemNames.add(options.quicker.item.name);
-      }
-    }
   }
 
   const columns = {
@@ -1794,10 +1882,11 @@ function cartHash() {
 }
 
 function renderCart() {
-  const container = document.getElementById("crafting-cart");
   const list = document.getElementById("crafting-cart-items");
   list.replaceChildren();
-  container.hidden = state.craftingCart.length === 0;
+  const isEmpty = state.craftingCart.length === 0;
+  document.getElementById("crafting-cart-empty").hidden = !isEmpty;
+  document.getElementById("crafting-cart-actions").hidden = isEmpty;
   for (let index = 0; index < state.craftingCart.length; index += 1) {
     const entry = state.craftingCart[index];
     const row = createElement("li", "crafting-cart-row");
