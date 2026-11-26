@@ -24,7 +24,7 @@ CREDENTIALS_FILE = Path.home() / ".config" / "blizzard-api.env"
 
 EQUIPPABLE_ITEM_CLASSES = {"Armor", "Weapon"}
 EXCLUDED_QUALITIES = {"POOR"}
-EXCLUDED_NAME_PATTERN = re.compile(r"^\[TMP\]|^Test |Test Staff|Monster -|^Deprecated", re.IGNORECASE)
+EXCLUDED_NAME_PATTERN = re.compile(r"^\[TMP\]|\bTEST\b|^QA|\[PH\]|Monster -|^Deprecated", re.IGNORECASE)
 ICON_FILE_PATTERN = re.compile(r"/icons/\d+/(\d+)\.jpg$")
 FERAL_ATTACK_POWER_PATTERN = re.compile(r"\+(\d+) Attack Power in Cat, Bear, and Dire Bear forms only")
 

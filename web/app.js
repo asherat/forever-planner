@@ -245,7 +245,11 @@ function characterPlaystyle(character) {
 }
 
 function activeSpecs(character) {
-  return characterSpecs(character, state.snapshots[character.slug]);
+  const specs = characterSpecs(character, state.snapshots[character.slug]);
+  if (character.gearFor === "off" && specs.length > 1) {
+    return [specs[1], specs[0]];
+  }
+  return specs;
 }
 
 function specWeights(specKey, playstyle) {
@@ -1284,6 +1288,17 @@ function renderPlayControls(character, snapshot) {
     playstyleChoices.push({ value: playstyleKey, label: window.GAME_RULES.playstyles[playstyleKey].label });
   }
   renderChoiceGroup(document.getElementById("playstyle-choices"), "playstyle", playstyleChoices, characterPlaystyle(character));
+  const specs = characterSpecs(character, snapshot);
+  const gearForGroup = document.getElementById("gear-for");
+  gearForGroup.hidden = specs.length < 2;
+  if (specs.length > 1) {
+    let gearFor = "main";
+    if (character.gearFor === "off") {
+      gearFor = "off";
+    }
+    renderChoiceGroup(document.getElementById("gear-for-choices"), "gear-for",
+      [{ value: "main", label: "Main: " + specLabel(specs[0]) }, { value: "off", label: "Off: " + specLabel(specs[1]) }], gearFor);
+  }
   const feralGroup = document.getElementById("feral-form");
   feralGroup.hidden = !hasFeralSpec(snapshot);
   let feralForm = "cat";
@@ -1584,6 +1599,9 @@ function handlePlayControlsChange(event) {
   }
   if (event.target.name === "feral-form") {
     character.feralForm = event.target.value;
+  }
+  if (event.target.name === "gear-for") {
+    character.gearFor = event.target.value;
   }
   saveSettings();
   render();
