@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Forever Planner</title>
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?build=__BUILD__">
 </head>
 <body>
 <header class="topbar">
@@ -68,7 +68,7 @@
       <label for="client-id-input">Client ID</label>
       <input id="client-id-input" autocomplete="off" spellcheck="false">
       <label for="client-secret-input">Client secret</label>
-      <input id="client-secret-input" type="password" autocomplete="off" spellcheck="false">
+      <input id="client-secret-input" class="masked-input" autocomplete="off" spellcheck="false">
       <label for="region-select">Region</label>
       <select id="region-select">
         <option value="eu">EU</option>
@@ -122,14 +122,14 @@
   </form>
 </dialog>
 
-<script src="data/build-info.js"></script>
-<script src="data/items.js"></script>
-<script src="data/quests.js"></script>
-<script src="game-rules.js"></script>
-<script src="data/zones.js"></script>
-<script src="wow-folder.js"></script>
-<script src="tsm.js"></script>
-<script src="questie.js"></script>
-<script src="app.js"></script>
+<script src="data/build-info.js?build=__BUILD__"></script>
+<script src="data/items.js?build=__BUILD__"></script>
+<script src="data/quests.js?build=__BUILD__"></script>
+<script src="game-rules.js?build=__BUILD__"></script>
+<script src="data/zones.js?build=__BUILD__"></script>
+<script src="wow-folder.js?build=__BUILD__"></script>
+<script src="tsm.js?build=__BUILD__"></script>
+<script src="questie.js?build=__BUILD__"></script>
+<script src="app.js?build=__BUILD__"></script>
 </body>
 </html>
