@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Forever Planner</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">Forever Planner</div>
+  <div class="topbar-controls">
+    <select id="character-select" aria-label="Character"></select>
+    <button id="refresh-button" type="button" class="primary">Refresh</button>
+    <button id="settings-button" type="button">Settings</button>
+  </div>
+</header>
+
+<main>
+  <p id="status-line" class="status-line" role="status"></p>
+
+  <section id="welcome" class="panel" hidden>
+    <h1>Set up</h1>
+    <p>Add your Battle.net API client in Settings, then add a character by first name and surname. Your client secret is stored only in this browser and is sent only to Battle.net.</p>
+  </section>
+
+  <section id="armory" hidden>
+    <div class="character-header">
+      <img id="character-avatar" alt="" hidden>
+      <div>
+        <h1 id="character-name"></h1>
+        <p id="character-meta" class="muted"></p>
+        <p id="character-specs" class="muted"></p>
+      </div>
+    </div>
+    <div class="paperdoll">
+      <div id="slots-left" class="slot-column"></div>
+      <div id="slots-right" class="slot-column"></div>
+      <div id="slots-bottom" class="slot-row"></div>
+    </div>
+  </section>
+
+  <section id="details" hidden>
+    <h2>Upgrade details</h2>
+    <p class="muted">Best candidates per slot, ranked for your primary spec. Items up to <span id="lookahead-label"></span> levels above you are included.</p>
+    <div id="detail-list"></div>
+  </section>
+</main>
+
+<dialog id="settings-dialog">
+  <form id="settings-form" method="dialog">
+    <h2>Settings</h2>
+
+    <fieldset>
+      <legend>Battle.net API client</legend>
+      <label for="client-id-input">Client ID</label>
+      <input id="client-id-input" autocomplete="off" spellcheck="false">
+      <label for="client-secret-input">Client secret</label>
+      <input id="client-secret-input" type="password" autocomplete="off" spellcheck="false">
+      <label for="region-select">Region</label>
+      <select id="region-select">
+        <option value="eu">EU</option>
+        <option value="us">US</option>
+        <option value="kr">KR</option>
+        <option value="tw">TW</option>
+      </select>
+    </fieldset>
+
+    <fieldset>
+      <legend>Characters</legend>
+      <div id="character-list"></div>
+      <div class="inline-fields">
+        <input id="new-character-name" placeholder="First name" aria-label="First name">
+        <input id="new-character-surname" placeholder="Surname" aria-label="Surname">
+        <button id="add-character-button" type="button">Add</button>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Upgrades</legend>
+      <label for="lookahead-input">Show items up to this many levels above you</label>
+      <input id="lookahead-input" type="number" min="0" max="10">
+      <p class="muted"><span id="hidden-item-count"></span> <button id="clear-hidden-button" type="button" class="link">Show hidden items again</button></p>
+    </fieldset>
+
+    <fieldset>
+      <legend>Stat weights</legend>
+      <label for="weights-preset-select">Spec</label>
+      <select id="weights-preset-select"></select>
+      <div id="weights-editor" class="weights-grid"></div>
+      <button id="reset-weights-button" type="button" class="link">Reset this spec to defaults</button>
+    </fieldset>
+
+    <fieldset>
+      <legend>Backup</legend>
+      <p class="muted">Characters, specs, weights and hidden items. The client secret is never included.</p>
+      <div class="inline-fields">
+        <button id="export-button" type="button">Save settings file</button>
+        <label class="file-button">Load settings file<input id="import-input" type="file" accept="application/json"></label>
+      </div>
+    </fieldset>
+
+    <div class="dialog-actions">
+      <button id="settings-save-button" type="submit" class="primary">Done</button>
+    </div>
+  </form>
+</dialog>
+
+<template id="slot-template">
+  <div class="slot">
+    <div class="slot-label"></div>
+    <div class="slot-equipped"></div>
+    <div class="slot-upgrade"></div>
+  </div>
+</template>
+
+<script src="data/build-info.js"></script>
+<script src="data/items.js"></script>
+<script src="data/quests.js"></script>
+<script src="game-rules.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
