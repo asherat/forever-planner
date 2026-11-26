@@ -1,0 +1,9 @@
+{
+  "name": "forever-planner",
+  "private": true,
+  "description": "Gear, leveling and crafting planner for WoW: Forever.",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test \"tests/*.test.js\""
+  }
+}
