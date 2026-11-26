@@ -107,3 +107,16 @@ test("orders a quest chain from its first step and finds each quest giver", () =
   assert.equal(chain[1].starter.x, 65);
   assert.equal(chain[1].starter.y, 21);
 });
+
+test("reads dungeon entrances including later overrides", () => {
+  const dungeonFile = [
+    "local dungeons = {",
+    '    [1176] = {"Zul\'Farrak",{978},440,{{440, 38.7, 20.1}}}, -- quests are 978',
+    '    [718] = {"Wailing Caverns",nil,17,{{17, 46, 36.5}}},',
+    "}",
+    "    dungeons[1176][4] = {{440, 39.2, 21.3}} -- Zul'Farrak"
+  ].join("\r\n");
+  const entrances = questie.parseDungeonEntrances(dungeonFile, zones);
+  assert.deepEqual(JSON.parse(JSON.stringify(entrances["Zul'Farrak"])), { zone: "Tanaris", x: 39.2, y: 21.3 });
+  assert.deepEqual(JSON.parse(JSON.stringify(entrances["Wailing Caverns"])), { zone: "The Barrens", x: 46, y: 36.5 });
+});

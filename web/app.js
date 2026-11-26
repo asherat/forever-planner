@@ -1291,7 +1291,9 @@ function renderOption(label, candidate, snapshot, character, slotDefinition) {
   const sources = sourcesForCharacter(item, snapshot);
   const sourceList = createElement("ul", "sources");
   for (const source of sources.slice(0, MAX_SOURCES_SHOWN)) {
-    sourceList.appendChild(createElement("li", null, describeSource(source, snapshot)));
+    const line = createElement("li", null, describeSource(source, snapshot));
+    setSourceMapTarget(line, source);
+    sourceList.appendChild(line);
   }
   if (sources.length > MAX_SOURCES_SHOWN) {
     sourceList.appendChild(createElement("li", "muted", "+" + (sources.length - MAX_SOURCES_SHOWN) + " more"));
@@ -1325,6 +1327,25 @@ function renderOption(label, candidate, snapshot, character, slotDefinition) {
   actions.appendChild(hideButton);
   option.appendChild(actions);
   return option;
+}
+
+function setSourceMapTarget(element, source) {
+  let place = null;
+  if (source.type === "quest") {
+    if (state.questie !== null && state.questie.reader) {
+      const starter = window.QUESTIE.questStarterFor(state.questie, source.questId);
+      if (starter !== null && starter.zone) {
+        place = placeForSource(starter);
+        place.caption = "Quest giver " + starter.name + ", " + place.caption;
+      }
+    }
+  } else if (source.type === "vendor" || source.type === "drop" || source.type === "object") {
+    place = placeForSource(source);
+  }
+  if (place !== null) {
+    setMapTarget(element, place.zone, place.x, place.y, place.caption);
+    element.tabIndex = 0;
+  }
 }
 
 function firstQuestSource(sources) {
@@ -1396,6 +1417,9 @@ function renderPlace(place) {
     text += " in " + place.zone;
   }
   line.append(text);
+  if (place.zone) {
+    setMapTarget(line, place.zone, place.x, place.y, placeForSource(place).caption);
+  }
   if (place.x !== null) {
     const waypoint = createElement("button", "waypoint", "(" + place.x.toFixed(1) + ", " + place.y.toFixed(1) + ")");
     waypoint.type = "button";
@@ -2430,6 +2454,7 @@ function handleTsmStartupError(error) {
 }
 
 function start() {
+  enableMapPopovers();
   loadState();
   bindEvents();
   if (!window.FOREVER_ITEMS) {

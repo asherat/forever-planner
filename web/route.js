@@ -165,6 +165,22 @@ function dungeonLabel(dungeon) {
   return dungeon.name;
 }
 
+function setZoneMapTarget(element, zone) {
+  const pins = [];
+  const captions = [zone.name];
+  for (const dungeon of zone.dungeons || []) {
+    const entrance = dungeonEntrance(dungeon.name);
+    if (entrance !== null && entrance.zone === zone.name) {
+      pins.push({ x: entrance.x, y: entrance.y });
+      captions.push(dungeon.name + " entrance (" + entrance.x.toFixed(1) + ", " + entrance.y.toFixed(1) + ")");
+    }
+  }
+  setMapTarget(element, zone.name, null, null, captions.join(" · "));
+  if (pins.length > 0) {
+    element.dataset.mapPins = JSON.stringify(pins);
+  }
+}
+
 function renderZoneChoice(zone, label) {
   const button = createElement("button", "zone-choice " + TIER_COLORS[zone.tier]);
   button.type = "button";
@@ -182,6 +198,7 @@ function renderZoneChoice(zone, label) {
     }
     button.appendChild(createElement("span", "zone-dungeons", "Dungeons: " + labels.join(", ")));
   }
+  setZoneMapTarget(button, zone);
   return button;
 }
 
@@ -200,7 +217,12 @@ function renderLeg(leg, index, snapshot) {
   }
   const header = createElement("div", "route-leg-header");
   header.appendChild(tierBadge(tier));
-  header.appendChild(createElement("span", "route-leg-zone", leg.zone));
+  const zoneLabel = createElement("span", "route-leg-zone", leg.zone);
+  if (zone !== null) {
+    setZoneMapTarget(zoneLabel, zone);
+    zoneLabel.tabIndex = 0;
+  }
+  header.appendChild(zoneLabel);
   const removeButton = createElement("button", "link route-remove", "Remove");
   removeButton.type = "button";
   removeButton.dataset.removeLeg = String(index);

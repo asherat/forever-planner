@@ -1,4 +1,6 @@
 import base64
+import csv
+import io
 import json
 import re
 import sys
@@ -21,6 +23,12 @@ ROOT = Path(__file__).resolve().parent.parent
 CACHE_DIR = ROOT / "data" / "cache"
 OUTPUT_DIR = ROOT / "web" / "data"
 CREDENTIALS_FILE = Path.home() / ".config" / "blizzard-api.env"
+WAGO_HOST = "https://wago.tools"
+WAGO_PRODUCT = "wowf"
+WAGO_USER_AGENT = "forever-planner-data-builder"
+CONTINENT_MAP_TYPE = "2"
+ZONE_MAP_TYPES = {"3", "4"}
+TEACHING_ITEM_PREFIXES = ["Pattern: ", "Plans: ", "Formula: ", "Recipe: ", "Schematic: ", "Design: ", "Manual: "]
 
 EQUIPPABLE_ITEM_CLASSES = {"Armor", "Weapon"}
 EXCLUDED_QUALITIES = {"POOR"}
@@ -390,6 +398,7 @@ def build_recipe_list():
                         reagents.append([reagent["reagent"]["id"], reagent["quantity"]])
                     recipes.append({
                         "id": recipe["id"],
+                        "name": recipe.get("name", ""),
                         "profession": profession["name"],
                         "itemId": crafted_item["id"],
                         "quantity": max(1, int(recipe.get("crafted_quantity", {}).get("value", 1))),
@@ -398,10 +407,35 @@ def build_recipe_list():
     return recipes
 
 
+def teaching_items():
+    by_name = {}
+    for prefix in TEACHING_ITEM_PREFIXES:
+        payload = cached_get(
+            "teaching-" + prefix.strip(" :").lower(),
+            "/data/wow/search/item",
+            {"name.en_GB": prefix.strip(), "orderby": "id", "_pageSize": 1000},
+        )
+        for result in payload.get("results", []):
+            name = result["data"]["name"][LOCALE]
+            if name.startswith(prefix):
+                by_name.setdefault(name[len(prefix):], result["data"]["id"])
+    return by_name
+
+
+def add_teaching_items(recipes):
+    by_name = teaching_items()
+    for recipe in recipes:
+        teaching_item_id = by_name.get(recipe.pop("name"))
+        if teaching_item_id is not None:
+            recipe["teachingItemId"] = teaching_item_id
+
+
 def build_crafting_items(recipes):
     item_ids = set()
     for recipe in recipes:
         item_ids.add(recipe["itemId"])
+        if "teachingItemId" in recipe:
+            item_ids.add(recipe["teachingItemId"])
         for reagent_id, quantity in recipe["reagents"]:
             item_ids.add(reagent_id)
     items = fetch_many("item", "/data/wow/item/{}", item_ids, "crafting items")
@@ -442,6 +476,70 @@ def reputation_names():
             side = faction["player_faction"]["type"]
         names[faction["name"]] = {"id": faction_id, "side": side}
     return names
+
+
+def wago_table(table_name):
+    cache_file = CACHE_DIR / "wago" / f"{table_name}.csv"
+    if not cache_file.exists():
+        builds_request = urllib.request.Request(f"{WAGO_HOST}/api/builds", headers={"User-Agent": WAGO_USER_AGENT})
+        with urllib.request.urlopen(builds_request, timeout=30) as response:
+            build = json.load(response)[WAGO_PRODUCT][0]["version"]
+        table_request = urllib.request.Request(f"{WAGO_HOST}/db2/{table_name}/csv?build={build}", headers={"User-Agent": WAGO_USER_AGENT})
+        with urllib.request.urlopen(table_request, timeout=60) as response:
+            text = response.read().decode("utf-8")
+        cache_file.parent.mkdir(parents=True, exist_ok=True)
+        cache_file.write_text(text)
+    return list(csv.DictReader(io.StringIO(cache_file.read_text())))
+
+
+def map_region(assignment):
+    return {
+        "minX": float(assignment["Region_0"]),
+        "minY": float(assignment["Region_1"]),
+        "maxX": float(assignment["Region_3"]),
+        "maxY": float(assignment["Region_4"]),
+    }
+
+
+def relative_rectangle(region, container):
+    width = container["maxY"] - container["minY"]
+    height = container["maxX"] - container["minX"]
+    return [
+        round((container["maxY"] - region["maxY"]) / width, 5),
+        round((container["maxX"] - region["maxX"]) / height, 5),
+        round((container["maxY"] - region["minY"]) / width, 5),
+        round((container["maxX"] - region["minX"]) / height, 5),
+    ]
+
+
+def build_maps():
+    ui_maps = {}
+    for row in wago_table("UiMap"):
+        ui_maps[row["ID"]] = row
+    regions = {}
+    for row in wago_table("UiMapAssignment"):
+        if row["OrderIndex"] == "0" and row["UiMapID"] not in regions:
+            regions[row["UiMapID"]] = map_region(row)
+    continents = {}
+    zones = {}
+    for map_id, ui_map in ui_maps.items():
+        if ui_map["Type"] != CONTINENT_MAP_TYPE or map_id not in regions:
+            continue
+        has_zones = False
+        for child_id, child in ui_maps.items():
+            if child["ParentUiMapID"] != map_id or child["Type"] not in ZONE_MAP_TYPES or child_id not in regions:
+                continue
+            has_zones = True
+            zones[child["Name_lang"]] = {
+                "continent": ui_map["Name_lang"],
+                "rectangle": relative_rectangle(regions[child_id], regions[map_id]),
+            }
+        if has_zones:
+            region = regions[map_id]
+            continents[ui_map["Name_lang"]] = {
+                "aspectRatio": round((region["maxY"] - region["minY"]) / (region["maxX"] - region["minX"]), 4)
+            }
+    return {"continents": continents, "zones": zones}
 
 
 def zone_names():
@@ -495,8 +593,10 @@ def main():
 
     write_javascript_global("items.js", "FOREVER_ITEMS", compact_items)
     write_javascript_global("zones.js", "FOREVER_ZONES", zone_names())
+    write_javascript_global("maps.js", "FOREVER_MAPS", build_maps())
     write_javascript_global("reputations.js", "FOREVER_REPUTATIONS", reputation_names())
     recipes = build_recipe_list()
+    add_teaching_items(recipes)
     write_javascript_global("recipes.js", "FOREVER_RECIPES", recipes)
     write_javascript_global("crafting-items.js", "FOREVER_CRAFTING_ITEMS", build_crafting_items(recipes))
     print(f"Wrote {len(compact_items)} items", file=sys.stderr)

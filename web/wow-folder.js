@@ -143,12 +143,17 @@ async function readAddonFile(rootHandle, addonName, fileName) {
   if (addons === null) {
     return null;
   }
-  const addon = await childDirectory(addons, addonName);
-  if (addon === null) {
+  let directory = await childDirectory(addons, addonName);
+  const pathParts = fileName.split("/");
+  const baseName = pathParts.pop();
+  for (const part of pathParts) {
+    directory = await childDirectory(directory, part);
+  }
+  if (directory === null) {
     return null;
   }
   try {
-    const fileHandle = await addon.getFileHandle(fileName);
+    const fileHandle = await directory.getFileHandle(baseName);
     const file = await fileHandle.getFile();
     return { text: await file.text(), modifiedAt: file.lastModified };
   } catch (error) {

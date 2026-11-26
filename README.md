@@ -20,6 +20,15 @@ It runs entirely in your browser. There is no server: your browser talks to Batt
 - Pick the zones you want to level in. The planner knows each zone's level range and asks how to fill gaps between zones.
 - Gear suggestions follow your path: quest rewards and drops only count for zones on it.
 
+**Maps**
+
+- Hover a zone in the leveling path, a vendor, drop, quest giver or dungeon entrance, or a recipe source to see where it is: the continent with the zone highlighted, and a close-up with a pin at the exact coordinates.
+- Click coordinates in the quest list to copy a `/way` command for Questie or TomTom.
+
+**Quest list**
+
+- Add quest rewards to the quest list. It shows the next step of each quest chain you haven't completed and who gives it.
+
 **Crafting**
 
 - Collect crafted items in the crafting list and open them all in the crafting tool.
@@ -49,6 +58,8 @@ It runs entirely in your browser. There is no server: your browser talks to Batt
 - Item, quest, recipe and zone data: the Battle.net API (WoW: Forever namespaces).
 - Item sources, quest levels and faction/class restrictions: your local QuestieDB install.
 - Prices and inventory: your local TradeSkillMaster data.
+- Zone positions on the continent maps: the game's `UiMap` and `UiMapAssignment` tables for the WoW: Forever build, from [wago.tools](https://wago.tools).
+- Dungeon entrances: your local QuestieDB install (`dungeons.lua`).
 - Zone tiers and notes: the video "Every Zone in WoW Forever RANKED WORST to BEST".
 - Zone level ranges: Icy Veins, "Not Sure Where to Level in WoW Forever? Here's Every Zone from 1 to 60".
 - Undocumented Forever API behaviour: [Pinta365/blizzard_api](https://github.com/Pinta365/blizzard_api) and its notes.
