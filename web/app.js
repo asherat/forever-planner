@@ -480,7 +480,9 @@ function gainBadge(value, label) {
 function gainBadges(candidate, character) {
   const gains = createElement("div", "gains");
   gains.appendChild(gainBadge(candidate.primaryGain, specLabel(character.specs[0])));
-  gains.appendChild(gainBadge(candidate.secondaryGain, specLabel(character.specs[1])));
+  if (character.specs[1] !== character.specs[0]) {
+    gains.appendChild(gainBadge(candidate.secondaryGain, specLabel(character.specs[1])));
+  }
   return gains;
 }
 
@@ -828,18 +830,6 @@ function renderComparisonTooltip(slotDefinition, snapshot, character, candidate)
     tooltipLine(tooltip, "tooltip-effect", effect);
   }
 
-  let replacedText = "Replaces an empty slot";
-  if (currentItems.length > 0) {
-    const names = [];
-    for (const item of currentItems) {
-      names.push(item.name);
-    }
-    replacedText = "Replaces " + names.join(" + ");
-  }
-  tooltipLine(tooltip, "tooltip-subtitle tooltip-separator", replacedText);
-  const gains = gainBadges(candidate, character);
-  gains.classList.add("tooltip-gains");
-  tooltip.appendChild(gains);
   return tooltip;
 }
 
@@ -876,7 +866,7 @@ function renderSlot(slotDefinition, snapshot, character, optionsBySlot) {
   return slot;
 }
 
-function renderOption(label, candidate, snapshot, character) {
+function renderOption(label, candidate, snapshot, character, slotDefinition) {
   const item = candidate.item;
   const option = createElement("div", "option");
   option.appendChild(createElement("div", "option-label", label));
@@ -891,6 +881,8 @@ function renderOption(label, candidate, snapshot, character) {
   }
   title.appendChild(createElement("span", "muted", subtitle));
   heading.appendChild(title);
+  heading.appendChild(renderComparisonTooltip(slotDefinition, snapshot, character, candidate));
+  heading.tabIndex = 0;
   option.appendChild(heading);
 
   option.appendChild(gainBadges(candidate, character));
@@ -972,9 +964,9 @@ function renderPriority(options, snapshot, character) {
   entry.appendChild(heading);
 
   const optionRow = createElement("div", "option-row");
-  optionRow.appendChild(renderOption("Best upgrade", options.best, snapshot, character));
+  optionRow.appendChild(renderOption("Best upgrade", options.best, snapshot, character, slotDefinition));
   if (options.quicker !== null) {
-    optionRow.appendChild(renderOption("Quicker option", options.quicker, snapshot, character));
+    optionRow.appendChild(renderOption("Quicker option", options.quicker, snapshot, character, slotDefinition));
   }
   entry.appendChild(optionRow);
   return entry;

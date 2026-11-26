@@ -358,16 +358,16 @@ button:disabled {
   font-size: 0.8rem;
 }
 
-.tooltip-separator {
-  margin-top: 6px;
-  padding-top: 6px;
-  border-top: 1px solid var(--border);
+
+.option-heading .tooltip {
+  left: 0;
+  top: calc(100% + 6px);
+  bottom: auto;
+  transform: none;
 }
 
-.tooltip-gains {
-  margin-top: 4px;
-}
-
+.option-heading:hover .tooltip,
+.option-heading:focus-visible .tooltip,
 .slot-equipped:hover .tooltip,
 .slot-equipped:focus-visible .tooltip,
 .slot-upgrade:hover .tooltip,
@@ -461,6 +461,7 @@ button:disabled {
 }
 
 .option-heading {
+  position: relative;
   display: flex;
   gap: 10px;
   align-items: center;
