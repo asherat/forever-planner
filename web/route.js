@@ -307,6 +307,9 @@ function renderRoutePanel(character, snapshot) {
   for (const zone of ready) {
     choices.appendChild(renderZoneChoice(zone, zone.minLevel + "–" + zone.maxLevel));
   }
+  if (later.length > 0) {
+    choices.appendChild(createElement("div", "zone-separator", "Needs a filler zone first"));
+  }
   for (const zone of later) {
     choices.appendChild(renderZoneChoice(zone, "starts at " + zone.minLevel));
   }
