@@ -13,7 +13,7 @@ Opening `web/index.html` as a plain file does not work: Battle.net refuses reque
 5. Settings → add a character by first name and surname.
 6. Log out in game, then press **Refresh**. Characters show up from level 10, after a logout.
 
-To update: pull the repo, then reload the planner tab. If an update changes `manifest.json`, also click the reload icon on the extension in `chrome://extensions`.
+To update: double-click `update.bat` in the repo folder (it runs `git pull`), then reload the planner tab. If an update changes `manifest.json`, also click the reload icon on the extension in `chrome://extensions`.
 
 Settings (characters, playstyle, hidden items) live in this browser. Specs are read from each character's talents. Use **Save settings file** in Settings for a backup. The client secret is never included in that file.
 
