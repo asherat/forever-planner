@@ -850,21 +850,32 @@ function creatureLevelText(source) {
   return "level " + source.minLevel;
 }
 
-function describeSource(source, snapshot) {
+function renderSourceLine(source) {
+  const line = createElement("li");
   if (source.type === "quest") {
     let levelPart = "";
     if (source.level) {
       levelPart = "level " + source.level;
     }
-    return "Quest: " + source.quest + joinDetails([levelPart, source.zone]);
+    line.append("Quest: ");
+    line.appendChild(wowheadPageLink("quest", source.questId, source.quest));
+    line.append(joinDetails([levelPart, source.zone]));
+    return line;
   }
   if (source.type === "vendor") {
-    let name = "Vendor: " + source.npc;
+    line.append("Vendor: ");
+    line.appendChild(wowheadPageLink("npc", source.npcId, source.npc));
     if (source.title) {
-      name += ", " + source.title;
+      line.append(", " + source.title);
     }
-    return name + joinDetails([source.zone]);
+    line.append(joinDetails([source.zone]));
+    return line;
   }
+  line.textContent = describeSource(source);
+  return line;
+}
+
+function describeSource(source) {
   if (source.type === "drop") {
     return "Drops from " + source.npc + joinDetails([creatureLevelText(source), creatureRankText(source.rank), source.zone]);
   }
@@ -1291,7 +1302,7 @@ function renderOption(label, candidate, snapshot, character, slotDefinition) {
   const sources = sourcesForCharacter(item, snapshot);
   const sourceList = createElement("ul", "sources");
   for (const source of sources.slice(0, MAX_SOURCES_SHOWN)) {
-    const line = createElement("li", null, describeSource(source, snapshot));
+    const line = renderSourceLine(source);
     setSourceMapTarget(line, source);
     sourceList.appendChild(line);
   }
@@ -1476,11 +1487,13 @@ function renderQuestEntry(entry, snapshot) {
     return row;
   }
   const step = steps[nextIndex];
-  let stepText = step.name + " (level " + step.questLevel + ")";
+  const stepLine = createElement("div", "quest-step");
   if (steps.length > 1) {
-    stepText = "Step " + (nextIndex + 1) + " of " + steps.length + ": " + stepText;
+    stepLine.append("Step " + (nextIndex + 1) + " of " + steps.length + ": ");
   }
-  row.appendChild(createElement("div", "quest-step", stepText));
+  stepLine.appendChild(wowheadPageLink("quest", step.id, step.name));
+  stepLine.append(" (level " + step.questLevel + ")");
+  row.appendChild(stepLine);
   row.appendChild(renderPlace(step.starter));
   return row;
 }

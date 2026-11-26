@@ -15,7 +15,7 @@ const MAP_IMAGE_HEIGHT = 373;
 const REGIONS = ["eu", "us", "kr", "tw"];
 const BARTERING_DISCOUNT_PER_RANK = 0.05;
 const VENDOR_PREFERENCE_MARGIN = 0.15;
-const WOWHEAD_ITEM_URL = "https://www.wowhead.com/forever/item=";
+const WOWHEAD_URL = "https://www.wowhead.com/forever/";
 
 const state = {
   credentials: null,
@@ -198,7 +198,15 @@ function iconUrlForItem(item) {
 }
 
 function wowheadUrl(item) {
-  return WOWHEAD_ITEM_URL + item.id;
+  return WOWHEAD_URL + "item=" + item.id;
+}
+
+function wowheadPageLink(pageType, id, text) {
+  const link = createElement("a", "wowhead-link", text);
+  link.href = WOWHEAD_URL + pageType + "=" + id;
+  link.target = "_blank";
+  link.rel = "noopener";
+  return link;
 }
 
 function wowheadLink(item) {

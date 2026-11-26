@@ -101,6 +101,15 @@ a:hover, a:focus-visible {
   text-decoration: underline;
 }
 
+.wowhead-link {
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+
+.wowhead-link:hover, .wowhead-link:focus-visible {
+  text-decoration-style: solid;
+}
+
 button, select, input {
   font: inherit;
   color: var(--fg);
