@@ -24,6 +24,11 @@
   --tier-yellow: #a8890b;
   --tier-green: #2f8a2f;
   --tier-grey: #7d776c;
+  --map-sea: #c9d6dc;
+  --map-zone: #e8e1cf;
+  --map-zone-line: #a89f88;
+  --map-current: #d68a1c;
+  --map-pin: #b3261e;
   --scene-top: #2b241b;
   --scene-bottom: #120f0b;
   --scene-edge: #4a3d2b;
@@ -46,6 +51,11 @@
     --gain-negative: #ef7a7a;
     --error: #ef7a7a;
     --success: #5ccf78;
+    --map-sea: #1c2a33;
+    --map-zone: #3a3426;
+    --map-zone-line: #5c5240;
+    --map-current: #e0a644;
+    --map-pin: #ff6b5e;
     --tier-orange: #ff8a3d;
     --tier-yellow: #ffd23f;
     --tier-green: #4fd14f;
@@ -1629,4 +1639,105 @@ legend {
   color: var(--accent);
   text-decoration: underline dotted;
   font-variant-numeric: tabular-nums;
+}
+
+.map-popover {
+  position: fixed;
+  z-index: 50;
+  width: 440px;
+  max-width: calc(100vw - 16px);
+  padding: 8px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+.continent-map {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 4px;
+}
+
+.map-sea {
+  fill: var(--map-sea);
+}
+
+.map-zone {
+  fill: var(--map-zone);
+  stroke: var(--map-zone-line);
+  stroke-width: 0.6;
+  fill-opacity: 0.85;
+}
+
+.map-zone-current {
+  fill: var(--map-current);
+  fill-opacity: 0.55;
+  stroke: var(--map-current);
+  stroke-width: 1.4;
+}
+
+.map-label {
+  font: 6px var(--font-body);
+  fill: var(--fg);
+  fill-opacity: 0.6;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+}
+
+.map-label-current {
+  font-weight: 700;
+  font-size: 8px;
+  fill-opacity: 1;
+}
+
+.map-pin {
+  fill: var(--map-pin);
+  stroke: #ffffff;
+  stroke-width: 1;
+}
+
+.map-pin-halo {
+  fill: var(--map-pin);
+  fill-opacity: 0.25;
+}
+
+.map-caption {
+  margin-top: 6px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.has-map {
+  cursor: help;
+}
+
+.recipe-source {
+  display: grid;
+  gap: 2px;
+  margin: 2px 0 0 4px;
+  color: var(--muted);
+}
+
+.map-views {
+  display: grid;
+  grid-template-columns: 2fr 3fr;
+  gap: 6px;
+  align-items: center;
+}
+
+.map-overview .map-label-current {
+  font-size: 14px;
+}
+
+.map-close-up .map-label {
+  font-size: 9px;
+  fill-opacity: 0.8;
+}
+
+.map-close-up .map-label-current {
+  font-size: 12px;
 }

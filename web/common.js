@@ -8,6 +8,11 @@ const STORAGE_KEYS = {
 };
 
 const DEFAULT_LOOKAHEAD_LEVELS = 3;
+const SVG_NAMESPACE_URI = "http://www.w3.org/2000/svg";
+const MAP_WIDTH = 300;
+const MAP_OVERVIEW_PADDING = 0.04;
+const MAP_CLOSE_UP_PADDING = 0.6;
+const MAP_POPOVER_GAP = 8;
 const REGIONS = ["eu", "us", "kr", "tw"];
 const BARTERING_DISCOUNT_PER_RANK = 0.05;
 const VENDOR_PREFERENCE_MARGIN = 0.15;
@@ -323,6 +328,11 @@ async function readQuestieFile(folder) {
   }
   const details = window.QUESTIE.buildDetails(questieFile.text, questieItemIds(), window.FOREVER_ZONES, questieQuestIds());
   details.modifiedAt = questieFile.modifiedAt;
+  details.dungeonEntrances = {};
+  const dungeonFile = await window.WOW_FOLDER.readAddonFile(folder, window.QUESTIE.addonName, window.QUESTIE.dungeonFile);
+  if (dungeonFile !== null) {
+    details.dungeonEntrances = window.QUESTIE.parseDungeonEntrances(dungeonFile.text, window.FOREVER_ZONES);
+  }
   state.questie = details;
 }
 
@@ -438,4 +448,261 @@ function tsmStatusText() {
     scopeText = state.tsm.scope + " auction house and region prices";
   }
   return "TSM prices: " + scopeText + ", from " + new Date(state.tsm.downloadedAt).toLocaleString() + ".";
+}
+
+function svgElement(tagName, attributes) {
+  const element = document.createElementNS(SVG_NAMESPACE_URI, tagName);
+  for (const name of Object.keys(attributes)) {
+    element.setAttribute(name, String(attributes[name]));
+  }
+  return element;
+}
+
+function mapZone(zoneName) {
+  if (!window.FOREVER_MAPS || !zoneName) {
+    return null;
+  }
+  return window.FOREVER_MAPS.zones[zoneName] || null;
+}
+
+function continentBounds(continent) {
+  const bounds = { left: 1, top: 1, right: 0, bottom: 0 };
+  for (const name of Object.keys(window.FOREVER_MAPS.zones)) {
+    const zone = window.FOREVER_MAPS.zones[name];
+    if (zone.continent !== continent) {
+      continue;
+    }
+    bounds.left = Math.min(bounds.left, zone.rectangle[0]);
+    bounds.top = Math.min(bounds.top, zone.rectangle[1]);
+    bounds.right = Math.max(bounds.right, zone.rectangle[2]);
+    bounds.bottom = Math.max(bounds.bottom, zone.rectangle[3]);
+  }
+  return padBounds(bounds, MAP_OVERVIEW_PADDING);
+}
+
+function padBounds(bounds, padding) {
+  const width = bounds.right - bounds.left;
+  const height = bounds.bottom - bounds.top;
+  return {
+    left: bounds.left - width * padding,
+    top: bounds.top - height * padding,
+    right: bounds.right + width * padding,
+    bottom: bounds.bottom + height * padding
+  };
+}
+
+function closeUpBounds(zone) {
+  const rectangle = zone.rectangle;
+  const bounds = { left: rectangle[0], top: rectangle[1], right: rectangle[2], bottom: rectangle[3] };
+  return padBounds(bounds, MAP_CLOSE_UP_PADDING);
+}
+
+function rectanglesOverlap(rectangle, bounds) {
+  return rectangle[0] < bounds.right && rectangle[2] > bounds.left && rectangle[1] < bounds.bottom && rectangle[3] > bounds.top;
+}
+
+function compareCurrentZoneLast(currentZone, first, second) {
+  return Number(first === currentZone) - Number(second === currentZone);
+}
+
+function renderMapView(zoneName, pins, bounds, showLabels, className) {
+  const zone = mapZone(zoneName);
+  const aspectRatio = window.FOREVER_MAPS.continents[zone.continent].aspectRatio;
+  const viewWidth = MAP_WIDTH;
+  const scaleX = viewWidth / (bounds.right - bounds.left);
+  const scaleY = scaleX / aspectRatio;
+  const viewHeight = (bounds.bottom - bounds.top) * scaleY;
+  const svg = svgElement("svg", { viewBox: "0 0 " + viewWidth + " " + Math.round(viewHeight), class: className });
+  svg.setAttribute("aria-hidden", "true");
+  svg.appendChild(svgElement("rect", { x: 0, y: 0, width: viewWidth, height: viewHeight, class: "map-sea" }));
+  const labels = [];
+  const names = Object.keys(window.FOREVER_MAPS.zones);
+  names.sort(compareCurrentZoneLast.bind(null, zoneName));
+  for (const name of names) {
+    const other = window.FOREVER_MAPS.zones[name];
+    if (other.continent !== zone.continent || !rectanglesOverlap(other.rectangle, bounds)) {
+      continue;
+    }
+    const rectangle = other.rectangle;
+    const box = {
+      x: (rectangle[0] - bounds.left) * scaleX,
+      y: (rectangle[1] - bounds.top) * scaleY,
+      width: (rectangle[2] - rectangle[0]) * scaleX,
+      height: (rectangle[3] - rectangle[1]) * scaleY
+    };
+    let zoneClass = "map-zone";
+    if (name === zoneName) {
+      zoneClass = "map-zone map-zone-current";
+    }
+    svg.appendChild(svgElement("rect", { x: box.x, y: box.y, width: box.width, height: box.height, class: zoneClass }));
+    if (showLabels || name === zoneName) {
+      labels.push({ name: name, box: box, current: name === zoneName });
+    }
+  }
+  for (const label of labels) {
+    let labelClass = "map-label";
+    if (label.current) {
+      labelClass = "map-label map-label-current";
+    }
+    const text = svgElement("text", { x: label.box.x + label.box.width / 2, y: label.box.y + label.box.height / 2, class: labelClass });
+    text.textContent = label.name;
+    svg.appendChild(text);
+  }
+  for (const pin of pins) {
+    const rectangle = zone.rectangle;
+    const pointX = (rectangle[0] + (rectangle[2] - rectangle[0]) * pin.x / 100 - bounds.left) * scaleX;
+    const pointY = (rectangle[1] + (rectangle[3] - rectangle[1]) * pin.y / 100 - bounds.top) * scaleY;
+    svg.appendChild(svgElement("circle", { cx: pointX, cy: pointY, r: 7, class: "map-pin-halo" }));
+    svg.appendChild(svgElement("circle", { cx: pointX, cy: pointY, r: 3.5, class: "map-pin" }));
+  }
+  return svg;
+}
+
+function renderContinentMap(zoneName, pins) {
+  const zone = mapZone(zoneName);
+  if (zone === null) {
+    return null;
+  }
+  const container = createElement("div", "map-views");
+  container.setAttribute("role", "img");
+  container.setAttribute("aria-label", zoneName + " on the map of " + zone.continent);
+  container.appendChild(renderMapView(zoneName, [], continentBounds(zone.continent), false, "continent-map map-overview"));
+  container.appendChild(renderMapView(zoneName, pins, closeUpBounds(zone), true, "continent-map map-close-up"));
+  return container;
+}
+
+function readMapTarget(element) {
+  const pins = [];
+  if (element.dataset.mapX !== undefined && element.dataset.mapX !== "") {
+    pins.push({ x: Number(element.dataset.mapX), y: Number(element.dataset.mapY) });
+  }
+  if (element.dataset.mapPins) {
+    for (const pin of JSON.parse(element.dataset.mapPins)) {
+      pins.push(pin);
+    }
+  }
+  return { zone: element.dataset.mapZone, pins: pins, caption: element.dataset.mapCaption || element.dataset.mapZone };
+}
+
+function mapPopover() {
+  let popover = document.getElementById("map-popover");
+  if (popover === null) {
+    popover = createElement("div", "map-popover");
+    popover.id = "map-popover";
+    popover.hidden = true;
+    document.body.appendChild(popover);
+  }
+  return popover;
+}
+
+function showMapFor(element) {
+  const target = readMapTarget(element);
+  const map = renderContinentMap(target.zone, target.pins);
+  if (map === null) {
+    return;
+  }
+  const popover = mapPopover();
+  popover.replaceChildren(map, createElement("div", "map-caption", target.caption));
+  popover.hidden = false;
+  const anchor = element.getBoundingClientRect();
+  const box = popover.getBoundingClientRect();
+  let left = anchor.left;
+  if (left + box.width > window.innerWidth - MAP_POPOVER_GAP) {
+    left = window.innerWidth - box.width - MAP_POPOVER_GAP;
+  }
+  let top = anchor.bottom + MAP_POPOVER_GAP;
+  if (top + box.height > window.innerHeight - MAP_POPOVER_GAP) {
+    top = anchor.top - box.height - MAP_POPOVER_GAP;
+  }
+  popover.style.left = Math.max(MAP_POPOVER_GAP, left) + "px";
+  popover.style.top = Math.max(MAP_POPOVER_GAP, top) + "px";
+}
+
+function hideMap() {
+  mapPopover().hidden = true;
+}
+
+function handleMapPointerOver(event) {
+  const element = event.target.closest("[data-map-zone]");
+  if (element !== null) {
+    showMapFor(element);
+  }
+}
+
+function handleMapPointerOut(event) {
+  const element = event.target.closest("[data-map-zone]");
+  if (element !== null && !element.contains(event.relatedTarget)) {
+    hideMap();
+  }
+}
+
+function enableMapPopovers() {
+  document.addEventListener("mouseover", handleMapPointerOver);
+  document.addEventListener("mouseout", handleMapPointerOut);
+  document.addEventListener("focusin", handleMapPointerOver);
+  document.addEventListener("focusout", handleMapPointerOut);
+}
+
+function setMapTarget(element, zoneName, x, y, caption) {
+  if (mapZone(zoneName) === null) {
+    return;
+  }
+  element.dataset.mapZone = zoneName;
+  if (x !== null && x !== undefined) {
+    element.dataset.mapX = String(x);
+    element.dataset.mapY = String(y);
+  }
+  if (caption) {
+    element.dataset.mapCaption = caption;
+  }
+  element.classList.add("has-map");
+}
+
+function dungeonEntrance(dungeonName) {
+  if (state.questie === null || !state.questie.dungeonEntrances || !dungeonName) {
+    return null;
+  }
+  const entrances = state.questie.dungeonEntrances;
+  if (entrances[dungeonName]) {
+    return entrances[dungeonName];
+  }
+  for (const name of Object.keys(entrances)) {
+    if (name.startsWith(dungeonName + ":")) {
+      return entrances[name];
+    }
+  }
+  return null;
+}
+
+function dungeonParentZone(dungeonName) {
+  if (!window.ZONE_GUIDE) {
+    return null;
+  }
+  for (const zone of window.ZONE_GUIDE.zones) {
+    for (const dungeon of zone.dungeons || []) {
+      if (dungeon.name === dungeonName) {
+        return zone.name;
+      }
+    }
+  }
+  return null;
+}
+
+function placeForSource(source) {
+  const entrance = dungeonEntrance(source.zone);
+  if (entrance !== null) {
+    return { zone: entrance.zone, x: entrance.x, y: entrance.y, caption: source.zone + " entrance, " + entrance.zone + " (" + entrance.x.toFixed(1) + ", " + entrance.y.toFixed(1) + ")" };
+  }
+  const parentZone = dungeonParentZone(source.zone);
+  if (parentZone !== null) {
+    return { zone: parentZone, x: null, y: null, caption: source.zone + " is in " + parentZone + " (entrance not mapped yet)" };
+  }
+  let who = "";
+  if (source.npc) {
+    who = source.npc + ", ";
+  }
+  if (source.x === null || source.x === undefined) {
+    return { zone: source.zone, x: null, y: null, caption: who + source.zone };
+  }
+  return { zone: source.zone, x: source.x, y: source.y, caption: who + source.zone + " (" + source.x.toFixed(1) + ", " + source.y.toFixed(1) + ")" };
 }
