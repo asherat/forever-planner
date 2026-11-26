@@ -22,8 +22,12 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - name: Stamp build id
-        run: sed -i "s/__BUILD__/${GITHUB_SHA::7}/g" web/index.html
+        with:
+          fetch-depth: 0
+      - name: Stamp version and build id
+        run: |
+          VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo dev)
+          sed -i "s/__BUILD__/${GITHUB_SHA::7}/g; s/__VERSION__/${VERSION}/g" web/index.html web/crafting.html
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
