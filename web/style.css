@@ -428,6 +428,12 @@ button:disabled {
   font-size: 0.85rem;
 }
 
+.option-price {
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+}
+
 .option-requirement {
   color: var(--error);
   font-size: 0.85rem;

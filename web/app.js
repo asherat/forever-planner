@@ -14,6 +14,7 @@ const state = {
   settings: null,
   snapshots: {},
   accessToken: null,
+  tsm: null,
   accessTokenExpiresAt: 0
 };
 
@@ -497,6 +498,74 @@ function sourcesForCharacter(item, snapshot) {
   return sources;
 }
 
+function priceFor(itemId) {
+  if (state.tsm === null) {
+    return null;
+  }
+  const price = state.tsm.prices[itemId];
+  if (!price) {
+    return null;
+  }
+  let usual = price.marketValue || price.marketValueRecent || price.regionMarketValue || price.regionSale || 0;
+  let buyNow = 0;
+  let listed = 0;
+  if (price.minBuyout && price.numAuctions) {
+    buyNow = price.minBuyout;
+    listed = price.numAuctions;
+  }
+  if (!usual && !buyNow) {
+    return null;
+  }
+  return { buyNow: buyNow, listed: listed, usual: usual };
+}
+
+function unitCost(itemId) {
+  const price = priceFor(itemId);
+  if (price === null) {
+    return null;
+  }
+  if (price.buyNow) {
+    return price.buyNow;
+  }
+  return price.usual;
+}
+
+function materialCost(source) {
+  let total = 0;
+  let missing = 0;
+  for (const reagent of source.reagents) {
+    const cost = unitCost(reagent.id);
+    if (cost === null) {
+      missing += 1;
+    } else {
+      total += cost * reagent.quantity;
+    }
+  }
+  return { total: total, missing: missing };
+}
+
+function formatMoney(copper) {
+  const gold = Math.floor(copper / 10000);
+  const silver = Math.floor((copper % 10000) / 100);
+  const copperLeft = copper % 100;
+  const parts = [];
+  if (gold > 0) {
+    parts.push(gold + "g");
+  }
+  if (silver > 0) {
+    parts.push(silver + "s");
+  }
+  if (copperLeft > 0 || parts.length === 0) {
+    parts.push(copperLeft + "c");
+  }
+  return parts.join(" ");
+}
+
+function isListedOnAuctionHouse(item) {
+  const price = priceFor(item.id);
+  return price !== null && price.listed > 0;
+}
+
 function isEasySource(source, snapshot) {
   if (source.type === "quest") {
     return true;
@@ -508,6 +577,9 @@ function isEasySource(source, snapshot) {
 }
 
 function hasEasySource(item, snapshot) {
+  if (isListedOnAuctionHouse(item)) {
+    return true;
+  }
   for (const source of sourcesForCharacter(item, snapshot)) {
     if (isEasySource(source, snapshot)) {
       return true;
@@ -679,9 +751,23 @@ function renderOption(label, candidate, snapshot, character) {
     option.appendChild(createElement("div", "option-requirement", item.skill));
   }
 
+  const price = priceFor(item.id);
+  if (price !== null) {
+    const priceParts = [];
+    if (price.buyNow) {
+      priceParts.push("AH now " + formatMoney(price.buyNow) + " (" + price.listed + " listed)");
+    } else {
+      priceParts.push("Not on the AH right now");
+    }
+    if (price.usual) {
+      priceParts.push("usually " + formatMoney(price.usual));
+    }
+    option.appendChild(createElement("div", "option-price", priceParts.join(" · ")));
+  }
+
   const sources = sourcesForCharacter(item, snapshot);
   const sourceList = createElement("ul", "sources");
-  if (sources.length === 0) {
+  if (sources.length === 0 && price === null) {
     sourceList.appendChild(createElement("li", "muted", "Source not in Blizzard's data. Check Wowhead (drop, vendor or world item)."));
   }
   for (const source of sources.slice(0, MAX_SOURCES_SHOWN)) {
@@ -692,6 +778,14 @@ function renderOption(label, candidate, snapshot, character) {
         reagentTexts.push(reagent.quantity + "× " + reagent.name);
       }
       entry.appendChild(createElement("div", "muted", reagentTexts.join(", ")));
+      if (state.tsm !== null) {
+        const cost = materialCost(source);
+        let costText = "Materials on the AH: " + formatMoney(cost.total);
+        if (cost.missing > 0) {
+          costText += " (" + cost.missing + " without a price)";
+        }
+        entry.appendChild(createElement("div", "option-price", costText));
+      }
     }
     sourceList.appendChild(entry);
   }
@@ -937,6 +1031,7 @@ function openSettings() {
   document.getElementById("region-select").value = state.settings.region;
   document.getElementById("lookahead-input").value = String(state.settings.lookaheadLevels);
   document.getElementById("hidden-item-count").textContent = state.settings.hiddenItemIds.length + " hidden items.";
+  document.getElementById("tsm-status").textContent = tsmStatusText();
   const presetSelect = document.getElementById("weights-preset-select");
   presetSelect.replaceChildren();
   for (const presetKey of Object.keys(window.GAME_RULES.specPresets)) {
@@ -991,6 +1086,68 @@ function importSettings(file) {
   reader.readAsText(file);
 }
 
+async function readConnectedTsmPrices(askPermission) {
+  const handle = await window.TSM.loadFileHandle();
+  if (handle === null) {
+    state.tsm = null;
+    return;
+  }
+  let permission = await handle.queryPermission({ mode: "read" });
+  if (permission !== "granted" && askPermission) {
+    permission = await handle.requestPermission({ mode: "read" });
+  }
+  if (permission !== "granted") {
+    state.tsm = null;
+    return;
+  }
+  let rulesetName = "";
+  let factionName = "";
+  const character = selectedCharacter();
+  if (character !== null && state.snapshots[character.slug]) {
+    rulesetName = state.snapshots[character.slug].ruleset;
+    factionName = state.snapshots[character.slug].faction;
+  }
+  state.tsm = await window.TSM.readPrices(handle, rulesetName, factionName);
+}
+
+function tsmStatusText() {
+  if (state.tsm === null) {
+    return "Not connected.";
+  }
+  let scopeText = "region prices only";
+  if (state.tsm.scope !== null) {
+    scopeText = state.tsm.scope + " auction house and region prices";
+  }
+  return "Connected: " + scopeText + ", from TSM data of " + new Date(state.tsm.downloadedAt).toLocaleString() + ".";
+}
+
+async function handleTsmConnectClick() {
+  if (!window.showOpenFilePicker) {
+    setStatus("This browser can't read local files. Use Chrome.", "error");
+    return;
+  }
+  try {
+    const handles = await window.showOpenFilePicker({
+      types: [{ description: "TSM AppData.lua", accept: { "text/plain": [".lua"] } }]
+    });
+    await window.TSM.storeFileHandle(handles[0]);
+    await readConnectedTsmPrices(true);
+    document.getElementById("tsm-status").textContent = tsmStatusText();
+    render();
+  } catch (error) {
+    if (error.name !== "AbortError") {
+      setStatus(error.message, "error");
+    }
+  }
+}
+
+async function handleTsmDisconnectClick() {
+  await window.TSM.forgetFileHandle();
+  state.tsm = null;
+  document.getElementById("tsm-status").textContent = tsmStatusText();
+  render();
+}
+
 async function handleRefreshClick() {
   const character = selectedCharacter();
   if (character === null) {
@@ -1001,6 +1158,7 @@ async function handleRefreshClick() {
   refreshButton.disabled = true;
   try {
     await refreshCharacter(character);
+    await readConnectedTsmPrices(true);
     render();
   } catch (error) {
     setStatus(error.message, "error");
@@ -1087,12 +1245,18 @@ function bindEvents() {
   document.getElementById("reset-weights-button").addEventListener("click", handleResetWeights);
   document.getElementById("clear-hidden-button").addEventListener("click", handleClearHidden);
   document.getElementById("export-button").addEventListener("click", exportSettings);
+  document.getElementById("tsm-connect-button").addEventListener("click", handleTsmConnectClick);
+  document.getElementById("tsm-disconnect-button").addEventListener("click", handleTsmDisconnectClick);
   document.getElementById("import-input").addEventListener("change", handleImportChange);
   document.getElementById("character-select").addEventListener("change", handleCharacterSelectChange);
   document.getElementById("priority-list").addEventListener("click", handlePriorityListClick);
   document.getElementById("character-list").addEventListener("change", handleCharacterListChange);
   document.getElementById("character-list").addEventListener("click", handleCharacterListClick);
   document.getElementById("weights-editor").addEventListener("change", handleWeightsEditorChange);
+}
+
+function handleTsmStartupError(error) {
+  setStatus("Could not read TSM prices: " + error.message, "error");
 }
 
 function start() {
@@ -1103,6 +1267,7 @@ function start() {
     return;
   }
   render();
+  readConnectedTsmPrices(false).then(render).catch(handleTsmStartupError);
   if (state.settings.characters.length === 0) {
     setStatus("Open Settings to add your API client and a character.", "info");
   }
