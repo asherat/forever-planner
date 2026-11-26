@@ -4,12 +4,14 @@ const QUESTIE_KEY_PREFIX = "## X-";
 const QUESTIE_CHUNK_PATTERN = /^~(\d+)~$/;
 const QUESTIE_ENTITY_PREFIXES = ["Item-", "Npc-", "Object-", "Quest-"];
 const ITEM_FIELDS = { npcDrops: 2, objectDrops: 3, questRewards: 6, vendors: 14 };
-const NPC_FIELDS = { name: 1, minLevel: 4, maxLevel: 5, rank: 6, zone: 9, friendlyTo: 13, title: 14 };
-const OBJECT_FIELDS = { name: 1, zone: 5 };
-const QUEST_FIELDS = { name: 1, requiredLevel: 4, questLevel: 5, requiredRaces: 6, requiredClasses: 7, zone: 17 };
+const NPC_FIELDS = { name: 1, minLevel: 4, maxLevel: 5, rank: 6, spawns: 7, zone: 9, friendlyTo: 13, title: 14 };
+const OBJECT_FIELDS = { name: 1, spawns: 4, zone: 5 };
+const QUEST_FIELDS = { name: 1, startedBy: 2, requiredLevel: 4, questLevel: 5, requiredRaces: 6, requiredClasses: 7, preQuestGroup: 12, preQuestSingle: 13, zone: 17 };
+const MAX_CHAIN_LENGTH = 20;
 const ALLIANCE_RACE_MASK = 1 + 4 + 8 + 64;
 const HORDE_RACE_MASK = 2 + 16 + 32 + 128;
 const MAX_DROP_SOURCES = 3;
+const ITEM_NAME_FIELD = 1;
 const WORLD_DROP_THRESHOLD = 12;
 const utf8Decoder = new TextDecoder("utf-8");
 
@@ -33,6 +35,25 @@ function readCborArgument(cursor, additional) {
   return Number(cursor.view.getBigUint64(cursor.offset - 8));
 }
 
+function halfPrecisionFloat(bits) {
+  let sign = 1;
+  if (bits & 0x8000) {
+    sign = -1;
+  }
+  const exponent = (bits >> 10) & 0x1f;
+  const fraction = bits & 0x3ff;
+  if (exponent === 0) {
+    return sign * Math.pow(2, -14) * (fraction / 1024);
+  }
+  if (exponent === 31) {
+    if (fraction === 0) {
+      return sign * Infinity;
+    }
+    return NaN;
+  }
+  return sign * Math.pow(2, exponent - 15) * (1 + fraction / 1024);
+}
+
 function readCborSimple(cursor, additional) {
   if (additional === 20) {
     return false;
@@ -42,6 +63,10 @@ function readCborSimple(cursor, additional) {
   }
   if (additional === 22 || additional === 23) {
     return null;
+  }
+  if (additional === 25) {
+    cursor.offset += 2;
+    return halfPrecisionFloat(cursor.view.getUint16(cursor.offset - 2));
   }
   if (additional === 26) {
     cursor.offset += 4;
@@ -287,6 +312,96 @@ function itemDetails(reader, zones, itemId) {
   return { sources: sources, quests: quests, vendorFaction: vendorFaction(vendors) };
 }
 
+function firstSpawn(spawns, preferredZoneId, zones) {
+  const zoneIds = Object.keys(spawns || {});
+  if (zoneIds.length === 0) {
+    return null;
+  }
+  let zoneId = zoneIds[0];
+  if (preferredZoneId && spawns[preferredZoneId]) {
+    zoneId = String(preferredZoneId);
+  }
+  const coordinates = spawns[zoneId][0];
+  if (!coordinates || coordinates[0] < 0) {
+    return { zone: zoneName(zones, Number(zoneId)), x: null, y: null };
+  }
+  return { zone: zoneName(zones, Number(zoneId)), x: coordinates[0], y: coordinates[1] };
+}
+
+function placeAt(kind, name, title, spawn, fallbackZone) {
+  const place = { kind: kind, name: name, title: title, zone: fallbackZone, x: null, y: null };
+  if (spawn !== null) {
+    place.zone = spawn.zone || fallbackZone;
+    place.x = spawn.x;
+    place.y = spawn.y;
+  }
+  return place;
+}
+
+function npcLocation(reader, zones, npcId) {
+  const row = entityScalars(reader, "Npc", npcId);
+  const spawn = firstSpawn(decodedTocValue(reader, "Npc-" + npcId + "-" + NPC_FIELDS.spawns), row[NPC_FIELDS.zone], zones);
+  return placeAt("npc", row[NPC_FIELDS.name] || "Unknown creature", row[NPC_FIELDS.title] || "", spawn, zoneName(zones, row[NPC_FIELDS.zone]));
+}
+
+function objectLocation(reader, zones, objectId) {
+  const row = entityScalars(reader, "Object", objectId);
+  const spawn = firstSpawn(decodedTocValue(reader, "Object-" + objectId + "-" + OBJECT_FIELDS.spawns), row[OBJECT_FIELDS.zone], zones);
+  return placeAt("object", row[OBJECT_FIELDS.name] || "Object", "", spawn, zoneName(zones, row[OBJECT_FIELDS.zone]));
+}
+
+function questStarter(reader, zones, questId) {
+  const startedBy = decodedTocValue(reader, "Quest-" + questId + "-" + QUEST_FIELDS.startedBy) || [];
+  if (startedBy[0] && startedBy[0].length > 0) {
+    return npcLocation(reader, zones, startedBy[0][0]);
+  }
+  if (startedBy[1] && startedBy[1].length > 0) {
+    return objectLocation(reader, zones, startedBy[1][0]);
+  }
+  if (startedBy[2] && startedBy[2].length > 0) {
+    const item = entityScalars(reader, "Item", startedBy[2][0]);
+    return { kind: "item", name: item[ITEM_NAME_FIELD] || "an item", title: "", zone: "", x: null, y: null };
+  }
+  return null;
+}
+
+function questPrerequisites(reader, questId) {
+  const prerequisites = [];
+  for (const questIdInGroup of entityTable(reader, "Quest", questId, QUEST_FIELDS.preQuestGroup)) {
+    prerequisites.push(questIdInGroup);
+  }
+  const singles = entityTable(reader, "Quest", questId, QUEST_FIELDS.preQuestSingle);
+  if (singles.length > 0) {
+    prerequisites.push(singles[0]);
+  }
+  return prerequisites;
+}
+
+function collectChain(reader, questId, ordered, visiting) {
+  if (visiting.has(questId) || ordered.length >= MAX_CHAIN_LENGTH) {
+    return;
+  }
+  visiting.add(questId);
+  for (const prerequisite of questPrerequisites(reader, questId)) {
+    collectChain(reader, prerequisite, ordered, visiting);
+  }
+  if (ordered.indexOf(questId) === -1) {
+    ordered.push(questId);
+  }
+}
+
+function questChain(details, questId) {
+  const ordered = [];
+  collectChain(details.reader, questId, ordered, new Set());
+  const steps = [];
+  for (const chainQuestId of ordered) {
+    const step = questInfo(details.reader, details.zones, chainQuestId);
+    step.starter = questStarter(details.reader, details.zones, chainQuestId);
+    steps.push(step);
+  }
+  return steps;
+}
+
 function buildQuestieDetails(text, itemIds, zones, questIds) {
   const index = indexToc(text);
   const reader = createReader(index);
@@ -303,12 +418,13 @@ function buildQuestieDetails(text, itemIds, zones, questIds) {
       quests[questId] = questInfo(reader, zones, questId);
     }
   }
-  return { version: index.version, items: details, quests: quests };
+  return { version: index.version, items: details, quests: quests, reader: reader, zones: zones };
 }
 
 window.QUESTIE = {
   addonName: QUESTIE_ADDON_NAME,
   fileName: QUESTIE_FILE_NAME,
   buildDetails: buildQuestieDetails,
+  questChain: questChain,
   decodeCbor: decodeCbor
 };
