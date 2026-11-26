@@ -8,6 +8,8 @@ const STORAGE_KEYS = {
 };
 
 const DEFAULT_LOOKAHEAD_LEVELS = 3;
+const BARTERING_DISCOUNT_PER_RANK = 0.05;
+const VENDOR_PREFERENCE_MARGIN = 0.15;
 const WOWHEAD_ITEM_URL = "https://www.wowhead.com/forever/item=";
 
 const state = {
@@ -260,6 +262,33 @@ function renderMoney(copper) {
   }
   money.setAttribute("aria-label", formatMoney(rounded));
   return money;
+}
+
+function isVendorSoldFor(itemId, factionLetter) {
+  if (state.questie === null || !state.questie.items[itemId]) {
+    return false;
+  }
+  for (const source of state.questie.items[itemId].sources) {
+    if (source.type === "vendor" && (!source.friendlyTo || source.friendlyTo.indexOf(factionLetter) !== -1)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function vendorDiscountRate() {
+  const rank = Number(readStorage(STORAGE_KEYS.crafting, {}).barteringRank) || 0;
+  return rank * BARTERING_DISCOUNT_PER_RANK;
+}
+
+function preferredOffer(vendorOffer, auctionOffer) {
+  if (vendorOffer === null) {
+    return auctionOffer;
+  }
+  if (auctionOffer === null || auctionOffer.price >= vendorOffer.price * (1 - VENDOR_PREFERENCE_MARGIN)) {
+    return vendorOffer;
+  }
+  return auctionOffer;
 }
 
 function formatMoney(copper) {
