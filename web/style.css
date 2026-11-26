@@ -1380,7 +1380,7 @@ legend {
   border-color: var(--accent);
 }
 
-#add-crafted-button {
+#add-crafted-button, #add-quest-upgrades-button {
   justify-self: start;
 }
 
@@ -1631,6 +1631,10 @@ legend {
 
 .quest-done {
   color: var(--gain-positive);
+}
+
+.quest-off-path {
+  color: var(--gain-negative);
 }
 
 .waypoint {

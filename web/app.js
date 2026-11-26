@@ -1377,6 +1377,23 @@ function addToQuestList(questId, itemId) {
   render();
 }
 
+function addQuestUpgrades() {
+  const character = selectedCharacter();
+  for (const pick of state.questUpgradePicks) {
+    if (!isInQuestList(character, pick.questId)) {
+      characterQuestList(character).push({ questId: pick.questId, itemId: pick.itemId });
+    }
+  }
+  saveSettings();
+  render();
+}
+
+function clearQuestList() {
+  selectedCharacter().questList = [];
+  saveSettings();
+  render();
+}
+
 function removeFromQuestList(questId) {
   const character = selectedCharacter();
   const remaining = [];
@@ -1433,7 +1450,32 @@ function isChainStepForCharacter(step, snapshot) {
   return !step.classes || !classBit || Boolean(step.classes & classBit);
 }
 
-function renderQuestEntry(entry, snapshot) {
+function offPathZone(entry, character, snapshot) {
+  const item = itemById(entry.itemId);
+  if (!isRouteActive(character) || item === null) {
+    return null;
+  }
+  for (const source of sourcesForCharacter(item, snapshot)) {
+    if (source.type === "quest" && source.questId === entry.questId) {
+      if (guideZone(source.zone) !== null && legForZone(character, snapshot, source.zone) === null) {
+        return source.zone;
+      }
+      return null;
+    }
+  }
+  return null;
+}
+
+function renderOffPathNotice(zoneName, questId) {
+  const notice = createElement("div", "quest-off-path", zoneName + " is no longer on your leveling path. ");
+  const removeButton = createElement("button", "link", "Remove it");
+  removeButton.type = "button";
+  removeButton.dataset.questRemove = String(questId);
+  notice.appendChild(removeButton);
+  return notice;
+}
+
+function renderQuestEntry(entry, character, snapshot) {
   const row = createElement("li", "quest-entry");
   const header = createElement("div", "quest-entry-header");
   const item = itemById(entry.itemId);
@@ -1447,6 +1489,10 @@ function renderQuestEntry(entry, snapshot) {
   removeButton.setAttribute("aria-label", "Remove from quest list");
   header.appendChild(removeButton);
   row.appendChild(header);
+  const offPath = offPathZone(entry, character, snapshot);
+  if (offPath !== null) {
+    row.appendChild(renderOffPathNotice(offPath, entry.questId));
+  }
   if (state.questie === null || !state.questie.reader) {
     row.appendChild(createElement("div", "muted", "Connect your WoW folder to see this quest's chain."));
     return row;
@@ -1486,9 +1532,19 @@ function renderQuestList(character, snapshot) {
   list.replaceChildren();
   const entries = characterQuestList(character);
   document.getElementById("quest-list-empty").hidden = entries.length > 0;
+  document.getElementById("quest-list-actions").hidden = entries.length === 0;
   for (const entry of entries) {
-    list.appendChild(renderQuestEntry(entry, snapshot));
+    list.appendChild(renderQuestEntry(entry, character, snapshot));
   }
+  let missing = 0;
+  for (const pick of state.questUpgradePicks || []) {
+    if (!isInQuestList(character, pick.questId)) {
+      missing += 1;
+    }
+  }
+  const addButton = document.getElementById("add-quest-upgrades-button");
+  addButton.hidden = missing === 0;
+  addButton.textContent = "Add quest upgrades (" + missing + ")";
 }
 
 function handleQuestListClick(event) {
@@ -1500,6 +1556,10 @@ function handleQuestListClick(event) {
     removeFromQuestList(Number(target.dataset.questRemove));
   } else if (target.dataset.waypoint !== undefined) {
     copyWaypoint(target.dataset.waypoint);
+  } else if (target.id === "add-quest-upgrades-button") {
+    addQuestUpgrades();
+  } else if (target.id === "clear-quest-list-button") {
+    clearQuestList();
   }
 }
 
@@ -1785,6 +1845,7 @@ function render() {
     priorityList.appendChild(renderPriority(options, snapshot, character));
   }
   state.craftedUpgradePicks = craftedUpgradePicks(allOptions, snapshot);
+  state.questUpgradePicks = questUpgradePicks(allOptions, snapshot);
   renderCart();
   renderQuestList(character, snapshot);
   runTooltipChecks();
@@ -2228,18 +2289,50 @@ function craftedPick(options, snapshot) {
   return null;
 }
 
+function upgradeParts(allOptions) {
+  const parts = [];
+  for (const options of allOptions) {
+    if (options.group) {
+      for (const part of options.parts) {
+        parts.push(part);
+      }
+    } else {
+      parts.push(options);
+    }
+  }
+  return parts;
+}
+
 function craftedUpgradePicks(allOptions, snapshot) {
   const picks = [];
-  for (const options of allOptions) {
-    let parts = [options];
-    if (options.group) {
-      parts = options.parts;
+  for (const part of upgradeParts(allOptions)) {
+    const itemId = craftedPick(part, snapshot);
+    if (itemId !== null && picks.indexOf(itemId) === -1) {
+      picks.push(itemId);
     }
-    for (const part of parts) {
-      const itemId = craftedPick(part, snapshot);
-      if (itemId !== null && picks.indexOf(itemId) === -1) {
-        picks.push(itemId);
-      }
+  }
+  return picks;
+}
+
+function questPick(candidate, snapshot) {
+  const questSource = firstQuestSource(sourcesForCharacter(candidate.item, snapshot));
+  if (questSource === null) {
+    return null;
+  }
+  return { questId: questSource.questId, itemId: candidate.item.id };
+}
+
+function questUpgradePicks(allOptions, snapshot) {
+  const picks = [];
+  const questIds = new Set();
+  for (const part of upgradeParts(allOptions)) {
+    let pick = questPick(part.best, snapshot);
+    if (pick === null && part.quicker !== null) {
+      pick = questPick(part.quicker, snapshot);
+    }
+    if (pick !== null && !questIds.has(pick.questId)) {
+      questIds.add(pick.questId);
+      picks.push(pick);
     }
   }
   return picks;
