@@ -600,9 +600,6 @@ function teachingSources(itemId) {
 }
 
 function recipeSourceText(teachingName, source) {
-  if (source.type === "vendor") {
-    return teachingName + ": sold by " + source.npc + " in " + source.zone;
-  }
   if (source.type === "drop") {
     return teachingName + ": drops from " + source.npc + " in " + source.zone;
   }
@@ -625,7 +622,14 @@ function renderRecipeSource(recipe) {
     return container;
   }
   for (const source of sources.slice(0, RECIPE_SOURCES_SHOWN)) {
-    const line = createElement("div", "recipe-source-line", recipeSourceText(teachingName, source));
+    const line = createElement("div", "recipe-source-line");
+    if (source.type === "vendor") {
+      line.append(teachingName + ": sold by ");
+      line.appendChild(wowheadPageLink("npc", source.npcId, source.npc));
+      line.append(" in " + source.zone);
+    } else {
+      line.textContent = recipeSourceText(teachingName, source);
+    }
     const place = placeForSource(source);
     if (place.x !== null) {
       line.append(" (" + place.x.toFixed(1) + ", " + place.y.toFixed(1) + ")");

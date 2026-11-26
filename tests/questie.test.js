@@ -36,6 +36,7 @@ test("lists vendors with their friendliness and derives a vendor-only faction", 
   assert.equal(details.version, "9.9.9");
   assert.equal(item.sources[0].type, "vendor");
   assert.equal(item.sources[0].npc, "Kelm Hargunth");
+  assert.equal(item.sources[0].npcId, 14754);
   assert.equal(item.sources[0].zone, "The Barrens");
   assert.equal(item.vendorFaction, "HORDE");
 });
