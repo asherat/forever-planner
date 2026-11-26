@@ -30,6 +30,16 @@
       <p id="character-meta" class="muted"></p>
       <p id="character-specs" class="muted"></p>
     </div>
+    <div id="play-controls" class="play-controls">
+      <fieldset class="choice-group">
+        <legend>Where do you play most?</legend>
+        <div id="playstyle-choices" class="choices"></div>
+      </fieldset>
+      <fieldset id="feral-form" class="choice-group" hidden>
+        <legend>Feral form</legend>
+        <div id="feral-form-choices" class="choices"></div>
+      </fieldset>
+    </div>
     <div class="paperdoll">
       <div id="slots-left" class="slot-column slot-column-left"></div>
       <div id="character-render" class="character-render" role="img"></div>
@@ -42,6 +52,10 @@
     <h2>What to get next</h2>
     <p class="muted">Most valuable first. Each slot shows the best upgrade within <span id="lookahead-label"></span> levels of you, and a quicker option you can use now when there is one.</p>
     <ol id="priority-list" class="priority-list"></ol>
+    <div id="hidden-items" class="hidden-items" hidden>
+      <h3>Items you're not interested in</h3>
+      <ul id="hidden-item-list"></ul>
+    </div>
   </section>
 </main>
 
@@ -88,21 +102,12 @@
       <legend>Upgrades</legend>
       <label for="lookahead-input">Show items up to this many levels above you</label>
       <input id="lookahead-input" type="number" min="0" max="10">
-      <p class="muted"><span id="hidden-item-count"></span> <button id="clear-hidden-button" type="button" class="link">Show hidden items again</button></p>
     </fieldset>
 
-    <details class="advanced">
-      <summary>Advanced: stat weights</summary>
-      <p class="muted">How much each stat counts per spec. The defaults are fine; change them only if the suggestions feel wrong.</p>
-      <label for="weights-preset-select">Spec</label>
-      <select id="weights-preset-select"></select>
-      <div id="weights-editor" class="weights-grid"></div>
-      <button id="reset-weights-button" type="button" class="link">Reset this spec to defaults</button>
-    </details>
 
     <fieldset>
       <legend>Backup</legend>
-      <p class="muted">Characters, specs, weights and hidden items. The client secret is never included.</p>
+      <p class="muted">Characters and hidden items. The client secret is never included.</p>
       <div class="inline-fields">
         <button id="export-button" type="button">Save settings file</button>
         <label class="file-button">Load settings file<input id="import-input" type="file" accept="application/json"></label>
