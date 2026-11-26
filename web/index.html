@@ -75,6 +75,16 @@
     </fieldset>
 
     <fieldset>
+      <legend>Auction prices (TSM)</legend>
+      <p id="tsm-status" class="muted"></p>
+      <p class="muted">Pick <code>AppData.lua</code> in <code>Interface/AddOns/TradeSkillMaster_AppHelper</code>. The planner reads it on every Refresh; the TSM desktop app keeps it up to date.</p>
+      <div class="inline-fields">
+        <button id="tsm-connect-button" type="button">Connect TSM prices</button>
+        <button id="tsm-disconnect-button" type="button" class="link">Disconnect</button>
+      </div>
+    </fieldset>
+
+    <fieldset>
       <legend>Upgrades</legend>
       <label for="lookahead-input">Show items up to this many levels above you</label>
       <input id="lookahead-input" type="number" min="0" max="10">
@@ -109,6 +119,7 @@
 <script src="data/items.js"></script>
 <script src="data/quests.js"></script>
 <script src="game-rules.js"></script>
+<script src="tsm.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

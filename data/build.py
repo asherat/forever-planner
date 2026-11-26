@@ -347,7 +347,11 @@ def build_crafting_sources():
     for recipe_id, recipe in recipes.items():
         reagents = []
         for reagent in recipe.get("reagents", []):
-            reagents.append({"name": reagent["reagent"]["name"], "quantity": reagent["quantity"]})
+            reagents.append({
+                "id": reagent["reagent"]["id"],
+                "name": reagent["reagent"]["name"],
+                "quantity": reagent["quantity"],
+            })
         for crafted_key in ("crafted_item", "alliance_crafted_item", "horde_crafted_item"):
             crafted_item = recipe.get(crafted_key)
             if crafted_item is None:
