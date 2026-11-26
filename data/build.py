@@ -300,19 +300,10 @@ def build_quest_sources():
     quests = fetch_many("quest", "/data/wow/quest/{}", quest_zone.keys(), "quests")
     factions_by_race = race_factions(quests)
     sources = {}
-    quest_records = []
     for quest_id, quest in quests.items():
         reward_item_ids = sorted(set(collect_reward_item_ids(quest.get("rewards", {}))))
         zone = quest.get("area", {}).get("name") or quest_zone.get(quest_id, "")
-        experience = quest.get("rewards", {}).get("experience", 0)
         faction = quest_faction(quest, factions_by_race)
-        quest_record = {
-            "id": quest_id,
-            "title": quest.get("title", ""),
-            "zone": zone,
-            "experience": experience,
-            "rewardItemIds": reward_item_ids,
-        }
         source = {
             "type": "quest",
             "questId": quest_id,
@@ -320,12 +311,10 @@ def build_quest_sources():
             "zone": zone,
         }
         if faction is not None:
-            quest_record["faction"] = faction
             source["faction"] = faction
-        quest_records.append(quest_record)
         for item_id in reward_item_ids:
             sources.setdefault(item_id, []).append(source)
-    return sources, quest_records
+    return sources
 
 
 def build_crafting_sources():
@@ -470,7 +459,7 @@ def write_javascript_global(file_name, global_name, payload):
 
 
 def main():
-    quest_sources, quest_records = build_quest_sources()
+    quest_sources = build_quest_sources()
     crafting_sources = build_crafting_sources()
     sources = merge_sources(quest_sources, crafting_sources)
 
@@ -505,18 +494,12 @@ def main():
     compact_items.sort(key=record_id)
 
     write_javascript_global("items.js", "FOREVER_ITEMS", compact_items)
-    write_javascript_global("quests.js", "FOREVER_QUESTS", sorted(quest_records, key=record_id))
     write_javascript_global("zones.js", "FOREVER_ZONES", zone_names())
     write_javascript_global("reputations.js", "FOREVER_REPUTATIONS", reputation_names())
     recipes = build_recipe_list()
     write_javascript_global("recipes.js", "FOREVER_RECIPES", recipes)
     write_javascript_global("crafting-items.js", "FOREVER_CRAFTING_ITEMS", build_crafting_items(recipes))
-    write_javascript_global("build-info.js", "FOREVER_BUILD_INFO", {
-        "builtAt": time.strftime("%Y-%m-%d %H:%M"),
-        "itemCount": len(compact_items),
-        "questCount": len(quest_records),
-    })
-    print(f"Wrote {len(compact_items)} items and {len(quest_records)} quests", file=sys.stderr)
+    print(f"Wrote {len(compact_items)} items", file=sys.stderr)
 
 
 if __name__ == "__main__":

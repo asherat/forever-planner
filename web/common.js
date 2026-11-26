@@ -8,6 +8,7 @@ const STORAGE_KEYS = {
 };
 
 const DEFAULT_LOOKAHEAD_LEVELS = 3;
+const REGIONS = ["eu", "us", "kr", "tw"];
 const BARTERING_DISCOUNT_PER_RANK = 0.05;
 const VENDOR_PREFERENCE_MARGIN = 0.15;
 const WOWHEAD_ITEM_URL = "https://www.wowhead.com/forever/item=";
@@ -21,7 +22,8 @@ const state = {
   tsm: null,
   questie: null,
   inventory: null,
-  wowFolderConnected: false
+  wowFolderConnected: false,
+  folderErrors: {}
 };
 
 function readStorage(key, fallback) {
@@ -147,8 +149,11 @@ async function fetchAccessToken() {
 }
 
 async function fetchFromBattleNet(path, namespacePrefix) {
-  const token = await fetchAccessToken();
   const region = state.settings.region;
+  if (REGIONS.indexOf(region) === -1) {
+    throw new Error("Unknown region \"" + region + "\". Pick a region in Settings.");
+  }
+  const token = await fetchAccessToken();
   const url = "https://" + region + ".api.blizzard.com" + path +
     "?namespace=" + namespacePrefix + "-forever-" + region + "&locale=en_GB";
   const response = await fetch(url, { headers: { "Authorization": "Bearer " + token } });
@@ -254,13 +259,12 @@ function renderMoney(copper) {
       continue;
     }
     const part = createElement("span", "money-part", String(amount.value));
-    const coin = createElement("span", "coin coin-" + amount.coin);
-    coin.setAttribute("aria-label", amount.coin);
-    part.appendChild(coin);
+    part.setAttribute("aria-hidden", "true");
+    part.appendChild(createElement("span", "coin coin-" + amount.coin));
     money.appendChild(part);
     shown += 1;
   }
-  money.setAttribute("aria-label", formatMoney(rounded));
+  money.appendChild(createElement("span", "visually-hidden", formatMoney(rounded)));
   return money;
 }
 
@@ -383,28 +387,51 @@ async function readWowFolder(askPermission) {
     return;
   }
   state.wowFolderConnected = true;
-  await readQuestieFile(folder);
-  await readTsmFromFolder(folder);
-  await readInventoryFromFolder(folder);
+  state.folderErrors = {};
+  await readFolderSource("questie", readQuestieFile, folder);
+  await readFolderSource("tsm", readTsmFromFolder, folder);
+  await readFolderSource("inventory", readInventoryFromFolder, folder);
+}
+
+async function readFolderSource(sourceKey, reader, folder) {
+  try {
+    await reader(folder);
+  } catch (error) {
+    state.folderErrors[sourceKey] = error.message;
+    if (sourceKey === "questie") {
+      state.questie = null;
+    } else if (sourceKey === "tsm") {
+      state.tsm = null;
+    } else {
+      state.inventory = null;
+    }
+  }
+}
+
+function folderErrorText(sourceKey) {
+  if (state.folderErrors && state.folderErrors[sourceKey]) {
+    return " (could not read it: " + state.folderErrors[sourceKey] + ")";
+  }
+  return "";
 }
 
 function questieStatusText() {
   if (state.questie === null) {
-    return "Questie: not found. Install Questie for item sources.";
+    return "Questie: not found. Install Questie for item sources." + folderErrorText("questie");
   }
   return "Questie " + state.questie.version + ": sources for " + Object.keys(state.questie.items).length + " items.";
 }
 
 function inventoryStatusText() {
   if (state.inventory === null) {
-    return "Inventory: not found. TSM saves it when a character logs out.";
+    return "Inventory: not found. TSM saves it when a character logs out." + folderErrorText("inventory");
   }
   return "Inventory: " + Object.keys(state.inventory.characters).length + " characters, saved " + new Date(state.inventory.modifiedAt).toLocaleString() + ".";
 }
 
 function tsmStatusText() {
   if (state.tsm === null) {
-    return "TSM prices: not found. Install the TSM desktop app for auction prices.";
+    return "TSM prices: not found. Install the TSM desktop app for auction prices." + folderErrorText("tsm");
   }
   let scopeText = "region prices only";
   if (state.tsm.scope !== null) {

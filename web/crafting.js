@@ -84,9 +84,9 @@ function availableScopes() {
       scopes.set(scopeKey(character.ruleset, character.faction), { ruleset: character.ruleset, faction: character.faction });
     }
   }
-  for (const slug of Object.keys(state.snapshots)) {
-    const snapshot = state.snapshots[slug];
-    if (snapshot.ruleset && snapshot.faction) {
+  for (const character of state.settings.characters) {
+    const snapshot = state.snapshots[character.slug];
+    if (snapshot && snapshot.ruleset && snapshot.faction) {
       scopes.set(scopeKey(snapshot.ruleset, snapshot.faction), { ruleset: snapshot.ruleset, faction: snapshot.faction });
     }
   }
@@ -908,7 +908,10 @@ function handleAddClick() {
 }
 
 function handleListClick(event) {
-  const target = event.target;
+  const target = event.target.closest("button");
+  if (target === null) {
+    return;
+  }
   if (target.dataset.modeItemId !== undefined) {
     crafting.list.overrides[Number(target.dataset.modeItemId)] = target.dataset.mode;
     saveCraftingList();
@@ -1004,9 +1007,20 @@ function handleSearchKeydown(event) {
   }
 }
 
+function loadCraftingCart() {
+  const entries = [];
+  for (const entry of state.craftingCart || []) {
+    if (Number(entry.itemId) > 0) {
+      entries.push({ itemId: Number(entry.itemId), quantity: Math.max(1, Number(entry.quantity) || 1) });
+    }
+  }
+  crafting.list.entries = entries;
+}
+
 function addFromLocationHash() {
   const match = /^#items=([\d:,]+)$/.exec(window.location.hash);
   if (match === null) {
+    loadCraftingCart();
     return;
   }
   const entries = [];

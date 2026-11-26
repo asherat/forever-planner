@@ -17,54 +17,72 @@ window.GAME_RULES = {
     { key: "TRINKET_1", label: "Trinket", column: "right", itemSlots: ["TRINKET"], pairedWith: "TRINKET_2", groupLabel: "Trinkets" },
     { key: "TRINKET_2", label: "Trinket", column: "right", itemSlots: ["TRINKET"], pairedWith: "TRINKET_1", groupLabel: "Trinkets" },
     { key: "MAIN_HAND", label: "Main hand", column: "bottom", itemSlots: ["WEAPON", "TWOHWEAPON", "WEAPONMAINHAND"] },
-    { key: "OFF_HAND", label: "Off hand", column: "bottom", itemSlots: ["WEAPONOFFHAND", "SHIELD", "HOLDABLE"] },
+    { key: "OFF_HAND", label: "Off hand", column: "bottom", itemSlots: ["SHIELD", "HOLDABLE"] },
     { key: "RANGED", label: "Ranged / relic", column: "bottom", itemSlots: ["RANGED", "RANGEDRIGHT", "THROWN", "RELIC"] }
   ],
 
   classProficiencies: {
     "Druid": {
       armor: ["Cloth", "Leather", "Miscellaneous", "Idol"],
-      weapons: ["Staff", "Mace", "Dagger", "Fist Weapon", "Polearm"],
+      oneHand: ["Mace", "Dagger", "Fist Weapon"],
+      twoHand: ["Staff", "Mace", "Polearm"],
+      ranged: [],
       dualWield: false
     },
     "Warrior": {
       armor: ["Cloth", "Leather", "Mail", "Plate", "Shield", "Miscellaneous"],
-      weapons: ["Axe", "Sword", "Mace", "Dagger", "Fist Weapon", "Polearm", "Staff", "Bow", "Gun", "Crossbow", "Thrown"],
+      oneHand: ["Axe", "Sword", "Mace", "Dagger", "Fist Weapon"],
+      twoHand: ["Axe", "Sword", "Mace", "Polearm", "Staff"],
+      ranged: ["Bow", "Gun", "Crossbow", "Thrown"],
       dualWield: true
     },
     "Paladin": {
       armor: ["Cloth", "Leather", "Mail", "Plate", "Shield", "Libram", "Miscellaneous"],
-      weapons: ["Axe", "Sword", "Mace", "Polearm"],
+      oneHand: ["Axe", "Sword", "Mace"],
+      twoHand: ["Axe", "Sword", "Mace", "Polearm"],
+      ranged: [],
       dualWield: false
     },
     "Hunter": {
       armor: ["Cloth", "Leather", "Mail", "Miscellaneous"],
-      weapons: ["Axe", "Sword", "Dagger", "Fist Weapon", "Polearm", "Staff", "Bow", "Gun", "Crossbow", "Thrown"],
+      oneHand: ["Axe", "Sword", "Dagger", "Fist Weapon"],
+      twoHand: ["Axe", "Sword", "Polearm", "Staff"],
+      ranged: ["Bow", "Gun", "Crossbow", "Thrown"],
       dualWield: true
     },
     "Rogue": {
       armor: ["Cloth", "Leather", "Miscellaneous"],
-      weapons: ["Dagger", "Sword", "Mace", "Fist Weapon", "Bow", "Gun", "Crossbow", "Thrown"],
+      oneHand: ["Dagger", "Sword", "Mace", "Fist Weapon"],
+      twoHand: [],
+      ranged: ["Bow", "Gun", "Crossbow", "Thrown"],
       dualWield: true
     },
     "Priest": {
       armor: ["Cloth", "Miscellaneous"],
-      weapons: ["Mace", "Dagger", "Staff", "Wand"],
+      oneHand: ["Mace", "Dagger"],
+      twoHand: ["Staff"],
+      ranged: ["Wand"],
       dualWield: false
     },
     "Shaman": {
       armor: ["Cloth", "Leather", "Mail", "Shield", "Totem", "Miscellaneous"],
-      weapons: ["Axe", "Mace", "Dagger", "Fist Weapon", "Staff"],
+      oneHand: ["Axe", "Mace", "Dagger", "Fist Weapon"],
+      twoHand: ["Axe", "Mace", "Staff"],
+      ranged: [],
       dualWield: false
     },
     "Mage": {
       armor: ["Cloth", "Miscellaneous"],
-      weapons: ["Sword", "Dagger", "Staff", "Wand"],
+      oneHand: ["Sword", "Dagger"],
+      twoHand: ["Staff"],
+      ranged: ["Wand"],
       dualWield: false
     },
     "Warlock": {
       armor: ["Cloth", "Miscellaneous"],
-      weapons: ["Sword", "Dagger", "Staff", "Wand"],
+      oneHand: ["Sword", "Dagger"],
+      twoHand: ["Staff"],
+      ranged: ["Wand"],
       dualWield: false
     }
   },
