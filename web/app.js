@@ -1,4 +1,5 @@
 const FUTURE_UPGRADE_WEIGHT = 0.5;
+const CLASS_BITS = { Warrior: 1, Paladin: 2, Hunter: 4, Rogue: 8, Priest: 16, Shaman: 64, Mage: 128, Warlock: 256, Druid: 1024 };
 const QUICKER_PASSES = ["easy-now", "easy-soon", "own-profession", "usable-now"];
 const MAX_SOURCES_SHOWN = 4;
 const NEUTRAL_REPUTATION_TIER = 3;
@@ -482,7 +483,10 @@ function rankedCandidatesForSlot(slotDefinition, snapshot, character) {
     if (!isReputationWithinReach(item, snapshot)) {
       continue;
     }
-    let availableLevel = itemUsableLevel(item, snapshot);
+    if (!hasKnownSource(item, snapshot)) {
+      continue;
+    }
+    let availableLevel = Math.max(itemUsableLevel(item, snapshot), earliestSourceLevel(item, snapshot));
     let routeLeg = null;
     if (routeActive) {
       const availability = routeAvailability(item, snapshot, character);
@@ -603,8 +607,11 @@ function factionLetter(factionType) {
 
 function questieQuestsForCharacter(detail, snapshot) {
   const quests = [];
+  const classBit = CLASS_BITS[snapshot.className];
   for (const quest of detail.quests) {
-    if (quest.faction === null || quest.faction === snapshot.factionType) {
+    const factionMatches = quest.faction === null || quest.faction === snapshot.factionType;
+    const classMatches = !quest.classes || !classBit || Boolean(quest.classes & classBit);
+    if (factionMatches && classMatches) {
       quests.push(quest);
     }
   }
@@ -654,18 +661,57 @@ function isLevelEstimated(item, snapshot) {
   return item.levelEstimated && itemUsableLevel(item, snapshot) === item.usableLevel;
 }
 
+function questieQuest(questId) {
+  if (state.questie === null || !state.questie.quests) {
+    return null;
+  }
+  return state.questie.quests[questId] || null;
+}
+
+function isQuestForCharacter(questId, snapshot) {
+  const quest = questieQuest(questId);
+  if (quest === null) {
+    return true;
+  }
+  if (quest.faction !== null && quest.faction !== snapshot.factionType) {
+    return false;
+  }
+  const classBit = CLASS_BITS[snapshot.className];
+  if (quest.classes && classBit && !(quest.classes & classBit)) {
+    return false;
+  }
+  return true;
+}
+
 function sourcesForCharacter(item, snapshot) {
   const sources = [];
   const detail = questieDetail(item);
   const questLevels = {};
+  const otherFactionQuestIds = new Set();
   const listedQuestIds = new Set();
   if (detail !== null) {
     for (const quest of questieQuestsForCharacter(detail, snapshot)) {
       questLevels[quest.id] = quest;
     }
+    for (const quest of detail.quests) {
+      if (quest.faction !== null && quest.faction !== snapshot.factionType) {
+        otherFactionQuestIds.add(quest.id);
+      }
+    }
   }
   for (const source of item.sources || []) {
     if (source.faction && source.faction !== snapshot.factionType) {
+      continue;
+    }
+    if (source.type === "quest" && otherFactionQuestIds.has(source.questId)) {
+      continue;
+    }
+    if (source.type === "quest" && !isQuestForCharacter(source.questId, snapshot)) {
+      continue;
+    }
+    if (source.type === "quest" && !source.level && !questLevels[source.questId] && questieQuest(source.questId) !== null) {
+      listedQuestIds.add(source.questId);
+      sources.push(Object.assign({}, source, { level: questieQuest(source.questId).questLevel }));
       continue;
     }
     if (source.type === "quest") {
@@ -708,13 +754,6 @@ function materialCost(source) {
     }
   }
   return { total: total, missing: missing };
-}
-
-function unknownSourceText() {
-  if (state.questie === null) {
-    return "Connect your WoW folder in Settings to see where this comes from, or check Wowhead.";
-  }
-  return "No known source. Often a PvP rank or reputation reward; check Wowhead.";
 }
 
 function isListedOnAuctionHouse(item) {
@@ -851,6 +890,38 @@ function statSummary(item) {
   return parts.join(", ");
 }
 
+function sourceLevel(source, usableLevel) {
+  if (source.type === "quest" && source.level) {
+    return source.level;
+  }
+  if ((source.type === "quest" || source.type === "drop") && source.zone && guideZone(source.zone) !== null) {
+    return Math.max(usableLevel, guideZone(source.zone).minLevel);
+  }
+  return usableLevel;
+}
+
+function earliestSourceLevel(item, snapshot) {
+  const usableLevel = itemUsableLevel(item, snapshot);
+  if (isListedOnAuctionHouse(item)) {
+    return usableLevel;
+  }
+  let earliest = null;
+  for (const source of sourcesForCharacter(item, snapshot)) {
+    const level = sourceLevel(source, usableLevel);
+    if (earliest === null || level < earliest) {
+      earliest = level;
+    }
+  }
+  if (earliest === null) {
+    return usableLevel;
+  }
+  return earliest;
+}
+
+function hasKnownSource(item, snapshot) {
+  return sourcesForCharacter(item, snapshot).length > 0 || isListedOnAuctionHouse(item);
+}
+
 function isUsableNow(candidate, snapshot) {
   return candidate.availableLevel <= snapshot.level;
 }
@@ -883,7 +954,7 @@ function quickerOption(best, candidates, snapshot) {
       return null;
     }
     for (const candidate of candidates) {
-      if (candidate !== best && quickerPassMatches(pass, candidate, snapshot)) {
+      if (candidate.item.name !== best.item.name && quickerPassMatches(pass, candidate, snapshot)) {
         return candidate;
       }
     }
@@ -1162,9 +1233,6 @@ function renderOption(label, candidate, snapshot, character, slotDefinition) {
 
   const sources = sourcesForCharacter(item, snapshot);
   const sourceList = createElement("ul", "sources");
-  if (sources.length === 0 && price === null) {
-    sourceList.appendChild(createElement("li", "muted", unknownSourceText()));
-  }
   for (const source of sources.slice(0, MAX_SOURCES_SHOWN)) {
     const entry = createElement("li", null, describeSource(source, snapshot));
     if (source.type === "craft" && source.reagents.length > 0) {
@@ -1615,6 +1683,18 @@ function currentPriceScope() {
     return { ruleset: state.snapshots[character.slug].ruleset, faction: state.snapshots[character.slug].faction };
   }
   return { ruleset: "", faction: "" };
+}
+
+function questieQuestIds() {
+  const questIds = new Set();
+  for (const item of window.FOREVER_ITEMS) {
+    for (const source of item.sources || []) {
+      if (source.type === "quest") {
+        questIds.add(source.questId);
+      }
+    }
+  }
+  return Array.from(questIds);
 }
 
 function questieItemIds() {

@@ -44,6 +44,10 @@ function questieItemIds() {
   return itemIds;
 }
 
+function questieQuestIds() {
+  return [];
+}
+
 function craftingItem(itemId) {
   const known = window.FOREVER_CRAFTING_ITEMS[itemId];
   if (known) {
