@@ -122,3 +122,39 @@ test("reads dungeon entrances including later overrides", () => {
   assert.deepEqual(JSON.parse(JSON.stringify(entrances["Zul'Farrak"])), { zone: "Tanaris", x: 39.2, y: 21.3 });
   assert.deepEqual(JSON.parse(JSON.stringify(entrances["Wailing Caverns"])), { zone: "The Barrens", x: 46, y: 36.5 });
 });
+
+test("offers every quest whose prerequisites are done, not just the first open one", () => {
+  const toc = buildToc([
+    tocLine("Quest-1-S", encodeBase64({ 1: "Opening", 5: 36, 17: 17 })),
+    tocLine("Quest-2-S", encodeBase64({ 1: "Branch A", 5: 38, 17: 17 })),
+    tocLine("Quest-2-12", encodeBase64([1])),
+    tocLine("Quest-3-S", encodeBase64({ 1: "Branch B", 5: 38, 17: 17 })),
+    tocLine("Quest-3-12", encodeBase64([1])),
+    tocLine("Quest-4-S", encodeBase64({ 1: "Finale", 5: 40, 17: 17 })),
+    tocLine("Quest-4-12", encodeBase64([2, 3]))
+  ]);
+  const details = questie.buildDetails(toc, [], zones, []);
+  const chain = questie.questChain(details, 4);
+  const names = function stepNames(steps) {
+    return Array.from(steps).map(function stepName(step) {
+      return step.name;
+    });
+  };
+  assert.deepEqual(names(questie.availableSteps(chain, new Set())), ["Opening"]);
+  assert.deepEqual(names(questie.availableSteps(chain, new Set([1]))), ["Branch A", "Branch B"]);
+  assert.deepEqual(names(questie.availableSteps(chain, new Set([1, 2]))), ["Branch B"]);
+  assert.deepEqual(names(questie.availableSteps(chain, new Set([1, 2, 3]))), ["Finale"]);
+  assert.deepEqual(names(questie.availableSteps(chain, new Set([1, 2, 3, 4]))), []);
+});
+
+test("treats an either-or prerequisite as met when one of them is done", () => {
+  const toc = buildToc([
+    tocLine("Quest-1-S", encodeBase64({ 1: "Horde Start", 5: 30, 17: 17 })),
+    tocLine("Quest-2-S", encodeBase64({ 1: "Alliance Start", 5: 30, 17: 17 })),
+    tocLine("Quest-3-S", encodeBase64({ 1: "Shared Next", 5: 31, 17: 17 })),
+    tocLine("Quest-3-13", encodeBase64([1, 2]))
+  ]);
+  const details = questie.buildDetails(toc, [], zones, []);
+  const chain = questie.questChain(details, 3);
+  assert.equal(questie.availableSteps(chain, new Set([1]))[0].name, "Shared Next");
+});

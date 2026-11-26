@@ -7,7 +7,7 @@ const ITEM_FIELDS = { npcDrops: 2, objectDrops: 3, questRewards: 6, vendors: 14 
 const NPC_FIELDS = { name: 1, minLevel: 4, maxLevel: 5, rank: 6, spawns: 7, zone: 9, friendlyTo: 13, title: 14 };
 const OBJECT_FIELDS = { name: 1, spawns: 4, zone: 5 };
 const QUEST_FIELDS = { name: 1, startedBy: 2, requiredLevel: 4, questLevel: 5, requiredRaces: 6, requiredClasses: 7, preQuestGroup: 12, preQuestSingle: 13, zone: 17 };
-const MAX_CHAIN_LENGTH = 20;
+const MAX_CHAIN_LENGTH = 60;
 const ALLIANCE_RACE_MASK = 1 + 4 + 8 + 64;
 const HORDE_RACE_MASK = 2 + 16 + 32 + 128;
 const MAX_DROP_SOURCES = 3;
@@ -430,6 +430,8 @@ function questChain(details, questId) {
   for (const chainQuestId of ordered) {
     const step = questInfo(details.reader, details.zones, chainQuestId);
     step.starter = questStarter(details.reader, details.zones, chainQuestId);
+    step.requiresAll = entityTable(details.reader, "Quest", chainQuestId, QUEST_FIELDS.preQuestGroup);
+    step.requiresAny = entityTable(details.reader, "Quest", chainQuestId, QUEST_FIELDS.preQuestSingle);
     steps.push(step);
   }
   return steps;
@@ -454,11 +456,47 @@ function buildQuestieDetails(text, itemIds, zones, questIds) {
   return { version: index.version, items: details, quests: quests, reader: reader, zones: zones };
 }
 
+function isPrerequisiteMet(questId, completed, stepIds) {
+  return completed.has(questId) || !stepIds.has(questId);
+}
+
+function isStepUnlocked(step, completed, stepIds) {
+  for (const questId of step.requiresAll) {
+    if (!isPrerequisiteMet(questId, completed, stepIds)) {
+      return false;
+    }
+  }
+  if (step.requiresAny.length === 0) {
+    return true;
+  }
+  for (const questId of step.requiresAny) {
+    if (isPrerequisiteMet(questId, completed, stepIds)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function availableSteps(steps, completed) {
+  const stepIds = new Set();
+  for (const step of steps) {
+    stepIds.add(step.id);
+  }
+  const available = [];
+  for (const step of steps) {
+    if (!completed.has(step.id) && isStepUnlocked(step, completed, stepIds)) {
+      available.push(step);
+    }
+  }
+  return available;
+}
+
 window.QUESTIE = {
   addonName: QUESTIE_ADDON_NAME,
   fileName: QUESTIE_FILE_NAME,
   buildDetails: buildQuestieDetails,
   questChain: questChain,
+  availableSteps: availableSteps,
   questStarterFor: questStarterFor,
   parseDungeonEntrances: parseDungeonEntrances,
   dungeonFile: "support/Forever/Zones/dungeons.lua",
