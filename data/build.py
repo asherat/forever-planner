@@ -25,6 +25,7 @@ CREDENTIALS_FILE = Path.home() / ".config" / "blizzard-api.env"
 EQUIPPABLE_ITEM_CLASSES = {"Armor", "Weapon"}
 EXCLUDED_QUALITIES = {"POOR"}
 EXCLUDED_NAME_PATTERN = re.compile(r"^\[TMP\]|^Test |Test Staff|Monster -|^Deprecated", re.IGNORECASE)
+ICON_FILE_PATTERN = re.compile(r"/icons/\d+/(\d+)\.jpg$")
 FERAL_ATTACK_POWER_PATTERN = re.compile(r"\+(\d+) Attack Power in Cat, Bear, and Dire Bear forms only")
 
 token_lock = threading.Lock()
@@ -166,6 +167,18 @@ def item_faction(item, item_sources, factions_by_reputation):
     if len(sides) == 1:
         return sides.pop()
     return None
+
+
+def item_icons(items):
+    media = fetch_many("item-media", "/data/wow/media/item/{}", items.keys(), "item icons")
+    icons = {}
+    for item_id, payload in media.items():
+        for asset in payload.get("assets", []):
+            if asset.get("key") == "icon":
+                match = ICON_FILE_PATTERN.search(asset.get("value", ""))
+                if match is not None:
+                    icons[item_id] = int(match.group(1))
+    return icons
 
 
 def compact_item(item):
@@ -376,6 +389,7 @@ def main():
     items = fetch_many("item", "/data/wow/item/{}", item_ids, "items")
 
     factions_by_reputation = reputation_factions(items)
+    icons = item_icons(items)
     compact_items = []
     for item in items.values():
         if item["item_class"]["name"] not in EQUIPPABLE_ITEM_CLASSES:
@@ -392,6 +406,8 @@ def main():
         item_sources = sources.get(item["id"], [])
         if item_sources:
             record["sources"] = item_sources
+        if item["id"] in icons:
+            record["icon"] = icons[item["id"]]
         faction = item_faction(item, item_sources, factions_by_reputation)
         if faction is not None:
             record["faction"] = faction
