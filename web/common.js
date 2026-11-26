@@ -3,7 +3,8 @@ const STORAGE_KEYS = {
   settings: "foreverPlanner.settings",
   snapshots: "foreverPlanner.snapshots",
   tooltipRequirements: "foreverPlanner.tooltipRequirements",
-  crafting: "foreverPlanner.crafting"
+  crafting: "foreverPlanner.crafting",
+  craftingCart: "foreverPlanner.craftingCart"
 };
 
 const DEFAULT_LOOKAHEAD_LEVELS = 3;
@@ -56,6 +57,7 @@ function loadState() {
   state.settings = Object.assign(defaultSettings(), readStorage(STORAGE_KEYS.settings, {}));
   state.snapshots = readStorage(STORAGE_KEYS.snapshots, {});
   state.tooltipRequirements = readStorage(STORAGE_KEYS.tooltipRequirements, {});
+  state.craftingCart = readStorage(STORAGE_KEYS.craftingCart, []);
   moveSharedHiddenItemsToCharacters();
 }
 
