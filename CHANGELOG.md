@@ -2,6 +2,11 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.27.0 — 2026-11-26
+
+- Quest list shows the quests you can pick up right now in each chain, based on which prerequisites you've completed. Chains with parallel branches show each open branch, and a "done" count shows your progress.
+- Refresh cleans up your lists: quests whose reward you've earned and items you've equipped are removed from the quest list and the crafting list.
+
 ## v0.26.0 — 2026-11-26
 
 - Quest list: "Add quest upgrades (N)" adds the quest for every upgrade at once, and "Clear list" empties it.
