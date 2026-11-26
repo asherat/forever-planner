@@ -302,8 +302,70 @@ button:disabled {
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
 }
 
-.tooltip span:first-child {
+
+.slot-left .tooltip {
+  left: calc(100% + 8px);
+  bottom: auto;
+  top: 0;
+  transform: none;
+}
+
+.slot-right .tooltip {
+  left: auto;
+  right: calc(100% + 8px);
+  bottom: auto;
+  top: 0;
+  transform: none;
+}
+
+.tooltip-comparison {
+  min-width: 240px;
+  max-width: 300px;
+}
+
+.tooltip-title {
   font-weight: 600;
+}
+
+.tooltip-subtitle {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.tooltip-irrelevant {
+  color: var(--muted);
+}
+
+.tooltip-line {
+  font-variant-numeric: tabular-nums;
+}
+
+.tooltip-better {
+  color: var(--gain-positive);
+}
+
+.tooltip-worse {
+  color: var(--gain-negative);
+}
+
+.tooltip-effect {
+  color: var(--gain-positive);
+  font-size: 0.8rem;
+}
+
+.tooltip-enchant {
+  color: var(--quality-uncommon);
+  font-size: 0.8rem;
+}
+
+.tooltip-separator {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+
+.tooltip-gains {
+  margin-top: 4px;
 }
 
 .slot-equipped:hover .tooltip,

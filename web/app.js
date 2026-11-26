@@ -189,8 +189,18 @@ function compactEquipment(equipment) {
       quality: equippedItem.quality.type,
       slot: equippedItem.inventory_type.type,
       stats: stats,
+      itemSubclass: "",
+      effects: [],
       enchantments: []
     };
+    if (equippedItem.item_subclass) {
+      record.itemSubclass = equippedItem.item_subclass.name;
+    }
+    for (const spell of equippedItem.spells || []) {
+      if (spell.description) {
+        record.effects.push(spell.description);
+      }
+    }
     if (equippedItem.weapon) {
       record.weapon = { damagePerSecond: 0 };
       if (equippedItem.weapon.dps) {
@@ -685,6 +695,154 @@ function renderTooltip(lines) {
   return tooltip;
 }
 
+function tooltipHeader(tooltip, item, subtitle) {
+  tooltip.appendChild(createElement("span", "tooltip-title " + qualityClass(item.quality), item.name));
+  tooltip.appendChild(createElement("span", "tooltip-subtitle", subtitle));
+}
+
+function tooltipLine(tooltip, className, text) {
+  tooltip.appendChild(createElement("span", "tooltip-line " + className, text));
+}
+
+function weaponDamagePerSecond(item) {
+  if (item && item.weapon) {
+    return item.weapon.damagePerSecond;
+  }
+  return 0;
+}
+
+function renderItemTooltip(item, slotLabel) {
+  const tooltip = createElement("span", "tooltip");
+  let subtitle = slotLabel;
+  if (item.itemSubclass) {
+    subtitle = slotLabel + " · " + item.itemSubclass;
+  }
+  tooltipHeader(tooltip, item, subtitle);
+  if (item.weapon) {
+    tooltipLine(tooltip, "", item.weapon.damagePerSecond.toFixed(1) + " damage per second");
+  }
+  for (const statKey of Object.keys(item.stats || {})) {
+    tooltipLine(tooltip, "", "+" + item.stats[statKey] + " " + statLabel(statKey));
+  }
+  for (const effect of item.effects || []) {
+    tooltipLine(tooltip, "tooltip-effect", effect);
+  }
+  for (const enchantment of item.enchantments || []) {
+    tooltipLine(tooltip, "tooltip-enchant", enchantment);
+  }
+  return tooltip;
+}
+
+function comparedItems(slotDefinition, snapshot, upgradeItem) {
+  const items = [];
+  const equipped = snapshot.equipment[slotDefinition.key];
+  if (equipped) {
+    items.push(equipped);
+  }
+  if (slotDefinition.key === "MAIN_HAND" && isTwoHanded(upgradeItem) && snapshot.equipment.OFF_HAND) {
+    items.push(snapshot.equipment.OFF_HAND);
+  }
+  return items;
+}
+
+function summedStats(items) {
+  const totals = {};
+  for (const item of items) {
+    for (const statKey of Object.keys(item.stats || {})) {
+      totals[statKey] = (totals[statKey] || 0) + item.stats[statKey];
+    }
+  }
+  return totals;
+}
+
+function differenceText(difference) {
+  if (difference > 0) {
+    return " (+" + difference + ")";
+  }
+  if (difference < 0) {
+    return " (" + difference + ")";
+  }
+  return "";
+}
+
+function differenceClass(difference) {
+  if (difference > 0) {
+    return "tooltip-better";
+  }
+  if (difference < 0) {
+    return "tooltip-worse";
+  }
+  return "";
+}
+
+function specsUseWeaponDamage(character) {
+  for (const specKey of character.specs) {
+    if (specWeights(specKey).WEAPON_DPS) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function renderComparisonTooltip(slotDefinition, snapshot, character, candidate) {
+  const upgradeItem = candidate.item;
+  const tooltip = createElement("span", "tooltip tooltip-comparison");
+  let subtitle = slotDefinition.label;
+  if (upgradeItem.itemSubclass) {
+    subtitle = slotDefinition.label + " · " + upgradeItem.itemSubclass;
+  }
+  if (upgradeItem.usableLevel > snapshot.level) {
+    subtitle += " · " + levelText(upgradeItem, "level ");
+  }
+  tooltipHeader(tooltip, upgradeItem, subtitle);
+
+  const currentItems = comparedItems(slotDefinition, snapshot, upgradeItem);
+  const currentStats = summedStats(currentItems);
+  const upgradeStats = upgradeItem.stats || {};
+
+  const newDamage = weaponDamagePerSecond(upgradeItem);
+  if (newDamage > 0) {
+    let currentDamage = 0;
+    if (currentItems.length > 0) {
+      currentDamage = weaponDamagePerSecond(currentItems[0]);
+    }
+    const damageDifference = Math.round((newDamage - currentDamage) * 10) / 10;
+    let damageClass = differenceClass(damageDifference);
+    let damageText = newDamage.toFixed(1) + " damage per second" + differenceText(damageDifference);
+    if (!specsUseWeaponDamage(character)) {
+      damageClass = "tooltip-irrelevant";
+      damageText += ", not used by your specs";
+    }
+    tooltipLine(tooltip, damageClass, damageText);
+  }
+  for (const statKey of Object.keys(upgradeStats)) {
+    const difference = upgradeStats[statKey] - (currentStats[statKey] || 0);
+    tooltipLine(tooltip, differenceClass(difference), "+" + upgradeStats[statKey] + " " + statLabel(statKey) + differenceText(difference));
+  }
+  for (const statKey of Object.keys(currentStats)) {
+    if (upgradeStats[statKey] === undefined) {
+      tooltipLine(tooltip, "tooltip-worse", "−" + currentStats[statKey] + " " + statLabel(statKey) + " (lost)");
+    }
+  }
+  for (const effect of upgradeItem.effects || []) {
+    tooltipLine(tooltip, "tooltip-effect", effect);
+  }
+
+  let replacedText = "Replaces an empty slot";
+  if (currentItems.length > 0) {
+    const names = [];
+    for (const item of currentItems) {
+      names.push(item.name);
+    }
+    replacedText = "Replaces " + names.join(" + ");
+  }
+  tooltipLine(tooltip, "tooltip-subtitle tooltip-separator", replacedText);
+  const gains = gainBadges(candidate, character);
+  gains.classList.add("tooltip-gains");
+  tooltip.appendChild(gains);
+  return tooltip;
+}
+
 function renderSlot(slotDefinition, snapshot, character, optionsBySlot) {
   const slot = createElement("div", "slot slot-" + slotDefinition.column);
   const equipped = snapshot.equipment[slotDefinition.key];
@@ -695,7 +853,7 @@ function renderSlot(slotDefinition, snapshot, character, optionsBySlot) {
     equippedLink.target = "_blank";
     equippedLink.rel = "noopener";
     equippedLink.appendChild(itemIcon(equipped, "icon-large"));
-    equippedLink.appendChild(renderTooltip([slotDefinition.label, equipped.name]));
+    equippedLink.appendChild(renderItemTooltip(equipped, slotDefinition.label));
     equippedLink.setAttribute("aria-label", slotDefinition.label + ": " + equipped.name);
   } else {
     equippedLink.appendChild(createElement("span", "item-icon icon-large icon-empty"));
@@ -711,11 +869,7 @@ function renderSlot(slotDefinition, snapshot, character, optionsBySlot) {
     upgradeLink.href = "#upgrade-" + slotDefinition.key;
     upgradeLink.appendChild(itemIcon(upgrade.item, "icon-small"));
     upgradeLink.appendChild(createElement("span", "upgrade-marker", "▲"));
-    const tooltipLines = ["Next: " + upgrade.item.name, specLabel(character.specs[0]) + " +" + upgrade.primaryGain];
-    if (upgrade.item.usableLevel > snapshot.level) {
-      tooltipLines.push(levelText(upgrade.item, "level "));
-    }
-    upgradeLink.appendChild(renderTooltip(tooltipLines));
+    upgradeLink.appendChild(renderComparisonTooltip(slotDefinition, snapshot, character, upgrade));
     upgradeLink.setAttribute("aria-label", slotDefinition.label + " upgrade: " + upgrade.item.name);
     slot.appendChild(upgradeLink);
   }
