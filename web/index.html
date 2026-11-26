@@ -8,7 +8,11 @@
 </head>
 <body>
 <header class="topbar">
-  <div class="brand">Forever Planner</div>
+  <nav class="page-nav" aria-label="Pages">
+    <span class="brand">Forever Planner</span>
+    <a href="index.html" class="page-link" aria-current="page">Gear</a>
+    <a href="crafting.html" class="page-link">Crafting</a>
+  </nav>
   <div class="topbar-controls">
     <select id="character-select" aria-label="Character"></select>
     <button id="refresh-button" type="button" class="primary">Refresh</button>
@@ -90,10 +94,11 @@
 
     <fieldset>
       <legend>Your WoW folder</legend>
-      <p class="muted">Pick your <code>World of Warcraft</code> or <code>_forever_</code> folder. The planner reads item sources from Questie and auction prices from TSM there, on every Refresh. Nothing leaves your PC.</p>
+      <p class="muted">Pick your <code>World of Warcraft</code> or <code>_forever_</code> folder. The planner reads item sources from Questie, and auction prices and your characters' bags from TSM there, on every Refresh. Nothing leaves your PC.</p>
       <p id="wow-folder-status"></p>
       <p id="questie-status" class="muted"></p>
       <p id="tsm-status" class="muted"></p>
+      <p id="inventory-status" class="muted"></p>
       <div class="inline-fields">
         <button id="wow-folder-connect-button" type="button">Connect WoW folder</button>
         <button id="wow-folder-disconnect-button" type="button" class="link">Disconnect</button>
@@ -130,6 +135,7 @@
 <script src="wow-folder.js?build=__BUILD__"></script>
 <script src="tsm.js?build=__BUILD__"></script>
 <script src="questie.js?build=__BUILD__"></script>
+<script src="common.js?build=__BUILD__"></script>
 <script src="app.js?build=__BUILD__"></script>
 </body>
 </html>
