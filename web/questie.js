@@ -6,7 +6,7 @@ const QUESTIE_ENTITY_PREFIXES = ["Item-", "Npc-", "Object-", "Quest-"];
 const ITEM_FIELDS = { npcDrops: 2, objectDrops: 3, questRewards: 6, vendors: 14 };
 const NPC_FIELDS = { name: 1, minLevel: 4, maxLevel: 5, rank: 6, zone: 9, friendlyTo: 13, title: 14 };
 const OBJECT_FIELDS = { name: 1, zone: 5 };
-const QUEST_FIELDS = { name: 1, requiredLevel: 4, questLevel: 5, requiredRaces: 6, zone: 17 };
+const QUEST_FIELDS = { name: 1, requiredLevel: 4, questLevel: 5, requiredRaces: 6, requiredClasses: 7, zone: 17 };
 const ALLIANCE_RACE_MASK = 1 + 4 + 8 + 64;
 const HORDE_RACE_MASK = 2 + 16 + 32 + 128;
 const MAX_DROP_SOURCES = 3;
@@ -220,7 +220,8 @@ function questInfo(reader, zones, questId) {
     requiredLevel: row[QUEST_FIELDS.requiredLevel] || 0,
     questLevel: row[QUEST_FIELDS.questLevel] || 0,
     zone: zoneName(zones, row[QUEST_FIELDS.zone]),
-    faction: faction
+    faction: faction,
+    classes: row[QUEST_FIELDS.requiredClasses] || 0
   };
 }
 
@@ -286,7 +287,7 @@ function itemDetails(reader, zones, itemId) {
   return { sources: sources, quests: quests, vendorFaction: vendorFaction(vendors) };
 }
 
-function buildQuestieDetails(text, itemIds, zones) {
+function buildQuestieDetails(text, itemIds, zones, questIds) {
   const index = indexToc(text);
   const reader = createReader(index);
   const details = {};
@@ -296,7 +297,13 @@ function buildQuestieDetails(text, itemIds, zones) {
       details[itemId] = itemDetail;
     }
   }
-  return { version: index.version, items: details };
+  const quests = {};
+  for (const questId of questIds || []) {
+    if (index.entries.has("Quest-" + questId + "-S")) {
+      quests[questId] = questInfo(reader, zones, questId);
+    }
+  }
+  return { version: index.version, items: details, quests: quests };
 }
 
 window.QUESTIE = {

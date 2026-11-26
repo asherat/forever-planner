@@ -286,7 +286,7 @@ async function readQuestieFile(folder) {
   if (state.questie !== null && state.questie.modifiedAt === questieFile.modifiedAt) {
     return;
   }
-  const details = window.QUESTIE.buildDetails(questieFile.text, questieItemIds(), window.FOREVER_ZONES);
+  const details = window.QUESTIE.buildDetails(questieFile.text, questieItemIds(), window.FOREVER_ZONES, questieQuestIds());
   details.modifiedAt = questieFile.modifiedAt;
   state.questie = details;
 }
