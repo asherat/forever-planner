@@ -29,6 +29,8 @@
     <p>Add your Battle.net API client in Settings, then add a character by first name and surname. Your client secret is stored only in this browser and is sent only to Battle.net.</p>
   </section>
 
+  <div class="planner-layout">
+  <div class="planner-main">
   <section id="armory" class="armory" hidden>
     <div class="character-header">
       <h1 id="character-name"></h1>
@@ -55,30 +57,36 @@
       <div id="slots-right" class="slot-column slot-column-right"></div>
       <div id="slots-bottom" class="slot-row"></div>
     </div>
-    <aside id="route-panel" class="route-panel panel" aria-labelledby="route-title">
-      <h2 id="route-title">Leveling path</h2>
-      <div id="route-content"></div>
-      <p id="route-credit" class="muted route-credit"></p>
-    </aside>
   </section>
 
   <section id="priorities" hidden>
     <h2>What to get next</h2>
     <p class="muted">Most valuable first. Each slot shows the best upgrade within <span id="lookahead-label"></span> levels of you, and a quicker option you can use now when there is one.</p>
-    <div id="crafting-cart" class="crafting-cart panel" hidden>
-      <h3>Crafting list</h3>
-      <ul id="crafting-cart-items" class="crafting-cart-items"></ul>
-      <div class="inline-fields">
-        <a id="craft-all-link" class="button-link primary" href="crafting.html">Craft all</a>
-        <button id="clear-cart-button" type="button" class="link">Clear list</button>
-      </div>
-    </div>
     <ol id="priority-list" class="priority-list"></ol>
     <div id="hidden-items" class="hidden-items" hidden>
       <h3>Items you're not interested in</h3>
       <ul id="hidden-item-list"></ul>
     </div>
   </section>
+  </div>
+
+  <aside id="planner-sidebar" class="planner-sidebar" hidden>
+    <section id="crafting-cart" class="crafting-cart panel" aria-labelledby="crafting-cart-title">
+      <h2 id="crafting-cart-title">Crafting list</h2>
+      <p id="crafting-cart-empty" class="muted">Empty. Use "Add to crafting list" on a crafted item, then craft everything at once.</p>
+      <ul id="crafting-cart-items" class="crafting-cart-items"></ul>
+      <div id="crafting-cart-actions" class="inline-fields">
+        <a id="craft-all-link" class="button-link primary" href="crafting.html">Craft all</a>
+        <button id="clear-cart-button" type="button" class="link">Clear list</button>
+      </div>
+    </section>
+    <section id="route-panel" class="route-panel panel" aria-labelledby="route-title">
+      <h2 id="route-title">Leveling path</h2>
+      <div id="route-content"></div>
+      <p id="route-credit" class="muted route-credit"></p>
+    </section>
+  </aside>
+  </div>
 </main>
 
 <dialog id="settings-dialog">

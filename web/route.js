@@ -1,5 +1,7 @@
 const MAX_CHARACTER_LEVEL = 60;
 const LATER_ZONE_WINDOW = 5;
+const SUGGESTED_READY_ZONES = 4;
+const SUGGESTED_LATER_ZONES = 2;
 const ENDGAME_QUEST_LEVEL = 58;
 const ENDGAME_ZONE_LEVEL = 55;
 const MIN_QUESTS_FOR_RANGE = 5;
@@ -10,7 +12,8 @@ const BAND_UPPER_PERCENTILE = 0.9;
 const TIER_COLORS = { S: "tier-orange", A: "tier-yellow", B: "tier-green", C: "tier-grey", D: "tier-grey" };
 
 const routeEditor = {
-  pendingGap: null
+  pendingGap: null,
+  showAllZones: false
 };
 
 function selectedFactionType() {
@@ -377,13 +380,30 @@ function renderRoutePanel(character, snapshot) {
   container.appendChild(createElement("h3", "route-question", question));
   const suggestions = nextZoneSuggestions(end, snapshot.factionType, previousZone);
   const choices = createElement("div", "zone-choices");
-  for (const zone of suggestions.ready) {
+  let ready = suggestions.ready;
+  let later = suggestions.later;
+  if (!routeEditor.showAllZones) {
+    ready = ready.slice(0, SUGGESTED_READY_ZONES);
+    later = later.slice(0, SUGGESTED_LATER_ZONES);
+  }
+  for (const zone of ready) {
     choices.appendChild(renderZoneChoice(zone, zone.minLevel + "–" + zone.maxLevel));
   }
-  for (const zone of suggestions.later) {
+  for (const zone of later) {
     choices.appendChild(renderZoneChoice(zone, "starts at " + zone.minLevel));
   }
   container.appendChild(choices);
+  const hiddenCount = suggestions.ready.length + suggestions.later.length - ready.length - later.length;
+  if (hiddenCount > 0 || routeEditor.showAllZones) {
+    let toggleText = "Show all zones (" + hiddenCount + " more)";
+    if (routeEditor.showAllZones) {
+      toggleText = "Show fewer zones";
+    }
+    const toggle = createElement("button", "link", toggleText);
+    toggle.type = "button";
+    toggle.dataset.toggleZones = "true";
+    container.appendChild(toggle);
+  }
 }
 
 function updateLegEnd(character, snapshot, index, value) {
@@ -418,12 +438,15 @@ function handleRouteClick(event) {
   const snapshot = state.snapshots[character.slug];
   if (target.dataset.chooseZone !== undefined) {
     chooseZone(character, snapshot, target.dataset.chooseZone);
+    routeEditor.showAllZones = false;
   } else if (target.dataset.resolveGap !== undefined) {
     if (target.dataset.resolveGap === "cancel") {
       routeEditor.pendingGap = null;
     } else {
       resolveGap(character, snapshot, target.dataset.resolveGap, target.dataset.fillerZone);
     }
+  } else if (target.dataset.toggleZones !== undefined) {
+    routeEditor.showAllZones = !routeEditor.showAllZones;
   } else if (target.dataset.removeLeg !== undefined) {
     removeLeg(character, Number(target.dataset.removeLeg));
   } else {
