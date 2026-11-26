@@ -10,7 +10,6 @@ const QUEST_FIELDS = { name: 1, requiredLevel: 4, questLevel: 5, requiredRaces: 
 const ALLIANCE_RACE_MASK = 1 + 4 + 8 + 64;
 const HORDE_RACE_MASK = 2 + 16 + 32 + 128;
 const MAX_DROP_SOURCES = 3;
-const QUEST_SCALAR_KEY_PATTERN = /^Quest-(\d+)-S$/;
 const WORLD_DROP_THRESHOLD = 12;
 const utf8Decoder = new TextDecoder("utf-8");
 
@@ -288,40 +287,6 @@ function itemDetails(reader, zones, itemId) {
   return { sources: sources, quests: quests, vendorFaction: vendorFaction(vendors) };
 }
 
-function questSide(races) {
-  const classicRaces = races % 256;
-  if (classicRaces & ALLIANCE_RACE_MASK && !(classicRaces & HORDE_RACE_MASK)) {
-    return ["ALLIANCE"];
-  }
-  if (classicRaces & HORDE_RACE_MASK && !(classicRaces & ALLIANCE_RACE_MASK)) {
-    return ["HORDE"];
-  }
-  return ["ALLIANCE", "HORDE"];
-}
-
-function zoneQuestLevels(index, reader, zones) {
-  const levels = {};
-  for (const key of index.entries.keys()) {
-    const match = QUEST_SCALAR_KEY_PATTERN.exec(key);
-    if (match === null) {
-      continue;
-    }
-    const row = entityScalars(reader, "Quest", Number(match[1]));
-    const questLevel = row[QUEST_FIELDS.questLevel];
-    const zone = zoneName(zones, row[QUEST_FIELDS.zone]);
-    if (!questLevel || questLevel < 1 || !zone) {
-      continue;
-    }
-    if (!levels[zone]) {
-      levels[zone] = { ALLIANCE: {}, HORDE: {} };
-    }
-    for (const side of questSide(row[QUEST_FIELDS.requiredRaces] || 0)) {
-      levels[zone][side][questLevel] = (levels[zone][side][questLevel] || 0) + 1;
-    }
-  }
-  return levels;
-}
-
 function buildQuestieDetails(text, itemIds, zones, questIds) {
   const index = indexToc(text);
   const reader = createReader(index);
@@ -338,7 +303,7 @@ function buildQuestieDetails(text, itemIds, zones, questIds) {
       quests[questId] = questInfo(reader, zones, questId);
     }
   }
-  return { version: index.version, items: details, quests: quests, zoneLevels: zoneQuestLevels(index, reader, zones) };
+  return { version: index.version, items: details, quests: quests };
 }
 
 window.QUESTIE = {
