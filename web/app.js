@@ -1239,6 +1239,7 @@ function render() {
 }
 
 function renderCharacterList() {
+  renderFoundCharacters();
   const list = document.getElementById("character-list");
   list.replaceChildren();
   for (const character of state.settings.characters) {
@@ -1346,6 +1347,20 @@ function removeCharacter(slug) {
   render();
 }
 
+function addCharacterNamed(name, surname) {
+  const slug = characterSlug(name, surname);
+  if (findCharacter(slug) !== null) {
+    setStatus(name + " " + surname + " is already in your list.", "error");
+    return false;
+  }
+  state.settings.characters.push({ slug: slug, displayName: name + " " + surname, hiddenItemIds: [] });
+  state.settings.selectedCharacterSlug = slug;
+  saveSettings();
+  renderCharacterList();
+  render();
+  return true;
+}
+
 function addCharacter() {
   const nameInput = document.getElementById("new-character-name");
   const surnameInput = document.getElementById("new-character-surname");
@@ -1355,20 +1370,56 @@ function addCharacter() {
     setStatus("Enter both the first name and the surname.", "error");
     return;
   }
-  const slug = characterSlug(name, surname);
-  for (const character of state.settings.characters) {
-    if (character.slug === slug) {
-      setStatus(name + " " + surname + " is already in your list.", "error");
-      return;
+  if (addCharacterNamed(name, surname)) {
+    nameInput.value = "";
+    surnameInput.value = "";
+  }
+}
+
+function foundCharacters() {
+  const found = [];
+  if (state.inventory === null) {
+    return found;
+  }
+  for (const fullName of Object.keys(state.inventory.characters).sort()) {
+    const separator = fullName.indexOf(" ");
+    if (separator === -1) {
+      continue;
+    }
+    const name = fullName.slice(0, separator);
+    const surname = fullName.slice(separator + 1);
+    if (findCharacter(characterSlug(name, surname)) === null) {
+      found.push({ name: name, surname: surname, ruleset: state.inventory.characters[fullName].ruleset });
     }
   }
-  state.settings.characters.push({ slug: slug, displayName: name + " " + surname, hiddenItemIds: [] });
-  state.settings.selectedCharacterSlug = slug;
-  nameInput.value = "";
-  surnameInput.value = "";
-  saveSettings();
-  renderCharacterList();
-  render();
+  return found;
+}
+
+function renderFoundCharacters() {
+  const container = document.getElementById("found-characters");
+  container.replaceChildren();
+  const found = foundCharacters();
+  container.hidden = found.length === 0;
+  if (found.length === 0) {
+    return;
+  }
+  container.appendChild(createElement("p", "muted", "Found in your WoW folder:"));
+  for (const character of found) {
+    const button = createElement("button", "found-character", "Add " + character.name + " " + character.surname + " (" + character.ruleset + ")");
+    button.type = "button";
+    button.dataset.foundName = character.name;
+    button.dataset.foundSurname = character.surname;
+    container.appendChild(button);
+  }
+}
+
+function handleFoundCharacterClick(event) {
+  const button = event.target.closest("button");
+  if (button === null || button.dataset.foundName === undefined) {
+    return;
+  }
+  addCharacterNamed(button.dataset.foundName, button.dataset.foundSurname);
+  renderFoundCharacters();
 }
 
 function openSettings() {
@@ -1444,6 +1495,7 @@ function renderFolderStatus() {
   document.getElementById("questie-status").textContent = questieStatusText();
   document.getElementById("tsm-status").textContent = tsmStatusText();
   document.getElementById("inventory-status").textContent = inventoryStatusText();
+  renderFoundCharacters();
 }
 
 async function handleWowFolderConnectClick() {
@@ -1563,6 +1615,7 @@ function bindEvents() {
   document.getElementById("play-controls").addEventListener("change", handlePlayControlsChange);
   document.getElementById("hidden-items").addEventListener("click", handleHiddenItemsClick);
   document.getElementById("route-panel").addEventListener("click", handleRouteClick);
+  document.getElementById("found-characters").addEventListener("click", handleFoundCharacterClick);
   document.getElementById("route-panel").addEventListener("change", handleRouteChange);
 }
 

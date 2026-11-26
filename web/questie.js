@@ -122,7 +122,7 @@ function isEntityKey(key) {
 function indexToc(text) {
   const entries = new Map();
   let version = "";
-  for (const line of text.split("\n")) {
+  for (const line of text.split(/\r?\n/)) {
     if (line.startsWith("## Version: ")) {
       version = line.slice("## Version: ".length).trim();
       continue;
