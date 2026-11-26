@@ -2,6 +2,7 @@ const STORAGE_KEYS = {
   credentials: "foreverPlanner.credentials",
   settings: "foreverPlanner.settings",
   snapshots: "foreverPlanner.snapshots",
+  tooltipRequirements: "foreverPlanner.tooltipRequirements",
   crafting: "foreverPlanner.crafting"
 };
 
@@ -54,6 +55,7 @@ function loadState() {
   state.credentials = readStorage(STORAGE_KEYS.credentials, { clientId: "", clientSecret: "" });
   state.settings = Object.assign(defaultSettings(), readStorage(STORAGE_KEYS.settings, {}));
   state.snapshots = readStorage(STORAGE_KEYS.snapshots, {});
+  state.tooltipRequirements = readStorage(STORAGE_KEYS.tooltipRequirements, {});
   moveSharedHiddenItemsToCharacters();
 }
 
