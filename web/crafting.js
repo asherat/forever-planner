@@ -709,8 +709,13 @@ function renderInventoryCharacters() {
     container.appendChild(createElement("p", "muted", "Connect your WoW folder to use what your characters have. TSM saves bags and banks when a character logs out."));
     return;
   }
-  for (const name of Object.keys(state.inventory.characters).sort()) {
+  let currentAccount = null;
+  for (const name of Object.keys(state.inventory.characters).sort(compareByAccount)) {
     const character = state.inventory.characters[name];
+    if (state.inventory.accountCount > 1 && character.account !== currentAccount) {
+      currentAccount = character.account;
+      container.appendChild(createElement("p", "inventory-account", currentAccount));
+    }
     const label = createElement("label", "checkbox-line");
     const checkbox = createElement("input");
     checkbox.type = "checkbox";
@@ -722,6 +727,15 @@ function renderInventoryCharacters() {
     label.appendChild(renderMoney(character.money));
     container.appendChild(label);
   }
+}
+
+function compareByAccount(first, second) {
+  const firstAccount = state.inventory.characters[first].account;
+  const secondAccount = state.inventory.characters[second].account;
+  if (firstAccount !== secondAccount) {
+    return firstAccount.localeCompare(secondAccount);
+  }
+  return first.localeCompare(second);
 }
 
 function renderDataStatus() {

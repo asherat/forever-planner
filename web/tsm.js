@@ -61,7 +61,7 @@ function parseTsmLine(line) {
 
 function parseTsmAppData(text) {
   const sets = [];
-  for (const line of text.split("\n")) {
+  for (const line of text.split(/\r?\n/)) {
     const parsed = parseTsmLine(line);
     if (parsed !== null) {
       sets.push(parsed);
@@ -289,7 +289,7 @@ function storeInventoryField(character, fieldName, value) {
 
 function parseTsmInventory(text) {
   const characters = {};
-  const lines = text.split("\n");
+  const lines = text.split(/\r?\n/);
   for (let index = 0; index < lines.length; index += 1) {
     const match = TSM_INVENTORY_LINE_PATTERN.exec(lines[index]);
     if (match === null || TSM_INVENTORY_FIELDS.indexOf(match[4]) === -1) {
