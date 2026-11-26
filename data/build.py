@@ -234,6 +234,10 @@ def compact_item(item):
         record["classes"] = playable_classes
     if "reputation" in requirements:
         record["reputation"] = requirements["reputation"].get("display_string", "")
+        record["reputationRequirement"] = {
+            "factionId": requirements["reputation"]["faction"]["id"],
+            "tier": requirements["reputation"].get("min_reputation_level", 0),
+        }
     if "skill" in requirements:
         record["skill"] = requirements["skill"].get("display_string", "")
     return record
@@ -377,6 +381,14 @@ def merge_sources(*source_maps):
     return merged
 
 
+def zone_names():
+    area_index = cached_get("quest-area-index", "/data/wow/quest/area/index")
+    names = {}
+    for area in area_index.get("areas", []):
+        names[area["id"]] = area["name"]
+    return names
+
+
 def write_javascript_global(file_name, global_name, payload):
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     content = f"window.{global_name} = {json.dumps(payload, separators=(',', ':'), ensure_ascii=False)};\n"
@@ -420,6 +432,7 @@ def main():
 
     write_javascript_global("items.js", "FOREVER_ITEMS", compact_items)
     write_javascript_global("quests.js", "FOREVER_QUESTS", sorted(quest_records, key=record_id))
+    write_javascript_global("zones.js", "FOREVER_ZONES", zone_names())
     write_javascript_global("build-info.js", "FOREVER_BUILD_INFO", {
         "builtAt": time.strftime("%Y-%m-%d %H:%M"),
         "itemCount": len(compact_items),
