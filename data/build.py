@@ -440,6 +440,21 @@ def merge_sources(*source_maps):
     return merged
 
 
+def reputation_names():
+    index = cached_get("reputation-faction-index", "/data/wow/reputation-faction/index")
+    faction_ids = []
+    for faction in index.get("factions", []):
+        faction_ids.append(faction["id"])
+    details = fetch_many("reputation-faction", "/data/wow/reputation-faction/{}", faction_ids, "reputations")
+    names = {}
+    for faction_id, faction in details.items():
+        side = None
+        if "player_faction" in faction:
+            side = faction["player_faction"]["type"]
+        names[faction["name"]] = {"id": faction_id, "side": side}
+    return names
+
+
 def zone_names():
     area_index = cached_get("quest-area-index", "/data/wow/quest/area/index")
     names = {}
@@ -492,6 +507,7 @@ def main():
     write_javascript_global("items.js", "FOREVER_ITEMS", compact_items)
     write_javascript_global("quests.js", "FOREVER_QUESTS", sorted(quest_records, key=record_id))
     write_javascript_global("zones.js", "FOREVER_ZONES", zone_names())
+    write_javascript_global("reputations.js", "FOREVER_REPUTATIONS", reputation_names())
     recipes = build_recipe_list()
     write_javascript_global("recipes.js", "FOREVER_RECIPES", recipes)
     write_javascript_global("crafting-items.js", "FOREVER_CRAFTING_ITEMS", build_crafting_items(recipes))

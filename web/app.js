@@ -1,7 +1,13 @@
 const FUTURE_UPGRADE_WEIGHT = 0.5;
+const QUICKER_PASSES = ["easy-now", "easy-soon", "own-profession", "usable-now"];
 const MAX_SOURCES_SHOWN = 4;
 const NEUTRAL_REPUTATION_TIER = 3;
 const REPUTATION_TIERS_WITHIN_REACH = 1;
+const WOWHEAD_TOOLTIP_URL = "https://nether.wowhead.com/forever/tooltip/item/";
+const MAX_TOOLTIP_CHECKS_PER_RUN = 60;
+const TOOLTIP_CHECK_BATCH = 4;
+const TOOLTIP_CHECKS_PER_SLOT = 5;
+const tooltipChecks = { pending: new Set(), running: false };
 const REPUTATION_TIER_NAMES = ["Hated", "Hostile", "Unfriendly", "Neutral", "Friendly", "Honored", "Revered", "Exalted"];
 const CREATURE_RANKS = { 1: "elite", 2: "rare elite", 3: "boss", 4: "rare" };
 
@@ -94,26 +100,109 @@ function reputationTier(snapshot, factionId) {
   return NEUTRAL_REPUTATION_TIER;
 }
 
+function itemReputationRequirement(item, snapshot) {
+  if (item.reputationRequirement) {
+    return { factionId: item.reputationRequirement.factionId, tier: item.reputationRequirement.tier, text: item.reputation };
+  }
+  const looked = state.tooltipRequirements[item.id];
+  if (!looked || !looked.reputations) {
+    return null;
+  }
+  for (const requirement of looked.reputations) {
+    if (requirement.side === null || requirement.side === snapshot.factionType) {
+      return requirement;
+    }
+  }
+  return null;
+}
+
 function meetsReputation(item, snapshot) {
-  if (!item.reputationRequirement) {
+  const requirement = itemReputationRequirement(item, snapshot);
+  if (requirement === null) {
     return true;
   }
-  return reputationTier(snapshot, item.reputationRequirement.factionId) >= item.reputationRequirement.tier;
+  return reputationTier(snapshot, requirement.factionId) >= requirement.tier;
 }
 
 function isReputationWithinReach(item, snapshot) {
-  if (!item.reputationRequirement) {
+  const requirement = itemReputationRequirement(item, snapshot);
+  if (requirement === null) {
     return true;
   }
-  return reputationTier(snapshot, item.reputationRequirement.factionId) >= item.reputationRequirement.tier - REPUTATION_TIERS_WITHIN_REACH;
+  return reputationTier(snapshot, requirement.factionId) >= requirement.tier - REPUTATION_TIERS_WITHIN_REACH;
 }
 
 function reputationRequirementText(item, snapshot) {
-  const current = REPUTATION_TIER_NAMES[reputationTier(snapshot, item.reputationRequirement.factionId)];
+  const requirement = itemReputationRequirement(item, snapshot);
+  const current = REPUTATION_TIER_NAMES[reputationTier(snapshot, requirement.factionId)];
   if (meetsReputation(item, snapshot)) {
-    return item.reputation + " (you have it)";
+    return requirement.text + " (you have it)";
   }
-  return item.reputation + " (you're " + current + ")";
+  return requirement.text + " (you're " + current + ")";
+}
+
+function needsTooltipCheck(item, snapshot) {
+  if (item.reputationRequirement || state.tooltipRequirements[item.id]) {
+    return false;
+  }
+  for (const source of sourcesForCharacter(item, snapshot)) {
+    if (source.type === "vendor") {
+      return true;
+    }
+  }
+  return false;
+}
+
+function parseTooltipRequirements(tooltipHtml) {
+  const text = tooltipHtml.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ");
+  const requirements = [];
+  const pattern = /Requires ([A-Z][A-Za-z' -]+?) - (Hated|Hostile|Unfriendly|Neutral|Friendly|Honored|Revered|Exalted)/g;
+  let match = pattern.exec(text);
+  while (match !== null) {
+    const faction = window.FOREVER_REPUTATIONS[match[1]];
+    if (faction) {
+      requirements.push({
+        factionId: faction.id,
+        side: faction.side,
+        tier: REPUTATION_TIER_NAMES.indexOf(match[2]),
+        text: "Requires " + match[1] + " - " + match[2]
+      });
+    }
+    match = pattern.exec(text);
+  }
+  return requirements;
+}
+
+async function lookUpTooltipRequirement(itemId) {
+  try {
+    const response = await fetch(WOWHEAD_TOOLTIP_URL + itemId + "?locale=0");
+    if (!response.ok) {
+      return;
+    }
+    const tooltip = await response.json();
+    state.tooltipRequirements[itemId] = { reputations: parseTooltipRequirements(tooltip.tooltip || ""), checkedAt: Date.now() };
+  } catch (error) {
+    return;
+  }
+}
+
+async function runTooltipChecks() {
+  if (tooltipChecks.running || tooltipChecks.pending.size === 0) {
+    return;
+  }
+  tooltipChecks.running = true;
+  const itemIds = Array.from(tooltipChecks.pending).slice(0, MAX_TOOLTIP_CHECKS_PER_RUN);
+  tooltipChecks.pending.clear();
+  for (let start = 0; start < itemIds.length; start += TOOLTIP_CHECK_BATCH) {
+    const batch = [];
+    for (const itemId of itemIds.slice(start, start + TOOLTIP_CHECK_BATCH)) {
+      batch.push(lookUpTooltipRequirement(itemId));
+    }
+    await Promise.all(batch);
+  }
+  writeStorage(STORAGE_KEYS.tooltipRequirements, state.tooltipRequirements);
+  tooltipChecks.running = false;
+  render();
 }
 
 function compactProfessions(professions) {
@@ -423,6 +512,11 @@ function rankedCandidatesForSlot(slotDefinition, snapshot, character) {
     });
   }
   candidates.sort(compareCandidates);
+  for (const candidate of candidates.slice(0, TOOLTIP_CHECKS_PER_SLOT)) {
+    if (needsTooltipCheck(candidate.item, snapshot)) {
+      tooltipChecks.pending.add(candidate.item.id);
+    }
+  }
   return candidates;
 }
 
@@ -757,6 +851,53 @@ function statSummary(item) {
   return parts.join(", ");
 }
 
+function isUsableNow(candidate, snapshot) {
+  return candidate.availableLevel <= snapshot.level;
+}
+
+function hasOwnProfessionCraft(item, snapshot) {
+  for (const source of sourcesForCharacter(item, snapshot)) {
+    if (source.type === "craft" && hasProfession(snapshot, source.profession)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function quickerPassMatches(pass, candidate, snapshot) {
+  if (pass === "easy-now") {
+    return isUsableNow(candidate, snapshot) && hasEasySource(candidate.item, snapshot);
+  }
+  if (pass === "easy-soon") {
+    return hasEasySource(candidate.item, snapshot);
+  }
+  if (pass === "own-profession") {
+    return hasOwnProfessionCraft(candidate.item, snapshot);
+  }
+  return isUsableNow(candidate, snapshot);
+}
+
+function quickerOption(best, candidates, snapshot) {
+  for (const pass of QUICKER_PASSES) {
+    if (quickerPassMatches(pass, best, snapshot)) {
+      return null;
+    }
+    for (const candidate of candidates) {
+      if (candidate !== best && quickerPassMatches(pass, candidate, snapshot)) {
+        return candidate;
+      }
+    }
+  }
+  return null;
+}
+
+function candidatePriority(candidate, snapshot) {
+  if (isUsableNow(candidate, snapshot)) {
+    return candidate.primaryGain;
+  }
+  return candidate.primaryGain * FUTURE_UPGRADE_WEIGHT;
+}
+
 function upgradeOptions(slotDefinition, snapshot, character, takenItemNames) {
   const candidates = [];
   for (const candidate of candidatesForSlot(slotDefinition, snapshot, character)) {
@@ -768,30 +909,10 @@ function upgradeOptions(slotDefinition, snapshot, character, takenItemNames) {
     return null;
   }
   const best = candidates[0];
-  let quicker = null;
-  for (const candidate of candidates) {
-    if (candidate.availableLevel <= snapshot.level && hasEasySource(candidate.item, snapshot)) {
-      quicker = candidate;
-      break;
-    }
-  }
-  if (quicker === null) {
-    for (const candidate of candidates) {
-      if (candidate.availableLevel <= snapshot.level) {
-        quicker = candidate;
-        break;
-      }
-    }
-  }
-  if (quicker !== null && quicker.item.id === best.item.id) {
-    quicker = null;
-  }
-  let priority = best.primaryGain * FUTURE_UPGRADE_WEIGHT;
-  if (best.availableLevel <= snapshot.level) {
-    priority = best.primaryGain;
-  }
-  if (quicker !== null && quicker.primaryGain > priority) {
-    priority = quicker.primaryGain;
+  const quicker = quickerOption(best, candidates, snapshot);
+  let priority = candidatePriority(best, snapshot);
+  if (quicker !== null && candidatePriority(quicker, snapshot) > priority) {
+    priority = candidatePriority(quicker, snapshot);
   }
   return { slotDefinition: slotDefinition, best: best, quicker: quicker, priority: priority };
 }
@@ -1012,16 +1133,14 @@ function renderOption(label, candidate, snapshot, character, slotDefinition) {
   for (const effect of item.effects || []) {
     option.appendChild(createElement("div", "option-effect", effect));
   }
-  if (item.reputation) {
+  if (itemReputationRequirement(item, snapshot) !== null) {
     let requirementClass = "option-requirement";
-    let requirementText = item.reputation;
-    if (item.reputationRequirement) {
-      requirementText = reputationRequirementText(item, snapshot);
-      if (meetsReputation(item, snapshot)) {
-        requirementClass = "option-requirement-met";
-      }
+    if (meetsReputation(item, snapshot)) {
+      requirementClass = "option-requirement-met";
     }
-    option.appendChild(createElement("div", requirementClass, requirementText));
+    option.appendChild(createElement("div", requirementClass, reputationRequirementText(item, snapshot)));
+  } else if (item.reputation) {
+    option.appendChild(createElement("div", "option-requirement", item.reputation));
   }
   if (item.skill) {
     option.appendChild(createElement("div", "option-requirement", item.skill));
@@ -1240,6 +1359,7 @@ function render() {
   for (const options of allOptions) {
     priorityList.appendChild(renderPriority(options, snapshot, character));
   }
+  runTooltipChecks();
 }
 
 function renderCharacterList() {
