@@ -69,77 +69,97 @@ window.GAME_RULES = {
     }
   },
 
-  defaultSpecsByClass: {
-    "Druid": ["feral-cat", "druid-restoration"],
-    "Warrior": ["melee-strength", "tank"],
-    "Paladin": ["melee-strength", "healer"],
-    "Hunter": ["melee-agility", "melee-agility"],
-    "Rogue": ["melee-agility", "melee-agility"],
-    "Priest": ["healer", "caster-damage"],
-    "Shaman": ["caster-damage", "healer"],
-    "Mage": ["caster-damage", "caster-damage"],
-    "Warlock": ["caster-damage", "caster-damage"]
+  classSpecs: {
+    "Druid": ["druid-feral-cat", "druid-feral-bear", "druid-restoration", "druid-balance"],
+    "Warrior": ["warrior-arms", "warrior-fury", "warrior-protection"],
+    "Paladin": ["paladin-retribution", "paladin-protection", "paladin-holy"],
+    "Hunter": ["hunter-beast-mastery", "hunter-marksmanship", "hunter-survival"],
+    "Rogue": ["rogue-combat", "rogue-assassination", "rogue-subtlety"],
+    "Priest": ["priest-shadow", "priest-holy", "priest-discipline"],
+    "Shaman": ["shaman-enhancement", "shaman-elemental", "shaman-restoration"],
+    "Mage": ["mage-frost", "mage-fire", "mage-arcane"],
+    "Warlock": ["warlock-affliction", "warlock-demonology", "warlock-destruction"]
   },
+
+  specs: {
+    "druid-feral-cat": { label: "Feral (cat)", preset: "feral-cat", talentTree: "Feral Combat" },
+    "druid-feral-bear": { label: "Feral (bear)", preset: "feral-bear" },
+    "druid-restoration": { label: "Restoration", preset: "healer", talentTree: "Restoration" },
+    "druid-balance": { label: "Balance", preset: "caster-damage", talentTree: "Balance" },
+    "warrior-arms": { label: "Arms", preset: "melee-strength", talentTree: "Arms" },
+    "warrior-fury": { label: "Fury", preset: "melee-strength", talentTree: "Fury" },
+    "warrior-protection": { label: "Protection", preset: "tank", talentTree: "Protection" },
+    "paladin-retribution": { label: "Retribution", preset: "melee-strength", talentTree: "Retribution" },
+    "paladin-protection": { label: "Protection", preset: "tank", talentTree: "Protection" },
+    "paladin-holy": { label: "Holy", preset: "healer", talentTree: "Holy" },
+    "hunter-beast-mastery": { label: "Beast Mastery", preset: "melee-agility", talentTree: "Beast Mastery" },
+    "hunter-marksmanship": { label: "Marksmanship", preset: "melee-agility", talentTree: "Marksmanship" },
+    "hunter-survival": { label: "Survival", preset: "melee-agility", talentTree: "Survival" },
+    "rogue-combat": { label: "Combat", preset: "melee-agility", talentTree: "Combat" },
+    "rogue-assassination": { label: "Assassination", preset: "melee-agility", talentTree: "Assassination" },
+    "rogue-subtlety": { label: "Subtlety", preset: "melee-agility", talentTree: "Subtlety" },
+    "priest-shadow": { label: "Shadow", preset: "caster-damage", talentTree: "Shadow" },
+    "priest-holy": { label: "Holy", preset: "healer", talentTree: "Holy" },
+    "priest-discipline": { label: "Discipline", preset: "healer", talentTree: "Discipline" },
+    "shaman-enhancement": { label: "Enhancement", preset: "melee-strength", talentTree: "Enhancement" },
+    "shaman-elemental": { label: "Elemental", preset: "caster-damage", talentTree: "Elemental" },
+    "shaman-restoration": { label: "Restoration", preset: "healer", talentTree: "Restoration" },
+    "mage-frost": { label: "Frost", preset: "caster-damage", talentTree: "Frost" },
+    "mage-fire": { label: "Fire", preset: "caster-damage", talentTree: "Fire" },
+    "mage-arcane": { label: "Arcane", preset: "caster-damage", talentTree: "Arcane" },
+    "warlock-affliction": { label: "Affliction", preset: "caster-damage", talentTree: "Affliction" },
+    "warlock-demonology": { label: "Demonology", preset: "caster-damage", talentTree: "Demonology" },
+    "warlock-destruction": { label: "Destruction", preset: "caster-damage", talentTree: "Destruction" }
+  },
+
+  feralSpecs: { cat: "druid-feral-cat", bear: "druid-feral-bear" },
+
+  playstyles: {
+    "questing": { label: "Questing", multipliers: {} },
+    "dungeons": { label: "Dungeons", multipliers: { STAMINA: 0.6, HIT_RATING: 1.3, MANA_REGENERATION: 1.2 } },
+    "world-pvp": { label: "World PvP", multipliers: { STAMINA: 2.5, EXTRA_ARMOR: 1.5 } }
+  },
+
+  defaultPlaystyle: "questing",
 
   specPresets: {
     "feral-cat": {
-      label: "Feral (cat)",
       weights: {
         STRENGTH: 1.0, AGILITY: 1.2, ATTACK_POWER: 0.5, FERAL_ATTACK_POWER: 0.5,
         CRIT_RATING: 1.0, HIT_RATING: 1.2, STAMINA: 0.3, EXTRA_ARMOR: 0.02, WEAPON_DPS: 0
       }
     },
     "feral-bear": {
-      label: "Feral (bear)",
       weights: {
         STAMINA: 1.0, AGILITY: 0.9, STRENGTH: 0.5, EXTRA_ARMOR: 0.1, DODGE_RATING: 0.9,
         DEFENSE_SKILL_RATING: 0.7, FERAL_ATTACK_POWER: 0.2, ATTACK_POWER: 0.2, HIT_RATING: 0.5, WEAPON_DPS: 0
       }
     },
-    "druid-restoration": {
-      label: "Restoration",
-      weights: {
-        SPELL_HEALING_DONE: 1.0, SPELL_POWER: 1.0, INTELLECT: 0.5, SPIRIT: 0.45,
-        MANA_REGENERATION: 2.0, STAMINA: 0.15
-      }
-    },
-    "druid-balance": {
-      label: "Balance",
-      weights: {
-        SPELL_POWER: 1.0, SPELL_DAMAGE_DONE: 1.0, INTELLECT: 0.4, CRIT_RATING: 0.6,
-        HIT_RATING: 0.8, SPIRIT: 0.1, MANA_REGENERATION: 1.0, STAMINA: 0.15
-      }
-    },
     "melee-strength": {
-      label: "Melee (strength)",
       weights: {
         STRENGTH: 1.0, AGILITY: 0.7, ATTACK_POWER: 0.5, CRIT_RATING: 1.0, HIT_RATING: 1.2,
         STAMINA: 0.3, WEAPON_DPS: 3.0
       }
     },
     "melee-agility": {
-      label: "Melee / ranged (agility)",
       weights: {
         AGILITY: 1.0, STRENGTH: 0.5, ATTACK_POWER: 0.5, CRIT_RATING: 1.0, HIT_RATING: 1.2,
         STAMINA: 0.3, WEAPON_DPS: 3.0
       }
     },
     "tank": {
-      label: "Tank",
       weights: {
         STAMINA: 1.0, DEFENSE_SKILL_RATING: 0.9, DODGE_RATING: 0.8, PARRY_RATING: 0.7,
         BLOCK_RATING: 0.5, BLOCK_VALUE: 0.3, STRENGTH: 0.5, AGILITY: 0.5, EXTRA_ARMOR: 0.1, WEAPON_DPS: 1.0
       }
     },
     "caster-damage": {
-      label: "Caster damage",
       weights: {
         SPELL_POWER: 1.0, SPELL_DAMAGE_DONE: 1.0, INTELLECT: 0.4, CRIT_RATING: 0.6,
         HIT_RATING: 0.8, SPIRIT: 0.15, MANA_REGENERATION: 1.0, STAMINA: 0.15
       }
     },
     "healer": {
-      label: "Healer",
       weights: {
         SPELL_HEALING_DONE: 1.0, SPELL_POWER: 1.0, INTELLECT: 0.5, SPIRIT: 0.4,
         MANA_REGENERATION: 2.0, STAMINA: 0.15

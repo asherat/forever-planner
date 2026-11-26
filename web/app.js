@@ -44,8 +44,7 @@ function defaultSettings() {
     characters: [],
     selectedCharacterSlug: null,
     lookaheadLevels: DEFAULT_LOOKAHEAD_LEVELS,
-    hiddenItemIds: [],
-    weightOverrides: {}
+    hiddenItemIds: []
   };
 }
 
@@ -53,6 +52,19 @@ function loadState() {
   state.credentials = readStorage(STORAGE_KEYS.credentials, { clientId: "", clientSecret: "" });
   state.settings = Object.assign(defaultSettings(), readStorage(STORAGE_KEYS.settings, {}));
   state.snapshots = readStorage(STORAGE_KEYS.snapshots, {});
+  moveSharedHiddenItemsToCharacters();
+}
+
+function moveSharedHiddenItemsToCharacters() {
+  const sharedHiddenIds = state.settings.hiddenItemIds || [];
+  if (sharedHiddenIds.length === 0) {
+    return;
+  }
+  for (const character of state.settings.characters) {
+    character.hiddenItemIds = (character.hiddenItemIds || []).concat(sharedHiddenIds);
+  }
+  state.settings.hiddenItemIds = [];
+  saveSettings();
 }
 
 function saveSettings() {
@@ -189,8 +201,18 @@ function compactEquipment(equipment) {
       quality: equippedItem.quality.type,
       slot: equippedItem.inventory_type.type,
       stats: stats,
+      itemSubclass: "",
+      effects: [],
       enchantments: []
     };
+    if (equippedItem.item_subclass) {
+      record.itemSubclass = equippedItem.item_subclass.name;
+    }
+    for (const spell of equippedItem.spells || []) {
+      if (spell.description) {
+        record.effects.push(spell.description);
+      }
+    }
     if (equippedItem.weapon) {
       record.weapon = { damagePerSecond: 0 };
       if (equippedItem.weapon.dps) {
@@ -229,7 +251,8 @@ async function refreshCharacter(character) {
   const results = await Promise.all([
     fetchProfile(character.slug, "/equipment"),
     fetchProfile(character.slug, "/professions"),
-    fetchProfile(character.slug, "/character-media")
+    fetchProfile(character.slug, "/character-media"),
+    fetchProfile(character.slug, "/specializations")
   ]);
   const equippedBySlot = compactEquipment(results[0]);
   await addEquipmentIcons(equippedBySlot);
@@ -249,30 +272,95 @@ async function refreshCharacter(character) {
     equipment: equippedBySlot,
     professions: compactProfessions(results[1]),
     avatar: mediaAsset(results[2], "avatar"),
-    render: mediaAsset(results[2], "main-raw")
+    render: mediaAsset(results[2], "main-raw"),
+    talentSpecs: detectTalentSpecs(profile.character_class.name, results[3])
   };
-  if (!character.specs) {
-    character.specs = defaultSpecsForClass(profile.character_class.name);
-    saveSettings();
-  }
   saveSnapshots();
   setStatus("Updated from your last logout (" + new Date(profile.last_login_timestamp).toLocaleString() + ").", "success");
 }
 
-function defaultSpecsForClass(className) {
-  const specs = window.GAME_RULES.defaultSpecsByClass[className];
-  if (specs) {
-    return specs.slice();
+function specForTalentTree(className, treeName) {
+  const classSpecKeys = window.GAME_RULES.classSpecs[className] || [];
+  for (const specKey of classSpecKeys) {
+    if (window.GAME_RULES.specs[specKey].talentTree === treeName) {
+      return specKey;
+    }
   }
-  return ["melee-agility", "caster-damage"];
+  return null;
 }
 
-function specWeights(specKey) {
-  const preset = window.GAME_RULES.specPresets[specKey];
-  const weights = Object.assign({}, preset.weights);
-  const overrides = state.settings.weightOverrides[specKey];
-  if (overrides) {
-    Object.assign(weights, overrides);
+function mainTreeOfGroup(group) {
+  let bestTree = null;
+  let bestPoints = 0;
+  for (const specialization of group.specializations || []) {
+    if (specialization.spent_points > bestPoints) {
+      bestPoints = specialization.spent_points;
+      bestTree = specialization.specialization_name;
+    }
+  }
+  return bestTree;
+}
+
+function detectTalentSpecs(className, specializations) {
+  const detected = [];
+  if (specializations === null) {
+    return detected;
+  }
+  const groups = (specializations.specialization_groups || []).slice();
+  groups.sort(compareActiveGroupFirst);
+  for (const group of groups) {
+    const specKey = specForTalentTree(className, mainTreeOfGroup(group));
+    if (specKey !== null && detected.indexOf(specKey) === -1) {
+      detected.push(specKey);
+    }
+  }
+  return detected;
+}
+
+function compareActiveGroupFirst(first, second) {
+  return Number(Boolean(second.is_active)) - Number(Boolean(first.is_active));
+}
+
+function characterSpecs(character, snapshot) {
+  let specs = snapshot.talentSpecs || [];
+  if (specs.length === 0) {
+    const classSpecKeys = window.GAME_RULES.classSpecs[snapshot.className] || ["druid-feral-cat"];
+    specs = [classSpecKeys[0]];
+  }
+  const resolved = [];
+  for (const specKey of specs) {
+    if (specKey === window.GAME_RULES.feralSpecs.cat && character.feralForm === "bear") {
+      resolved.push(window.GAME_RULES.feralSpecs.bear);
+    } else {
+      resolved.push(specKey);
+    }
+  }
+  return resolved;
+}
+
+function hasFeralSpec(snapshot) {
+  return (snapshot.talentSpecs || []).indexOf(window.GAME_RULES.feralSpecs.cat) !== -1;
+}
+
+function characterPlaystyle(character) {
+  if (character.playstyle && window.GAME_RULES.playstyles[character.playstyle]) {
+    return character.playstyle;
+  }
+  return window.GAME_RULES.defaultPlaystyle;
+}
+
+function activeSpecs(character) {
+  return characterSpecs(character, state.snapshots[character.slug]);
+}
+
+function specWeights(specKey, playstyle) {
+  const presetKey = window.GAME_RULES.specs[specKey].preset;
+  const weights = Object.assign({}, window.GAME_RULES.specPresets[presetKey].weights);
+  const multipliers = window.GAME_RULES.playstyles[playstyle].multipliers;
+  for (const statKey of Object.keys(multipliers)) {
+    if (weights[statKey]) {
+      weights[statKey] = weights[statKey] * multipliers[statKey];
+    }
   }
   return weights;
 }
@@ -378,13 +466,18 @@ function rankedCandidatesForSlot(slotDefinition, snapshot, character) {
   }
   const itemTypes = slotItemTypes(slotDefinition, snapshot);
   const maximumLevel = snapshot.level + Number(state.settings.lookaheadLevels);
-  const primaryWeights = specWeights(character.specs[0]);
-  const secondaryWeights = specWeights(character.specs[1]);
+  const specs = activeSpecs(character);
+  const playstyle = characterPlaystyle(character);
+  const primaryWeights = specWeights(specs[0], playstyle);
+  let secondaryWeights = null;
+  if (specs.length > 1) {
+    secondaryWeights = specWeights(specs[1], playstyle);
+  }
   const equippedIds = new Set();
   for (const slotKey of Object.keys(equipment)) {
     equippedIds.add(equipment[slotKey].id);
   }
-  const hiddenIds = new Set(state.settings.hiddenItemIds);
+  const hiddenIds = new Set(character.hiddenItemIds || []);
   const candidates = [];
   for (const item of window.FOREVER_ITEMS) {
     if (itemTypes.indexOf(item.slot) === -1) {
@@ -403,7 +496,10 @@ function rankedCandidatesForSlot(slotDefinition, snapshot, character) {
     if (primaryGain <= 0) {
       continue;
     }
-    const secondaryGain = itemScore(item, secondaryWeights) - comparisonBaseline(slotDefinition, snapshot, item, secondaryWeights);
+    let secondaryGain = 0;
+    if (secondaryWeights !== null) {
+      secondaryGain = itemScore(item, secondaryWeights) - comparisonBaseline(slotDefinition, snapshot, item, secondaryWeights);
+    }
     candidates.push({
       item: item,
       primaryGain: Math.round(primaryGain * 10) / 10,
@@ -469,13 +565,16 @@ function gainBadge(value, label) {
 
 function gainBadges(candidate, character) {
   const gains = createElement("div", "gains");
-  gains.appendChild(gainBadge(candidate.primaryGain, specLabel(character.specs[0])));
-  gains.appendChild(gainBadge(candidate.secondaryGain, specLabel(character.specs[1])));
+  const specs = activeSpecs(character);
+  gains.appendChild(gainBadge(candidate.primaryGain, specLabel(specs[0])));
+  if (specs.length > 1) {
+    gains.appendChild(gainBadge(candidate.secondaryGain, specLabel(specs[1])));
+  }
   return gains;
 }
 
 function specLabel(specKey) {
-  return window.GAME_RULES.specPresets[specKey].label;
+  return window.GAME_RULES.specs[specKey].label;
 }
 
 function hasProfession(snapshot, professionName) {
@@ -685,6 +784,142 @@ function renderTooltip(lines) {
   return tooltip;
 }
 
+function tooltipHeader(tooltip, item, subtitle) {
+  tooltip.appendChild(createElement("span", "tooltip-title " + qualityClass(item.quality), item.name));
+  tooltip.appendChild(createElement("span", "tooltip-subtitle", subtitle));
+}
+
+function tooltipLine(tooltip, className, text) {
+  tooltip.appendChild(createElement("span", "tooltip-line " + className, text));
+}
+
+function weaponDamagePerSecond(item) {
+  if (item && item.weapon) {
+    return item.weapon.damagePerSecond;
+  }
+  return 0;
+}
+
+function renderItemTooltip(item, slotLabel) {
+  const tooltip = createElement("span", "tooltip");
+  let subtitle = slotLabel;
+  if (item.itemSubclass) {
+    subtitle = slotLabel + " · " + item.itemSubclass;
+  }
+  tooltipHeader(tooltip, item, subtitle);
+  if (item.weapon) {
+    tooltipLine(tooltip, "", item.weapon.damagePerSecond.toFixed(1) + " damage per second");
+  }
+  for (const statKey of Object.keys(item.stats || {})) {
+    tooltipLine(tooltip, "", "+" + item.stats[statKey] + " " + statLabel(statKey));
+  }
+  for (const effect of item.effects || []) {
+    tooltipLine(tooltip, "tooltip-effect", effect);
+  }
+  for (const enchantment of item.enchantments || []) {
+    tooltipLine(tooltip, "tooltip-enchant", enchantment);
+  }
+  return tooltip;
+}
+
+function comparedItems(slotDefinition, snapshot, upgradeItem) {
+  const items = [];
+  const equipped = snapshot.equipment[slotDefinition.key];
+  if (equipped) {
+    items.push(equipped);
+  }
+  if (slotDefinition.key === "MAIN_HAND" && isTwoHanded(upgradeItem) && snapshot.equipment.OFF_HAND) {
+    items.push(snapshot.equipment.OFF_HAND);
+  }
+  return items;
+}
+
+function summedStats(items) {
+  const totals = {};
+  for (const item of items) {
+    for (const statKey of Object.keys(item.stats || {})) {
+      totals[statKey] = (totals[statKey] || 0) + item.stats[statKey];
+    }
+  }
+  return totals;
+}
+
+function differenceText(difference) {
+  if (difference > 0) {
+    return " (+" + difference + ")";
+  }
+  if (difference < 0) {
+    return " (" + difference + ")";
+  }
+  return "";
+}
+
+function differenceClass(difference) {
+  if (difference > 0) {
+    return "tooltip-better";
+  }
+  if (difference < 0) {
+    return "tooltip-worse";
+  }
+  return "";
+}
+
+function specsUseWeaponDamage(character) {
+  for (const specKey of activeSpecs(character)) {
+    if (specWeights(specKey, characterPlaystyle(character)).WEAPON_DPS) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function renderComparisonTooltip(slotDefinition, snapshot, character, candidate) {
+  const upgradeItem = candidate.item;
+  const tooltip = createElement("span", "tooltip tooltip-comparison");
+  let subtitle = slotDefinition.label;
+  if (upgradeItem.itemSubclass) {
+    subtitle = slotDefinition.label + " · " + upgradeItem.itemSubclass;
+  }
+  if (upgradeItem.usableLevel > snapshot.level) {
+    subtitle += " · " + levelText(upgradeItem, "level ");
+  }
+  tooltipHeader(tooltip, upgradeItem, subtitle);
+
+  const currentItems = comparedItems(slotDefinition, snapshot, upgradeItem);
+  const currentStats = summedStats(currentItems);
+  const upgradeStats = upgradeItem.stats || {};
+
+  const newDamage = weaponDamagePerSecond(upgradeItem);
+  if (newDamage > 0) {
+    let currentDamage = 0;
+    if (currentItems.length > 0) {
+      currentDamage = weaponDamagePerSecond(currentItems[0]);
+    }
+    const damageDifference = Math.round((newDamage - currentDamage) * 10) / 10;
+    let damageClass = differenceClass(damageDifference);
+    let damageText = newDamage.toFixed(1) + " damage per second" + differenceText(damageDifference);
+    if (!specsUseWeaponDamage(character)) {
+      damageClass = "tooltip-irrelevant";
+      damageText += ", not used by your specs";
+    }
+    tooltipLine(tooltip, damageClass, damageText);
+  }
+  for (const statKey of Object.keys(upgradeStats)) {
+    const difference = upgradeStats[statKey] - (currentStats[statKey] || 0);
+    tooltipLine(tooltip, differenceClass(difference), "+" + upgradeStats[statKey] + " " + statLabel(statKey) + differenceText(difference));
+  }
+  for (const statKey of Object.keys(currentStats)) {
+    if (upgradeStats[statKey] === undefined) {
+      tooltipLine(tooltip, "tooltip-worse", "−" + currentStats[statKey] + " " + statLabel(statKey) + " (lost)");
+    }
+  }
+  for (const effect of upgradeItem.effects || []) {
+    tooltipLine(tooltip, "tooltip-effect", effect);
+  }
+
+  return tooltip;
+}
+
 function renderSlot(slotDefinition, snapshot, character, optionsBySlot) {
   const slot = createElement("div", "slot slot-" + slotDefinition.column);
   const equipped = snapshot.equipment[slotDefinition.key];
@@ -695,7 +930,7 @@ function renderSlot(slotDefinition, snapshot, character, optionsBySlot) {
     equippedLink.target = "_blank";
     equippedLink.rel = "noopener";
     equippedLink.appendChild(itemIcon(equipped, "icon-large"));
-    equippedLink.appendChild(renderTooltip([slotDefinition.label, equipped.name]));
+    equippedLink.appendChild(renderItemTooltip(equipped, slotDefinition.label));
     equippedLink.setAttribute("aria-label", slotDefinition.label + ": " + equipped.name);
   } else {
     equippedLink.appendChild(createElement("span", "item-icon icon-large icon-empty"));
@@ -711,18 +946,14 @@ function renderSlot(slotDefinition, snapshot, character, optionsBySlot) {
     upgradeLink.href = "#upgrade-" + slotDefinition.key;
     upgradeLink.appendChild(itemIcon(upgrade.item, "icon-small"));
     upgradeLink.appendChild(createElement("span", "upgrade-marker", "▲"));
-    const tooltipLines = ["Next: " + upgrade.item.name, specLabel(character.specs[0]) + " +" + upgrade.primaryGain];
-    if (upgrade.item.usableLevel > snapshot.level) {
-      tooltipLines.push(levelText(upgrade.item, "level "));
-    }
-    upgradeLink.appendChild(renderTooltip(tooltipLines));
+    upgradeLink.appendChild(renderComparisonTooltip(slotDefinition, snapshot, character, upgrade));
     upgradeLink.setAttribute("aria-label", slotDefinition.label + " upgrade: " + upgrade.item.name);
     slot.appendChild(upgradeLink);
   }
   return slot;
 }
 
-function renderOption(label, candidate, snapshot, character) {
+function renderOption(label, candidate, snapshot, character, slotDefinition) {
   const item = candidate.item;
   const option = createElement("div", "option");
   option.appendChild(createElement("div", "option-label", label));
@@ -737,6 +968,8 @@ function renderOption(label, candidate, snapshot, character) {
   }
   title.appendChild(createElement("span", "muted", subtitle));
   heading.appendChild(title);
+  heading.appendChild(renderComparisonTooltip(slotDefinition, snapshot, character, candidate));
+  heading.tabIndex = 0;
   option.appendChild(heading);
 
   option.appendChild(gainBadges(candidate, character));
@@ -818,19 +1051,42 @@ function renderPriority(options, snapshot, character) {
   entry.appendChild(heading);
 
   const optionRow = createElement("div", "option-row");
-  optionRow.appendChild(renderOption("Best upgrade", options.best, snapshot, character));
+  optionRow.appendChild(renderOption("Best upgrade", options.best, snapshot, character, slotDefinition));
   if (options.quicker !== null) {
-    optionRow.appendChild(renderOption("Quicker option", options.quicker, snapshot, character));
+    optionRow.appendChild(renderOption("Quicker option", options.quicker, snapshot, character, slotDefinition));
   }
   entry.appendChild(optionRow);
   return entry;
 }
 
 function hideItem(itemId) {
-  if (state.settings.hiddenItemIds.indexOf(itemId) === -1) {
-    state.settings.hiddenItemIds.push(itemId);
+  const character = selectedCharacter();
+  if (character === null) {
+    return;
+  }
+  if (!character.hiddenItemIds) {
+    character.hiddenItemIds = [];
+  }
+  if (character.hiddenItemIds.indexOf(itemId) === -1) {
+    character.hiddenItemIds.push(itemId);
     saveSettings();
   }
+  render();
+}
+
+function restoreItem(itemId) {
+  const character = selectedCharacter();
+  if (character === null) {
+    return;
+  }
+  const remaining = [];
+  for (const hiddenId of character.hiddenItemIds || []) {
+    if (hiddenId !== itemId) {
+      remaining.push(hiddenId);
+    }
+  }
+  character.hiddenItemIds = remaining;
+  saveSettings();
   render();
 }
 
@@ -856,7 +1112,7 @@ function render() {
   if (character !== null) {
     snapshot = state.snapshots[character.slug] || null;
   }
-  if (character === null || snapshot === null || !character.specs) {
+  if (character === null || snapshot === null) {
     welcome.hidden = false;
     armory.hidden = true;
     priorities.hidden = true;
@@ -873,17 +1129,23 @@ function render() {
   document.getElementById("character-meta").textContent =
     "Level " + snapshot.level + " " + snapshot.raceName + " " + snapshot.className + " · " + snapshot.faction +
     " · " + snapshot.ruleset;
+  const specs = activeSpecs(character);
+  const specNames = [];
+  for (const specKey of specs) {
+    specNames.push(specLabel(specKey));
+  }
   document.getElementById("character-specs").textContent =
-    "Comparing for " + specLabel(character.specs[0]) + " and " + specLabel(character.specs[1]) +
+    "Comparing for " + specNames.join(" and ") +
     " · gear as of your logout on " + new Date(snapshot.lastLogout).toLocaleString();
 
+  document.getElementById("paperdoll").dataset.faction = String(snapshot.factionType || "").toLowerCase();
   const characterRender = document.getElementById("character-render");
   characterRender.setAttribute("aria-label", character.displayName);
   if (snapshot.render) {
-    characterRender.style.backgroundImage = "url(\"" + snapshot.render + "\")";
+    characterRender.style.setProperty("--render-image", "url(\"" + snapshot.render + "\")");
     characterRender.classList.remove("render-missing");
   } else {
-    characterRender.style.backgroundImage = "";
+    characterRender.style.removeProperty("--render-image");
     characterRender.classList.add("render-missing");
   }
 
@@ -921,6 +1183,8 @@ function render() {
   }
 
   document.getElementById("lookahead-label").textContent = String(state.settings.lookaheadLevels);
+  renderPlayControls(character, snapshot);
+  renderHiddenItems(character);
   allOptions.sort(compareUpgradeOptions);
   const priorityList = document.getElementById("priority-list");
   priorityList.replaceChildren();
@@ -932,30 +1196,88 @@ function render() {
 function renderCharacterList() {
   const list = document.getElementById("character-list");
   list.replaceChildren();
-  const presetKeys = Object.keys(window.GAME_RULES.specPresets);
   for (const character of state.settings.characters) {
     const row = createElement("div", "character-row");
     row.appendChild(createElement("span", "character-row-name", character.displayName));
-    const specs = character.specs || ["melee-agility", "caster-damage"];
-    for (let specIndex = 0; specIndex < 2; specIndex += 1) {
-      const select = createElement("select");
-      select.setAttribute("aria-label", character.displayName + " spec " + (specIndex + 1));
-      for (const presetKey of presetKeys) {
-        const option = createElement("option", null, specLabel(presetKey));
-        option.value = presetKey;
-        option.selected = specs[specIndex] === presetKey;
-        select.appendChild(option);
+    const snapshot = state.snapshots[character.slug];
+    let summary = "Press Refresh to load";
+    if (snapshot) {
+      const specNames = [];
+      for (const specKey of characterSpecs(character, snapshot)) {
+        specNames.push(specLabel(specKey));
       }
-      select.dataset.characterSlug = character.slug;
-      select.dataset.specIndex = String(specIndex);
-      row.appendChild(select);
+      summary = "Level " + snapshot.level + " " + snapshot.className + " · " + specNames.join(" / ");
     }
+    row.appendChild(createElement("span", "muted", summary));
     const removeButton = createElement("button", "link", "Remove");
     removeButton.type = "button";
     removeButton.dataset.removeCharacterSlug = character.slug;
     row.appendChild(removeButton);
     list.appendChild(row);
   }
+}
+
+function renderChoiceGroup(container, name, choices, selectedValue) {
+  container.replaceChildren();
+  for (const choice of choices) {
+    const label = createElement("label", "choice");
+    const input = createElement("input");
+    input.type = "radio";
+    input.name = name;
+    input.value = choice.value;
+    input.checked = choice.value === selectedValue;
+    label.appendChild(input);
+    label.appendChild(createElement("span", null, choice.label));
+    container.appendChild(label);
+  }
+}
+
+function renderPlayControls(character, snapshot) {
+  const playstyleChoices = [];
+  for (const playstyleKey of Object.keys(window.GAME_RULES.playstyles)) {
+    playstyleChoices.push({ value: playstyleKey, label: window.GAME_RULES.playstyles[playstyleKey].label });
+  }
+  renderChoiceGroup(document.getElementById("playstyle-choices"), "playstyle", playstyleChoices, characterPlaystyle(character));
+  const feralGroup = document.getElementById("feral-form");
+  feralGroup.hidden = !hasFeralSpec(snapshot);
+  let feralForm = "cat";
+  if (character.feralForm === "bear") {
+    feralForm = "bear";
+  }
+  renderChoiceGroup(document.getElementById("feral-form-choices"), "feral-form",
+    [{ value: "cat", label: "Cat" }, { value: "bear", label: "Bear" }], feralForm);
+}
+
+function renderHiddenItems(character) {
+  const container = document.getElementById("hidden-items");
+  const list = document.getElementById("hidden-item-list");
+  list.replaceChildren();
+  const hiddenIds = character.hiddenItemIds || [];
+  container.hidden = hiddenIds.length === 0;
+  for (const itemId of hiddenIds) {
+    const item = itemById(itemId);
+    const entry = createElement("li", "hidden-item");
+    if (item !== null) {
+      entry.appendChild(itemIcon(item, "icon-small"));
+      entry.appendChild(wowheadLink(item));
+    } else {
+      entry.appendChild(createElement("span", null, "Item " + itemId));
+    }
+    const restoreButton = createElement("button", "link", "Bring back");
+    restoreButton.type = "button";
+    restoreButton.dataset.restoreItemId = String(itemId);
+    entry.appendChild(restoreButton);
+    list.appendChild(entry);
+  }
+}
+
+function itemById(itemId) {
+  for (const item of window.FOREVER_ITEMS) {
+    if (item.id === itemId) {
+      return item;
+    }
+  }
+  return null;
 }
 
 function removeCharacter(slug) {
@@ -995,7 +1317,7 @@ function addCharacter() {
       return;
     }
   }
-  state.settings.characters.push({ slug: slug, displayName: name + " " + surname, specs: null });
+  state.settings.characters.push({ slug: slug, displayName: name + " " + surname, hiddenItemIds: [] });
   state.settings.selectedCharacterSlug = slug;
   nameInput.value = "";
   surnameInput.value = "";
@@ -1004,42 +1326,12 @@ function addCharacter() {
   render();
 }
 
-function renderWeightsEditor() {
-  const presetSelect = document.getElementById("weights-preset-select");
-  const editor = document.getElementById("weights-editor");
-  editor.replaceChildren();
-  const specKey = presetSelect.value;
-  const weights = specWeights(specKey);
-  for (const statKey of Object.keys(window.GAME_RULES.statLabels)) {
-    const inputId = "weight-" + statKey;
-    const label = createElement("label", null, window.GAME_RULES.statLabels[statKey]);
-    label.htmlFor = inputId;
-    const input = createElement("input");
-    input.id = inputId;
-    input.type = "number";
-    input.step = "any";
-    input.value = String(weights[statKey] || 0);
-    input.dataset.statKey = statKey;
-    editor.appendChild(label);
-    editor.appendChild(input);
-  }
-}
-
 function openSettings() {
   document.getElementById("client-id-input").value = state.credentials.clientId;
   document.getElementById("client-secret-input").value = state.credentials.clientSecret;
   document.getElementById("region-select").value = state.settings.region;
   document.getElementById("lookahead-input").value = String(state.settings.lookaheadLevels);
-  document.getElementById("hidden-item-count").textContent = state.settings.hiddenItemIds.length + " hidden items.";
   document.getElementById("tsm-status").textContent = tsmStatusText();
-  const presetSelect = document.getElementById("weights-preset-select");
-  presetSelect.replaceChildren();
-  for (const presetKey of Object.keys(window.GAME_RULES.specPresets)) {
-    const option = createElement("option", null, specLabel(presetKey));
-    option.value = presetKey;
-    presetSelect.appendChild(option);
-  }
-  renderWeightsEditor();
   renderCharacterList();
   document.getElementById("settings-dialog").showModal();
 }
@@ -1183,18 +1475,6 @@ function handlePriorityListClick(event) {
   }
 }
 
-function handleCharacterListChange(event) {
-  const select = event.target;
-  const character = findCharacter(select.dataset.characterSlug);
-  if (character === null) {
-    return;
-  }
-  const updatedSpecs = (character.specs || defaultSpecsForClass("")).slice();
-  updatedSpecs[Number(select.dataset.specIndex)] = select.value;
-  character.specs = updatedSpecs;
-  saveSettings();
-}
-
 function handleCharacterListClick(event) {
   const slug = event.target.dataset.removeCharacterSlug;
   if (slug !== undefined) {
@@ -1202,26 +1482,26 @@ function handleCharacterListClick(event) {
   }
 }
 
-function handleWeightsEditorChange(event) {
-  const input = event.target;
-  const specKey = document.getElementById("weights-preset-select").value;
-  const overrides = state.settings.weightOverrides[specKey] || {};
-  overrides[input.dataset.statKey] = Number(input.value);
-  state.settings.weightOverrides[specKey] = overrides;
+function handlePlayControlsChange(event) {
+  const character = selectedCharacter();
+  if (character === null) {
+    return;
+  }
+  if (event.target.name === "playstyle") {
+    character.playstyle = event.target.value;
+  }
+  if (event.target.name === "feral-form") {
+    character.feralForm = event.target.value;
+  }
   saveSettings();
+  render();
 }
 
-function handleResetWeights() {
-  const specKey = document.getElementById("weights-preset-select").value;
-  delete state.settings.weightOverrides[specKey];
-  saveSettings();
-  renderWeightsEditor();
-}
-
-function handleClearHidden() {
-  state.settings.hiddenItemIds = [];
-  saveSettings();
-  document.getElementById("hidden-item-count").textContent = "0 hidden items.";
+function handleHiddenItemsClick(event) {
+  const itemId = event.target.dataset.restoreItemId;
+  if (itemId !== undefined) {
+    restoreItem(Number(itemId));
+  }
 }
 
 function handleImportChange(event) {
@@ -1241,18 +1521,15 @@ function bindEvents() {
   document.getElementById("settings-button").addEventListener("click", openSettings);
   document.getElementById("settings-dialog").addEventListener("close", closeSettings);
   document.getElementById("add-character-button").addEventListener("click", addCharacter);
-  document.getElementById("weights-preset-select").addEventListener("change", renderWeightsEditor);
-  document.getElementById("reset-weights-button").addEventListener("click", handleResetWeights);
-  document.getElementById("clear-hidden-button").addEventListener("click", handleClearHidden);
   document.getElementById("export-button").addEventListener("click", exportSettings);
   document.getElementById("tsm-connect-button").addEventListener("click", handleTsmConnectClick);
   document.getElementById("tsm-disconnect-button").addEventListener("click", handleTsmDisconnectClick);
   document.getElementById("import-input").addEventListener("change", handleImportChange);
   document.getElementById("character-select").addEventListener("change", handleCharacterSelectChange);
   document.getElementById("priority-list").addEventListener("click", handlePriorityListClick);
-  document.getElementById("character-list").addEventListener("change", handleCharacterListChange);
   document.getElementById("character-list").addEventListener("click", handleCharacterListClick);
-  document.getElementById("weights-editor").addEventListener("change", handleWeightsEditorChange);
+  document.getElementById("play-controls").addEventListener("change", handlePlayControlsChange);
+  document.getElementById("hidden-items").addEventListener("click", handleHiddenItemsClick);
 }
 
 function handleTsmStartupError(error) {
