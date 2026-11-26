@@ -1,9 +1,10 @@
 const MAX_RECIPE_DEPTH = 6;
-const CRAFTING_MODES = { own: "Have", buy: "Buy", craft: "Craft" };
+const CRAFTING_MODES = { own: "Have", vendor: "Vendor", ah: "AH", craft: "Craft" };
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 const MODE_ICON_PATHS = {
   own: "M5 7h14l-1.2 12.2a2 2 0 0 1-2 1.8H8.2a2 2 0 0 1-2-1.8L5 7zm4 0V6a3 3 0 0 1 6 0v1",
-  buy: "M12 3c4.4 0 8 1.3 8 3s-3.6 3-8 3-8-1.3-8-3 3.6-3 8-3zm-8 3v4c0 1.7 3.6 3 8 3s8-1.3 8-3V6m-16 4v4c0 1.7 3.6 3 8 3s8-1.3 8-3v-4m-16 4v4c0 1.7 3.6 3 8 3s8-1.3 8-3v-4",
+  vendor: "M3 9l2-5h14l2 5M3 9h18M3 9v1a3 3 0 0 0 6 0V9m0 1a3 3 0 0 0 6 0V9m0 1a3 3 0 0 0 6 0V9M5 13v7h14v-7M10 20v-4h4v4",
+  ah: "M12 3c4.4 0 8 1.3 8 3s-3.6 3-8 3-8-1.3-8-3 3.6-3 8-3zm-8 3v4c0 1.7 3.6 3 8 3s8-1.3 8-3V6m-16 4v4c0 1.7 3.6 3 8 3s8-1.3 8-3v-4m-16 4v4c0 1.7 3.6 3 8 3s8-1.3 8-3v-4",
   craft: "M14.5 4.5l5 5-2 2-1.5-1.5-8.5 8.5a1.8 1.8 0 0 1-2.5-2.5L13.5 7.5 12 6l2.5-1.5z"
 };
 const PLACE_LABELS = { bags: "bags", bank: "bank", mail: "mailbox", auctions: "on the AH" };
@@ -16,7 +17,7 @@ const crafting = {
 };
 
 function defaultCraftingList() {
-  return { entries: [], overrides: {}, useInventory: true, excludedCharacters: [], scope: null };
+  return { entries: [], overrides: {}, useInventory: true, excludedCharacters: [], scope: null, barteringRank: 0 };
 }
 
 function loadCraftingList() {
@@ -115,37 +116,37 @@ function isInScope(ruleset, faction) {
 }
 
 function isVendorSold(itemId) {
-  if (state.questie === null || !state.questie.items[itemId]) {
-    return false;
+  return isVendorSoldFor(itemId, ownFactionLetter());
+}
+
+function vendorOffer(itemId) {
+  const item = craftingItem(itemId);
+  if (item.vendorPrice > 0 && isVendorSold(itemId)) {
+    return { price: item.vendorPrice * (1 - vendorDiscountRate()), where: "vendor" };
   }
-  const letter = ownFactionLetter();
-  for (const source of state.questie.items[itemId].sources) {
-    if (source.type === "vendor" && (!source.friendlyTo || source.friendlyTo.indexOf(letter) !== -1)) {
-      return true;
-    }
+  return null;
+}
+
+function auctionOffer(itemId) {
+  const auctionPrice = unitCost(itemId);
+  if (auctionPrice !== null && auctionPrice > 0 && !isBindOnPickup(itemId)) {
+    return { price: auctionPrice, where: "auction house" };
   }
-  return false;
+  return null;
 }
 
 function buyOffer(itemId) {
-  const offers = [];
-  const item = craftingItem(itemId);
-  if (item.vendorPrice > 0 && isVendorSold(itemId)) {
-    offers.push({ price: item.vendorPrice, where: "vendor" });
-  }
-  const auctionPrice = unitCost(itemId);
-  if (auctionPrice !== null && auctionPrice > 0 && !isBindOnPickup(itemId)) {
-    offers.push({ price: auctionPrice, where: "auction house" });
-  }
-  if (offers.length === 0) {
-    return null;
-  }
-  offers.sort(compareOffers);
-  return offers[0];
+  return preferredOffer(vendorOffer(itemId), auctionOffer(itemId));
 }
 
-function compareOffers(first, second) {
-  return first.price - second.price;
+function offerForMode(itemId, mode) {
+  if (mode === "vendor" && vendorOffer(itemId) !== null) {
+    return vendorOffer(itemId);
+  }
+  if (mode === "ah" && auctionOffer(itemId) !== null) {
+    return auctionOffer(itemId);
+  }
+  return buyOffer(itemId);
 }
 
 function marketUnitCost(itemId, depth, path) {
@@ -305,13 +306,15 @@ function planNode(itemId, quantity, pool, depth, path) {
     cost: 0,
     missingPrice: false,
     canCraft: anyRecipe(itemId, depth, path) !== null,
-    canBuy: buyOffer(itemId) !== null,
-    buyTotal: null,
+    vendorTotal: null,
+    auctionTotal: null,
     craftTotal: null
   };
-  const offer = buyOffer(itemId);
-  if (offer !== null) {
-    node.buyTotal = offer.price * quantity;
+  if (vendorOffer(itemId) !== null) {
+    node.vendorTotal = vendorOffer(itemId).price * quantity;
+  }
+  if (auctionOffer(itemId) !== null) {
+    node.auctionTotal = auctionOffer(itemId).price * quantity;
   }
   const cheapest = cheapestRecipe(itemId, depth, path);
   if (cheapest !== null) {
@@ -342,7 +345,7 @@ function planNode(itemId, quantity, pool, depth, path) {
     return node;
   }
   node.buyQuantity = remaining;
-  node.buyOffer = buyOffer(itemId);
+  node.buyOffer = offerForMode(itemId, howToGetRest);
   if (node.buyOffer === null) {
     node.missingPrice = true;
   } else {
@@ -432,8 +435,11 @@ function renderModeButtons(node) {
   if (node.available > 0) {
     modes.push("own");
   }
-  if (node.canBuy) {
-    modes.push("buy");
+  if (node.vendorTotal !== null) {
+    modes.push("vendor");
+  }
+  if (node.auctionTotal !== null) {
+    modes.push("ah");
   }
   if (node.canCraft) {
     modes.push("craft");
@@ -446,10 +452,20 @@ function renderModeButtons(node) {
     button.type = "button";
     button.dataset.modeItemId = String(node.itemId);
     button.dataset.mode = mode;
-    button.setAttribute("aria-pressed", String(node.mode === mode));
+    button.setAttribute("aria-pressed", String(pressedMode(node) === mode));
     group.appendChild(button);
   }
   return group;
+}
+
+function pressedMode(node) {
+  if (node.mode === "own" || node.mode === "craft") {
+    return node.mode;
+  }
+  if (node.buyOffer !== null && node.buyOffer.where === "vendor") {
+    return "vendor";
+  }
+  return "ah";
 }
 
 function modeIcon(mode) {
@@ -468,8 +484,10 @@ function modeButtonValue(node, mode) {
     return createElement("span", "mode-value", String(node.available));
   }
   let total = node.craftTotal;
-  if (mode === "buy") {
-    total = node.buyTotal;
+  if (mode === "vendor") {
+    total = node.vendorTotal;
+  } else if (mode === "ah") {
+    total = node.auctionTotal;
   }
   if (total === null) {
     return createElement("span", "mode-value", "?");
@@ -746,6 +764,12 @@ function crafterRows(professions) {
   return rows;
 }
 
+function handleBarteringChange(event) {
+  crafting.list.barteringRank = Number(event.target.value) || 0;
+  saveCraftingList();
+  renderCrafting();
+}
+
 function renderInventoryCharacters() {
   document.getElementById("use-inventory").checked = crafting.list.useInventory;
   const container = document.getElementById("inventory-characters");
@@ -813,6 +837,7 @@ function renderScopeSelect() {
 
 function renderCrafting() {
   renderScopeSelect();
+  document.getElementById("bartering-select").value = String(crafting.list.barteringRank || 0);
   renderDataStatus();
   renderInventoryCharacters();
   const plans = planList();
@@ -910,6 +935,9 @@ function handleListChange(event) {
 
 function handleInventoryChange(event) {
   const target = event.target;
+  if (target.id === "bartering-select") {
+    return;
+  }
   if (target.id === "use-inventory") {
     crafting.list.useInventory = target.checked;
   } else if (target.dataset.characterName !== undefined) {
@@ -1007,6 +1035,7 @@ function bindCraftingEvents() {
   document.getElementById("crafting-refresh-button").addEventListener("click", handleCraftingRefresh);
   document.getElementById("crafting-connect-button").addEventListener("click", handleCraftingConnect);
   document.getElementById("scope-select").addEventListener("change", handleScopeChange);
+  document.getElementById("bartering-select").addEventListener("change", handleBarteringChange);
   window.addEventListener("hashchange", handleHashChange);
 }
 
