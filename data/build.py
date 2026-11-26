@@ -532,12 +532,14 @@ def build_maps():
             has_zones = True
             zones[child["Name_lang"]] = {
                 "continent": ui_map["Name_lang"],
+                "uiMapId": int(child_id),
                 "rectangle": relative_rectangle(regions[child_id], regions[map_id]),
             }
         if has_zones:
             region = regions[map_id]
             continents[ui_map["Name_lang"]] = {
-                "aspectRatio": round((region["maxY"] - region["minY"]) / (region["maxX"] - region["minX"]), 4)
+                "uiMapId": int(map_id),
+                "aspectRatio": round((region["maxY"] - region["minY"]) / (region["maxX"] - region["minX"]), 4),
             }
     return {"continents": continents, "zones": zones}
 
