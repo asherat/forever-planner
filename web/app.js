@@ -1538,6 +1538,7 @@ function render() {
   for (const options of allOptions) {
     priorityList.appendChild(renderPriority(options, snapshot, character));
   }
+  state.craftedUpgradePicks = craftedUpgradePicks(allOptions, snapshot);
   renderCart();
   runTooltipChecks();
 }
@@ -1887,6 +1888,52 @@ async function handleRefreshClick() {
   }
 }
 
+function craftedPick(options, snapshot) {
+  if (firstCraftSource(sourcesForCharacter(options.best.item, snapshot)) !== null) {
+    return options.best.item.id;
+  }
+  if (options.quicker !== null && firstCraftSource(sourcesForCharacter(options.quicker.item, snapshot)) !== null) {
+    return options.quicker.item.id;
+  }
+  return null;
+}
+
+function craftedUpgradePicks(allOptions, snapshot) {
+  const picks = [];
+  for (const options of allOptions) {
+    let parts = [options];
+    if (options.group) {
+      parts = options.parts;
+    }
+    for (const part of parts) {
+      const itemId = craftedPick(part, snapshot);
+      if (itemId !== null && picks.indexOf(itemId) === -1) {
+        picks.push(itemId);
+      }
+    }
+  }
+  return picks;
+}
+
+function isInCart(itemId) {
+  for (const entry of state.craftingCart) {
+    if (entry.itemId === itemId) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function addCraftedUpgrades() {
+  for (const itemId of state.craftedUpgradePicks) {
+    if (!isInCart(itemId)) {
+      state.craftingCart.push({ itemId: itemId, quantity: 1 });
+    }
+  }
+  writeStorage(STORAGE_KEYS.craftingCart, state.craftingCart);
+  renderCart();
+}
+
 function addToCart(itemId) {
   for (const entry of state.craftingCart) {
     if (entry.itemId === itemId) {
@@ -1933,13 +1980,23 @@ function renderCart() {
     quantity.dataset.cartIndex = String(index);
     quantity.setAttribute("aria-label", "How many");
     row.appendChild(quantity);
-    const removeButton = createElement("button", "link", "Remove");
+    const removeButton = createElement("button", "cart-remove", "×");
     removeButton.type = "button";
     removeButton.dataset.cartRemove = String(index);
+    removeButton.setAttribute("aria-label", "Remove from crafting list");
     row.appendChild(removeButton);
     list.appendChild(row);
   }
   document.getElementById("craft-all-link").href = "crafting.html" + cartHash();
+  let missing = 0;
+  for (const itemId of state.craftedUpgradePicks || []) {
+    if (!isInCart(itemId)) {
+      missing += 1;
+    }
+  }
+  const addButton = document.getElementById("add-crafted-button");
+  addButton.hidden = missing === 0;
+  addButton.textContent = "Add crafted upgrades (" + missing + ")";
 }
 
 function handleCartClick(event) {
@@ -1948,6 +2005,9 @@ function handleCartClick(event) {
     state.craftingCart.splice(Number(target.dataset.cartRemove), 1);
   } else if (target.id === "clear-cart-button") {
     state.craftingCart = [];
+  } else if (target.id === "add-crafted-button") {
+    addCraftedUpgrades();
+    return;
   } else {
     return;
   }
