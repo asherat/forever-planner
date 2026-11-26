@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "Forever Planner",
+  "description": "Gear and leveling planner for WoW: Forever characters.",
+  "version": "0.1.0",
+  "action": {
+    "default_title": "Open Forever Planner"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "host_permissions": [
+    "https://oauth.battle.net/*",
+    "https://*.api.blizzard.com/*"
+  ]
+}
