@@ -5,6 +5,8 @@ window.GAME_RULES = {
     { key: "SHOULDER", label: "Shoulders", column: "left", itemSlots: ["SHOULDER"] },
     { key: "BACK", label: "Back", column: "left", itemSlots: ["CLOAK"] },
     { key: "CHEST", label: "Chest", column: "left", itemSlots: ["CHEST", "ROBE"] },
+    { key: "SHIRT", label: "Shirt", column: "left", itemSlots: [], cosmetic: true },
+    { key: "TABARD", label: "Tabard", column: "left", itemSlots: [], cosmetic: true },
     { key: "WRIST", label: "Wrist", column: "left", itemSlots: ["WRIST"] },
     { key: "HANDS", label: "Hands", column: "right", itemSlots: ["HAND"] },
     { key: "WAIST", label: "Waist", column: "right", itemSlots: ["WAIST"] },
@@ -151,8 +153,12 @@ window.GAME_RULES = {
     HIT_RATING: "Hit", SPELL_POWER: "Spell power", SPELL_DAMAGE_DONE: "Spell damage",
     SPELL_HEALING_DONE: "Healing", MANA_REGENERATION: "Mana per 5 sec", EXTRA_ARMOR: "Bonus armor",
     DODGE_RATING: "Dodge", PARRY_RATING: "Parry", DEFENSE_SKILL_RATING: "Defense", BLOCK_RATING: "Block",
-    BLOCK_VALUE: "Block value", WEAPON_DPS: "Weapon DPS"
+    BLOCK_VALUE: "Block value", WEAPON_DPS: "Weapon DPS", HEALTH_REGEN: "Health per 5 sec",
+    SPELL_PENETRATION: "Spell penetration", FIRE_RESISTANCE: "Fire resistance", FROST_RESISTANCE: "Frost resistance",
+    NATURE_RESISTANCE: "Nature resistance", SHADOW_RESISTANCE: "Shadow resistance", ARCANE_RESISTANCE: "Arcane resistance"
   },
+
+  unknownIconId: 134400,
 
   qualityOrder: ["POOR", "COMMON", "UNCOMMON", "RARE", "EPIC", "LEGENDARY"]
 };

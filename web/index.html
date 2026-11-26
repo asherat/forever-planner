@@ -26,29 +26,27 @@
 
   <section id="armory" hidden>
     <div class="character-header">
-      <img id="character-avatar" alt="" hidden>
-      <div>
-        <h1 id="character-name"></h1>
-        <p id="character-meta" class="muted"></p>
-        <p id="character-specs" class="muted"></p>
-      </div>
+      <h1 id="character-name"></h1>
+      <p id="character-meta" class="muted"></p>
+      <p id="character-specs" class="muted"></p>
     </div>
     <div class="paperdoll">
-      <div id="slots-left" class="slot-column"></div>
-      <div id="slots-right" class="slot-column"></div>
+      <div id="slots-left" class="slot-column slot-column-left"></div>
+      <div id="character-render" class="character-render" role="img"></div>
+      <div id="slots-right" class="slot-column slot-column-right"></div>
       <div id="slots-bottom" class="slot-row"></div>
     </div>
   </section>
 
-  <section id="details" hidden>
-    <h2>Upgrade details</h2>
-    <p class="muted">Best candidates per slot, ranked for your primary spec. Items up to <span id="lookahead-label"></span> levels above you are included.</p>
-    <div id="detail-list"></div>
+  <section id="priorities" hidden>
+    <h2>What to get next</h2>
+    <p class="muted">Most valuable first. Each slot shows the best upgrade within <span id="lookahead-label"></span> levels of you, and a quicker option you can use now when there is one.</p>
+    <ol id="priority-list" class="priority-list"></ol>
   </section>
 </main>
 
 <dialog id="settings-dialog">
-  <form id="settings-form" method="dialog">
+  <form id="settings-form" method="dialog" novalidate>
     <h2>Settings</h2>
 
     <fieldset>
@@ -83,13 +81,14 @@
       <p class="muted"><span id="hidden-item-count"></span> <button id="clear-hidden-button" type="button" class="link">Show hidden items again</button></p>
     </fieldset>
 
-    <fieldset>
-      <legend>Stat weights</legend>
+    <details class="advanced">
+      <summary>Advanced: stat weights</summary>
+      <p class="muted">How much each stat counts per spec. The defaults are fine; change them only if the suggestions feel wrong.</p>
       <label for="weights-preset-select">Spec</label>
       <select id="weights-preset-select"></select>
       <div id="weights-editor" class="weights-grid"></div>
       <button id="reset-weights-button" type="button" class="link">Reset this spec to defaults</button>
-    </fieldset>
+    </details>
 
     <fieldset>
       <legend>Backup</legend>
@@ -105,14 +104,6 @@
     </div>
   </form>
 </dialog>
-
-<template id="slot-template">
-  <div class="slot">
-    <div class="slot-label"></div>
-    <div class="slot-equipped"></div>
-    <div class="slot-upgrade"></div>
-  </div>
-</template>
 
 <script src="data/build-info.js"></script>
 <script src="data/items.js"></script>
