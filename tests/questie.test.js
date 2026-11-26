@@ -52,6 +52,7 @@ test("puts bosses first among drops and summarises long drop lists as a world dr
   dropLines.push(tocLine("Item-300-2", encodeBase64(worldIds)));
   const details = questie.buildDetails(buildToc(dropLines), [200, 300], zones, []);
   assert.equal(details.items[200].sources[0].npc, "Chief Ukorz");
+  assert.equal(details.items[200].sources[0].npcId, 2);
   assert.equal(details.items[200].sources[0].zone, "Zul'Farrak");
   assert.equal(details.items[300].sources[0].type, "world-drop");
   assert.equal(details.items[300].sources[0].count, 20);

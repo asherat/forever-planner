@@ -1,0 +1,90 @@
+# Forever Planner: project guide
+
+Read this before changing anything. It explains what the planner is for, how it is built, and which decisions are settled. User-facing features are in `README.md`; release history is in `CHANGELOG.md`.
+
+## Intention
+
+A gear, leveling and crafting planner for **WoW: Forever** characters. It exists because GearQuest (the in-game addon) is awkward to use, sometimes fails to rank gear for feral druids, and only judges items you have just looted. The planner answers "what should I go get next, and where?" based on your character, your leveling path and your gold.
+
+Its users are an experienced player and a brand-new player, so **simplicity beats configurability**:
+
+- No stat-weight knobs. Weights come from spec presets plus a single Questing / Dungeons / World PvP choice.
+- Specs are detected from talents. Main/off spec is one selector, plus cat/bear for feral druids.
+- Every UI choice should be something a new player understands without reading docs.
+- Suggestions must be things you can actually get: right faction and class, a known source, reputation within reach, quests not yet completed, a zone on your path.
+
+## Architecture
+
+A static site in `web/`, served by GitHub Pages. There is no server and no build step.
+
+- Plain classic `<script>` files that share globals. There is no framework and no bundler. Load order is in `index.html` and `crafting.html`.
+- **The browser calls the Battle.net API directly** with the user's own API client. The secret lives only in `localStorage`. Battle.net rejects `Origin: null`, so the site must be served over HTTP, never opened as `file://`.
+- **Local WoW files** are read through the File System Access API, from a picked `World of Warcraft` or `_forever_` folder whose handle is kept in IndexedDB. The files are read, never uploaded.
+  - Questie (`QuestieDB_Forever.toc`, base64 CBOR records, plus `support/Forever/Zones/dungeons.lua`) supplies item sources, quest data and dungeon entrances.
+  - TradeSkillMaster supplies prices (`TradeSkillMaster_AppHelper/AppData.lua`, base-32 copper) and inventory (`WTF/Account/*/SavedVariables/TradeSkillMaster.lua`).
+- **Wowhead** is used for two things only:
+  - the nether tooltip API, to fill in reputation requirements that Battle.net omits (cached 14 days, failures retried after 1 day);
+  - outbound links to `https://www.wowhead.com/forever/{item|quest|npc}=ID`.
+
+| File | Role |
+|---|---|
+| `web/index.html`, `web/app.js` | Gear page: paper doll, upgrade scoring and selection, upgrade cards, crafting list, quest list, settings dialog |
+| `web/crafting.html`, `web/crafting.js` | Crafting tool: recipe trees with own / vendor / AH / craft per material, totals, shopping list, recipe sources |
+| `web/common.js` | Shared state, storage keys, Battle.net fetch, WoW folder reading, prices and money, Wowhead links, map popovers |
+| `web/route.js` | Leveling path editor: zone suggestions, gap filling, route legs used by gear availability |
+| `web/zone-guide.js` | Hand-maintained zone tiers, notes, level ranges, factions and dungeons |
+| `web/game-rules.js` | Slots, class proficiencies, spec presets and playstyles |
+| `web/questie.js` | CBOR decoder and Questie lookups (sources, quest info, chains, starters, dungeon entrances) |
+| `web/tsm.js`, `web/wow-folder.js` | TSM price and inventory parsers, folder handle and file access |
+| `web/data/*.js` | Generated game data. Don't edit by hand |
+| `web/maps/*.jpg` | Generated hover maps, one per `uiMapId` |
+| `data/build.py` | Crawls the Battle.net Forever API and wago.tools and writes `web/data/*.js` |
+| `tools/build-maps.js` | Stitches the game's map tiles (wago.tools CASC, BLP2 DXT1) into 560 px JPEGs |
+
+### Data rebuilds
+
+1. `python3 -I data/build.py` needs `~/.config/blizzard-api.env` with `BLIZZARD_CLIENT_ID` and `BLIZZARD_CLIENT_SECRET`.
+2. Then `node tools/build-maps.js`, which needs `npm install` for `jpeg-js`.
+
+Both cache their downloads in `data/cache/`, which is not committed.
+
+wago.tools returns 403 without a User-Agent and 429 when hit too fast. The builders send a User-Agent and throttle with retries.
+
+Battle.net Forever namespaces are `static-forever-{region}`, `profile-forever-{region}` and `dynamic-forever-{region}`. Characters are looked up as `{name}-{surname}`.
+
+## Settled decisions (don't reopen without a reason)
+
+- **Hosted on GitHub Pages.** Not an extension, an exe, a `.bat`, a server or a Claude artifact. The players use Chrome on Windows and must not need any tooling.
+- **No QuestieDB data in the repo.** Its licence is unclear, so it is always read from the user's own install.
+- **Zone level ranges come from Icy Veins' guide, not from Questie quest levels.** Ranges derived from Questie were tried and rejected because they disagree with how people actually level. The one exception, Mount Hyjal, is kept at 55–60.
+- **Reputation items are suggested only within one standing of the current one.** Grinding reputation is slower than levelling to the next item.
+- **Every slot pairs a best upgrade with a quicker option you can reach now.** Rings and trinkets are paired so both picks never come from the same quest.
+- **Upgrade cards show only sources, the region-average AH price and the crafted price.** Recipe knowledge belongs in the crafting tool.
+- **The crafting tool does not persist its items.** The crafting list on the gear page feeds it through "Craft all".
+- **Vendor materials beat the AH unless the AH is more than 15% cheaper.** The Bartering perk takes 5% off per rank.
+- **Hover maps are the game's own map art, kept light** (about 50 KB per map, loaded only on hover). Drawn or SVG maps were rejected because they must look the same as in game.
+- **Wowhead links go on names whose single source is clear:** quests, vendors and drop mobs. Materials like Light Leather have too many sources to link.
+
+## Code conventions
+
+- Plain named `function` declarations. No arrow functions, no ternaries, no anonymous callbacks; give callbacks names (`function isPhaseZero(row)`). No code comments.
+- Build DOM with `createElement` and `textContent`, never `innerHTML` with data.
+- English identifiers, descriptive names, no abbreviations.
+- Guard only against real data gaps, such as Questie or TSM not being connected.
+- Every `<script>` and stylesheet URL carries `?build=__BUILD__`. The deploy workflow stamps `__BUILD__` and `__VERSION__` (the latest tag) into the HTML.
+- WoW files use CRLF line endings. Test every reader against a CRLF fixture.
+
+## Tests and verification
+
+- `npm test` runs `node:test`. Scripts are loaded into a vm sandbox via `tests/helpers/load.js`, and `tests/helpers/cbor.js` builds Questie fixtures.
+- `python3 -m unittest discover -s tests -p "test_*.py"` tests the data builder.
+- Both run in CI before every deploy.
+- For UI changes, serve `web/` (`python3 -m http.server`) and check in a real browser. Playwright with a Battle.net client and a local Questie copy works well. Keep those scripts out of the repo.
+
+## Branches and releases
+
+- git-flow: `feature/*` merges into `develop` (`--no-ff`, "merges feature/x into develop").
+- A release merges a `release/X.Y.Z` branch into `main` ("merges release/X.Y.Z into main") and is tagged `vX.Y.Z`.
+- Pushing `main` publishes the site.
+- Commit subjects are lowercase, third-person verb ("adds …", "fixes …"), with no body.
+- Add a `CHANGELOG.md` entry for every release.

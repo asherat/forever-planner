@@ -295,7 +295,7 @@ function itemDetails(reader, zones, itemId) {
     drops.sort(compareDropSources);
     for (const drop of drops.slice(0, MAX_DROP_SOURCES)) {
       const place = npcLocation(reader, zones, drop.id);
-      sources.push({ type: "drop", npc: drop.name, zone: drop.zone, x: place.x, y: place.y, minLevel: drop.minLevel, maxLevel: drop.maxLevel, rank: drop.rank });
+      sources.push({ type: "drop", npcId: drop.id, npc: drop.name, zone: drop.zone, x: place.x, y: place.y, minLevel: drop.minLevel, maxLevel: drop.maxLevel, rank: drop.rank });
     }
     if (drops.length > MAX_DROP_SOURCES) {
       sources.push({ type: "more-drops", count: drops.length - MAX_DROP_SOURCES });
