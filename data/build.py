@@ -362,6 +362,7 @@ def build_crafting_sources():
                 continue
             sources.setdefault(crafted_item["id"], []).append({
                 "type": "craft",
+                "recipeId": recipe_id,
                 "profession": recipe_profession[recipe_id],
                 "recipe": recipe.get("name", ""),
                 "reagents": reagents,
@@ -423,6 +424,8 @@ def build_crafting_items(recipes):
             "quality": item["quality"]["type"],
             "vendorPrice": item.get("purchase_price", 0),
         }
+        if item.get("preview_item", {}).get("binding", {}).get("type") == "ON_ACQUIRE":
+            record["bindOnPickup"] = True
         if item_id in icons:
             record["icon"] = icons[item_id]
         crafting_items[item_id] = record
