@@ -374,12 +374,10 @@ function rankedCandidatesForSlot(slotDefinition, snapshot, character) {
     equippedIds.add(equipment[slotKey].id);
   }
   const hiddenIds = new Set(character.hiddenItemIds || []);
+  const routeActive = isRouteActive(character);
   const candidates = [];
   for (const item of window.FOREVER_ITEMS) {
     if (itemTypes.indexOf(item.slot) === -1) {
-      continue;
-    }
-    if (itemUsableLevel(item, snapshot) > maximumLevel) {
       continue;
     }
     if (equippedIds.has(item.id) || hiddenIds.has(item.id)) {
@@ -389,6 +387,19 @@ function rankedCandidatesForSlot(slotDefinition, snapshot, character) {
       continue;
     }
     if (!isReputationWithinReach(item, snapshot)) {
+      continue;
+    }
+    let availableLevel = itemUsableLevel(item, snapshot);
+    let routeLeg = null;
+    if (routeActive) {
+      const availability = routeAvailability(item, snapshot, character);
+      if (availability === null) {
+        continue;
+      }
+      availableLevel = availability.level;
+      routeLeg = availability.leg;
+    }
+    if (availableLevel > maximumLevel) {
       continue;
     }
     const primaryGain = itemScore(item, primaryWeights) - comparisonBaseline(slotDefinition, snapshot, item, primaryWeights);
@@ -401,12 +412,40 @@ function rankedCandidatesForSlot(slotDefinition, snapshot, character) {
     }
     candidates.push({
       item: item,
+      availableLevel: availableLevel,
+      routeLeg: routeLeg,
       primaryGain: Math.round(primaryGain * 10) / 10,
       secondaryGain: Math.round(secondaryGain * 10) / 10
     });
   }
   candidates.sort(compareCandidates);
   return candidates;
+}
+
+function routeAvailability(item, snapshot, character) {
+  const usableLevel = itemUsableLevel(item, snapshot);
+  const sources = sourcesForCharacter(item, snapshot);
+  if (sources.length === 0 || isListedOnAuctionHouse(item)) {
+    return { level: usableLevel, leg: null };
+  }
+  let best = null;
+  for (const source of sources) {
+    if (source.type === "vendor" || source.type === "craft") {
+      return { level: usableLevel, leg: null };
+    }
+    if (!source.zone) {
+      continue;
+    }
+    const leg = legForZone(character, snapshot, source.zone);
+    if (leg === null || usableLevel > leg.toLevel + 1) {
+      continue;
+    }
+    const level = Math.max(usableLevel, leg.fromLevel);
+    if (best === null || level < best.level) {
+      best = { level: level, leg: leg };
+    }
+  }
+  return best;
 }
 
 function compareCandidates(first, second) {
@@ -727,14 +766,14 @@ function upgradeOptions(slotDefinition, snapshot, character, takenItemNames) {
   const best = candidates[0];
   let quicker = null;
   for (const candidate of candidates) {
-    if (itemUsableLevel(candidate.item, snapshot) <= snapshot.level && hasEasySource(candidate.item, snapshot)) {
+    if (candidate.availableLevel <= snapshot.level && hasEasySource(candidate.item, snapshot)) {
       quicker = candidate;
       break;
     }
   }
   if (quicker === null) {
     for (const candidate of candidates) {
-      if (itemUsableLevel(candidate.item, snapshot) <= snapshot.level) {
+      if (candidate.availableLevel <= snapshot.level) {
         quicker = candidate;
         break;
       }
@@ -744,7 +783,7 @@ function upgradeOptions(slotDefinition, snapshot, character, takenItemNames) {
     quicker = null;
   }
   let priority = best.primaryGain * FUTURE_UPGRADE_WEIGHT;
-  if (itemUsableLevel(best.item, snapshot) <= snapshot.level) {
+  if (best.availableLevel <= snapshot.level) {
     priority = best.primaryGain;
   }
   if (quicker !== null && quicker.primaryGain > priority) {
@@ -944,7 +983,10 @@ function renderOption(label, candidate, snapshot, character, slotDefinition) {
   const title = createElement("div", "option-title");
   title.appendChild(wowheadLink(item));
   let subtitle = item.itemSubclass + " · " + levelText(item, snapshot, "level ");
-  if (itemUsableLevel(item, snapshot) <= snapshot.level) {
+  if (candidate.availableLevel > itemUsableLevel(item, snapshot)) {
+    subtitle = item.itemSubclass + " · from level " + candidate.availableLevel;
+  }
+  if (candidate.availableLevel <= snapshot.level) {
     subtitle = item.itemSubclass + " · usable now";
   }
   title.appendChild(createElement("span", "muted", subtitle));
@@ -954,6 +996,14 @@ function renderOption(label, candidate, snapshot, character, slotDefinition) {
   option.appendChild(heading);
 
   option.appendChild(gainBadges(candidate, character));
+  if (candidate.routeLeg) {
+    const zone = guideZone(candidate.routeLeg.zone);
+    let tierClass = "tier-grey";
+    if (zone !== null) {
+      tierClass = TIER_COLORS[zone.tier];
+    }
+    option.appendChild(createElement("div", "route-badge " + tierClass, "On your path: " + candidate.routeLeg.zone + " (" + candidate.routeLeg.fromLevel + "–" + candidate.routeLeg.toLevel + ")"));
+  }
   option.appendChild(createElement("div", "option-stats", statSummary(item)));
   for (const effect of item.effects || []) {
     option.appendChild(createElement("div", "option-effect", effect));
@@ -1177,6 +1227,8 @@ function render() {
 
   document.getElementById("lookahead-label").textContent = String(state.settings.lookaheadLevels);
   renderPlayControls(character, snapshot);
+  renderRoutePanel(character, snapshot);
+  document.getElementById("route-credit").textContent = window.ZONE_GUIDE.credit;
   renderHiddenItems(character);
   allOptions.sort(compareUpgradeOptions);
   const priorityList = document.getElementById("priority-list");
@@ -1510,6 +1562,8 @@ function bindEvents() {
   document.getElementById("character-list").addEventListener("click", handleCharacterListClick);
   document.getElementById("play-controls").addEventListener("change", handlePlayControlsChange);
   document.getElementById("hidden-items").addEventListener("click", handleHiddenItemsClick);
+  document.getElementById("route-panel").addEventListener("click", handleRouteClick);
+  document.getElementById("route-panel").addEventListener("change", handleRouteChange);
 }
 
 function handleTsmStartupError(error) {

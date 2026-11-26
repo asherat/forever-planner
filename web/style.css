@@ -20,6 +20,10 @@
   --font-body: "Segoe UI", system-ui, -apple-system, sans-serif;
   --font-display: Georgia, "Times New Roman", serif;
   --radius: 6px;
+  --tier-orange: #c46a12;
+  --tier-yellow: #a8890b;
+  --tier-green: #2f8a2f;
+  --tier-grey: #7d776c;
   --scene-top: #2b241b;
   --scene-bottom: #120f0b;
   --scene-edge: #4a3d2b;
@@ -42,6 +46,10 @@
     --gain-negative: #ef7a7a;
     --error: #ef7a7a;
     --success: #5ccf78;
+    --tier-orange: #ff8a3d;
+    --tier-yellow: #ffd23f;
+    --tier-green: #4fd14f;
+    --tier-grey: #9d9d9d;
     --quality-poor: #9d9d9d;
     --quality-common: #ece6da;
     --quality-uncommon: #3ee03e;
@@ -1053,4 +1061,193 @@ legend {
 
 .requirement-missing {
   color: var(--gain-negative);
+}
+
+.armory {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-areas:
+    "header header"
+    "controls controls"
+    "doll route";
+  gap: 0 20px;
+  align-items: start;
+}
+
+.armory .character-header { grid-area: header; }
+.armory .play-controls { grid-area: controls; }
+.armory .paperdoll { grid-area: doll; }
+.armory .route-panel { grid-area: route; }
+
+.route-panel {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  max-height: 640px;
+  overflow-y: auto;
+}
+
+.route-credit {
+  font-size: 0.75rem;
+  margin: 0;
+}
+
+.tier-orange { --tier: var(--tier-orange); }
+.tier-yellow { --tier: var(--tier-yellow); }
+.tier-green { --tier: var(--tier-green); }
+.tier-grey { --tier: var(--tier-grey); }
+
+.tier-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.5em;
+  padding: 0 4px;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: var(--bg);
+  background: var(--tier);
+}
+
+.route-legs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.route-leg {
+  border-left: 4px solid var(--tier);
+  border-radius: 4px;
+  padding: 6px 8px;
+  background: var(--surface-raised);
+  display: grid;
+  gap: 4px;
+}
+
+.route-leg-current {
+  box-shadow: 0 0 0 1px var(--tier);
+}
+
+.route-leg-done {
+  opacity: 0.55;
+}
+
+.route-leg-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.route-leg-zone {
+  font-weight: 600;
+  color: var(--tier);
+  flex: 1 1 auto;
+}
+
+.route-leg-levels {
+  font-size: 0.85rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.route-end {
+  width: 4.2em;
+  padding: 2px 6px;
+}
+
+.route-warning {
+  color: var(--gain-negative);
+  font-size: 0.8rem;
+}
+
+.route-dungeons {
+  font-size: 0.8rem;
+}
+
+.route-question {
+  font-size: 0.95rem;
+  margin: 4px 0 0;
+}
+
+.zone-choices {
+  display: grid;
+  gap: 6px;
+}
+
+.zone-choice {
+  display: grid;
+  gap: 2px;
+  text-align: left;
+  border-left: 4px solid var(--tier);
+  background: var(--surface);
+}
+
+.zone-choice:hover,
+.zone-choice:focus-visible {
+  background: var(--surface-raised);
+}
+
+.zone-choice-title {
+  font-weight: 600;
+  color: var(--tier);
+}
+
+.zone-range {
+  font-weight: 400;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.zone-note {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.route-gap {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+}
+
+.route-gap p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.route-gap-option {
+  text-align: left;
+  border-left: 4px solid var(--tier, var(--border));
+}
+
+.route-done {
+  color: var(--gain-positive);
+  margin: 0;
+}
+
+.route-badge {
+  font-size: 0.8rem;
+  color: var(--tier);
+  font-weight: 600;
+}
+
+@media (max-width: 980px) {
+  .armory {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "header"
+      "controls"
+      "doll"
+      "route";
+    gap: 12px 0;
+  }
+
+  .route-panel {
+    max-height: none;
+  }
 }
