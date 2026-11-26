@@ -213,7 +213,7 @@ function legForZone(character, snapshot, zoneName) {
     }
     if (leg.dungeons) {
       const zone = guideZone(leg.zone);
-      if (zone !== null && (zone.dungeons || []).indexOf(zoneName) !== -1) {
+      if (zone !== null && zoneHasDungeon(zone, zoneName)) {
         return leg;
       }
     }
@@ -254,6 +254,30 @@ function tierBadge(tier) {
   return createElement("span", "tier-badge " + TIER_COLORS[tier], tier);
 }
 
+function zoneHasDungeon(zone, dungeonName) {
+  for (const dungeon of zone.dungeons || []) {
+    if (dungeon.name === dungeonName) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function dungeonNames(zone) {
+  const names = [];
+  for (const dungeon of zone.dungeons || []) {
+    names.push(dungeon.name);
+  }
+  return names;
+}
+
+function dungeonLabel(dungeon) {
+  if (dungeon.minLevel && dungeon.maxLevel) {
+    return dungeon.name + " (" + dungeon.minLevel + "–" + dungeon.maxLevel + ")";
+  }
+  return dungeon.name;
+}
+
 function renderZoneChoice(zone, label) {
   const button = createElement("button", "zone-choice " + TIER_COLORS[zone.tier]);
   button.type = "button";
@@ -264,6 +288,13 @@ function renderZoneChoice(zone, label) {
   title.appendChild(createElement("span", "zone-range", label));
   button.appendChild(title);
   button.appendChild(createElement("span", "zone-note", zone.note));
+  if (zone.dungeons && zone.dungeons.length > 0) {
+    const labels = [];
+    for (const dungeon of zone.dungeons) {
+      labels.push(dungeonLabel(dungeon));
+    }
+    button.appendChild(createElement("span", "zone-dungeons", "Dungeons: " + labels.join(", ")));
+  }
   return button;
 }
 
@@ -312,7 +343,7 @@ function renderLeg(leg, index, snapshot) {
     checkbox.checked = leg.dungeons;
     checkbox.dataset.legDungeons = String(index);
     dungeonLine.appendChild(checkbox);
-    dungeonLine.append(" Include " + zone.dungeons.join(", "));
+    dungeonLine.append(" Include " + dungeonNames(zone).join(", "));
     item.appendChild(dungeonLine);
   }
   return item;
