@@ -2,6 +2,10 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.28.0 — 2026-11-26
+
+- "Where do you play most?" has two choices: Questing and Dungeons. Questing on a PvP realm automatically values stamina and armor more, using the ruleset from your profile, and shows as "Questing (PvP realm)". A saved "World PvP" choice becomes questing.
+
 ## v0.27.0 — 2026-11-26
 
 - Quest list shows the quests you can pick up right now in each chain, based on which prerequisites you've completed. Chains with parallel branches show each open branch, and a "done" count shows your progress.

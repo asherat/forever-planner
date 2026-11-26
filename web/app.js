@@ -391,10 +391,21 @@ function activeSpec(character) {
   return specs[0];
 }
 
-function specWeights(specKey, playstyle) {
+function isPvpRuleset(snapshot) {
+  return snapshot.ruleset === window.GAME_RULES.pvpRuleset;
+}
+
+function playstyleMultipliers(character) {
+  const playstyle = window.GAME_RULES.playstyles[characterPlaystyle(character)];
+  if (playstyle.pvpRulesetMultipliers && isPvpRuleset(state.snapshots[character.slug])) {
+    return playstyle.pvpRulesetMultipliers;
+  }
+  return playstyle.multipliers;
+}
+
+function specWeights(specKey, multipliers) {
   const presetKey = window.GAME_RULES.specs[specKey].preset;
   const weights = Object.assign({}, window.GAME_RULES.specPresets[presetKey].weights);
-  const multipliers = window.GAME_RULES.playstyles[playstyle].multipliers;
   for (const statKey of Object.keys(multipliers)) {
     if (weights[statKey]) {
       weights[statKey] = weights[statKey] * multipliers[statKey];
@@ -493,7 +504,7 @@ function rankedCandidatesForSlot(slotDefinition, snapshot, character) {
   }
   const itemTypes = slotItemTypes(slotDefinition, snapshot);
   const maximumLevel = snapshot.level + Number(state.settings.lookaheadLevels);
-  const weights = specWeights(activeSpec(character), characterPlaystyle(character));
+  const weights = specWeights(activeSpec(character), playstyleMultipliers(character));
   const equippedIds = equippedItemIds(snapshot);
   const hiddenIds = new Set(character.hiddenItemIds || []);
   const routeActive = isRouteActive(character);
@@ -1045,7 +1056,7 @@ function upgradeOptions(slotDefinition, snapshot, character, blocked) {
 }
 
 function pairedUpgradeOptions(slotDefinition, snapshot, character) {
-  const weights = specWeights(activeSpec(character), characterPlaystyle(character));
+  const weights = specWeights(activeSpec(character), playstyleMultipliers(character));
   const keys = [slotDefinition.key, slotDefinition.pairedWith];
   if (itemScore(snapshot.equipment[keys[1]], weights) < itemScore(snapshot.equipment[keys[0]], weights)) {
     keys.reverse();
@@ -1160,7 +1171,7 @@ function differenceClass(difference) {
 }
 
 function specUsesWeaponDamage(character) {
-  return Boolean(specWeights(activeSpec(character), characterPlaystyle(character)).WEAPON_DPS);
+  return Boolean(specWeights(activeSpec(character), playstyleMultipliers(character)).WEAPON_DPS);
 }
 
 function renderComparisonTooltip(slotDefinition, snapshot, character, candidate) {
@@ -1950,7 +1961,12 @@ function renderChoiceGroup(container, name, choices, selectedValue) {
 function renderPlayControls(character, snapshot) {
   const playstyleChoices = [];
   for (const playstyleKey of Object.keys(window.GAME_RULES.playstyles)) {
-    playstyleChoices.push({ value: playstyleKey, label: window.GAME_RULES.playstyles[playstyleKey].label });
+    const playstyle = window.GAME_RULES.playstyles[playstyleKey];
+    let label = playstyle.label;
+    if (playstyle.pvpRulesetLabel && isPvpRuleset(snapshot)) {
+      label = playstyle.pvpRulesetLabel;
+    }
+    playstyleChoices.push({ value: playstyleKey, label: label });
   }
   renderChoiceGroup(document.getElementById("playstyle-choices"), "playstyle", playstyleChoices, characterPlaystyle(character));
   const specs = characterSpecs(character, snapshot);

@@ -8,7 +8,7 @@ A gear, leveling and crafting planner for **WoW: Forever** characters. It exists
 
 Its users are an experienced player and a brand-new player, so **simplicity beats configurability**:
 
-- No stat-weight knobs. Weights come from spec presets plus a single Questing / Dungeons / World PvP choice.
+- No stat-weight knobs. Weights come from spec presets plus a single Questing / Dungeons choice. Questing on a PvP-ruleset character uses survival-heavy (stamina, armor) multipliers automatically, read from the profile's ruleset; dungeons are PvE everywhere.
 - Specs are detected from talents. Main/off spec is one selector, plus cat/bear for feral druids.
 - Every UI choice should be something a new player understands without reading docs.
 - Suggestions must be things you can actually get: right faction and class, a known source, reputation within reach, quests not yet completed, a zone on your path.

@@ -12,7 +12,7 @@ It runs entirely in your browser. There is no server: your browser talks to Batt
 
 - Shows your character with its equipped gear, the way the game's character sheet does, with the next upgrade next to each slot. Hover any item to compare stats.
 - Lists upgrades in order of value: for each slot the best upgrade within reach and a quicker option you can get now.
-- Reads your specs from your talents and lets you choose main or off spec, cat or bear for feral druids, and whether you mostly quest, run dungeons or do world PvP.
+- Reads your specs from your talents and lets you choose main or off spec, cat or bear for feral druids, and whether you mostly quest or run dungeons. Questing on a PvP realm automatically values stamina and armor more, since other players will attack you.
 - Only suggests items you can actually get: right faction and class, reputation within reach, quests you haven't completed, and a known source.
 - Quest names, vendors and mobs that drop an item link to their Wowhead page.
 
