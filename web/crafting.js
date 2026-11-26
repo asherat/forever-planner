@@ -16,7 +16,7 @@ const crafting = {
 };
 
 function defaultCraftingList() {
-  return { entries: [], overrides: {}, useInventory: true, excludedCharacters: [] };
+  return { entries: [], overrides: {}, useInventory: true, excludedCharacters: [], scope: null };
 }
 
 function loadCraftingList() {
@@ -57,20 +57,54 @@ function isBindOnPickup(itemId) {
   return Boolean(known && known.bindOnPickup);
 }
 
-function selectedSnapshot() {
-  const character = selectedCharacter();
-  if (character === null) {
-    return null;
-  }
-  return state.snapshots[character.slug] || null;
-}
-
 function ownFactionLetter() {
-  const snapshot = selectedSnapshot();
-  if (snapshot !== null && snapshot.factionType === "ALLIANCE") {
+  if (currentPriceScope().faction === "Alliance") {
     return "A";
   }
   return "H";
+}
+
+function scopeKey(ruleset, faction) {
+  return ruleset + "|" + faction;
+}
+
+function availableScopes() {
+  const scopes = new Map();
+  if (state.inventory !== null) {
+    for (const name of Object.keys(state.inventory.characters)) {
+      const character = state.inventory.characters[name];
+      scopes.set(scopeKey(character.ruleset, character.faction), { ruleset: character.ruleset, faction: character.faction });
+    }
+  }
+  for (const slug of Object.keys(state.snapshots)) {
+    const snapshot = state.snapshots[slug];
+    if (snapshot.ruleset && snapshot.faction) {
+      scopes.set(scopeKey(snapshot.ruleset, snapshot.faction), { ruleset: snapshot.ruleset, faction: snapshot.faction });
+    }
+  }
+  return Array.from(scopes.values());
+}
+
+function currentPriceScope() {
+  const scopes = availableScopes();
+  for (const scope of scopes) {
+    if (scopeKey(scope.ruleset, scope.faction) === crafting.list.scope) {
+      return scope;
+    }
+  }
+  const character = selectedCharacter();
+  if (character !== null && state.snapshots[character.slug]) {
+    return { ruleset: state.snapshots[character.slug].ruleset, faction: state.snapshots[character.slug].faction };
+  }
+  if (scopes.length > 0) {
+    return scopes[0];
+  }
+  return { ruleset: "", faction: "" };
+}
+
+function isInScope(ruleset, faction) {
+  const scope = currentPriceScope();
+  return ruleset === scope.ruleset && faction === scope.faction;
 }
 
 function isVendorSold(itemId) {
@@ -169,8 +203,9 @@ function includedInventoryCharacters() {
     return characters;
   }
   for (const name of Object.keys(state.inventory.characters)) {
-    if (crafting.list.excludedCharacters.indexOf(name) === -1) {
-      characters.push(state.inventory.characters[name]);
+    const character = state.inventory.characters[name];
+    if (crafting.list.excludedCharacters.indexOf(name) === -1 && isInScope(character.ruleset, character.faction)) {
+      characters.push(character);
     }
   }
   return characters;
@@ -511,7 +546,7 @@ function charactersKnowingRecipe(recipe) {
   const names = [];
   for (const character of state.settings.characters) {
     const snapshot = state.snapshots[character.slug];
-    if (!snapshot) {
+    if (!snapshot || !isInScope(snapshot.ruleset, snapshot.faction)) {
       continue;
     }
     for (const profession of snapshot.professions) {
@@ -647,7 +682,10 @@ function knownCrafters(profession) {
   const crafters = [];
   if (state.inventory !== null) {
     for (const name of Object.keys(state.inventory.characters)) {
-      for (const entry of state.inventory.characters[name].professions) {
+      if (!isInScope(state.inventory.characters[name].ruleset, state.inventory.characters[name].faction)) {
+      continue;
+    }
+    for (const entry of state.inventory.characters[name].professions) {
         if (entry.name === profession) {
           crafters.push({ name: name, level: entry.level });
         }
@@ -656,7 +694,7 @@ function knownCrafters(profession) {
   }
   for (const character of state.settings.characters) {
     const snapshot = state.snapshots[character.slug];
-    if (!snapshot) {
+    if (!snapshot || !isInScope(snapshot.ruleset, snapshot.faction)) {
       continue;
     }
     for (const entry of snapshot.professions) {
@@ -712,6 +750,9 @@ function renderInventoryCharacters() {
   let currentAccount = null;
   for (const name of Object.keys(state.inventory.characters).sort(compareByAccount)) {
     const character = state.inventory.characters[name];
+    if (!isInScope(character.ruleset, character.faction)) {
+      continue;
+    }
     if (state.inventory.accountCount > 1 && character.account !== currentAccount) {
       currentAccount = character.account;
       container.appendChild(createElement("p", "inventory-account", currentAccount));
@@ -749,20 +790,22 @@ function renderDataStatus() {
   document.getElementById("crafting-connect-button").hidden = state.wowFolderConnected;
 }
 
-function renderCraftingCharacterSelect() {
-  const select = document.getElementById("character-select");
+function renderScopeSelect() {
+  const select = document.getElementById("scope-select");
   select.replaceChildren();
-  for (const character of state.settings.characters) {
-    const option = createElement("option", null, character.displayName);
-    option.value = character.slug;
-    option.selected = character.slug === state.settings.selectedCharacterSlug;
+  const scopes = availableScopes();
+  const current = currentPriceScope();
+  for (const scope of scopes) {
+    const option = createElement("option", null, scope.ruleset + " · " + scope.faction);
+    option.value = scopeKey(scope.ruleset, scope.faction);
+    option.selected = scope.ruleset === current.ruleset && scope.faction === current.faction;
     select.appendChild(option);
   }
-  select.hidden = state.settings.characters.length === 0;
+  select.hidden = scopes.length < 2;
 }
 
 function renderCrafting() {
-  renderCraftingCharacterSelect();
+  renderScopeSelect();
   renderDataStatus();
   renderInventoryCharacters();
   const plans = planList();
@@ -914,9 +957,9 @@ async function handleCraftingConnect() {
   }
 }
 
-function handleCraftingCharacterChange(event) {
-  state.settings.selectedCharacterSlug = event.target.value;
-  saveSettings();
+function handleScopeChange(event) {
+  crafting.list.scope = event.target.value;
+  saveCraftingList();
   handleCraftingRefresh();
 }
 
@@ -958,7 +1001,7 @@ function bindCraftingEvents() {
   document.querySelector(".crafting-summary").addEventListener("change", handleInventoryChange);
   document.getElementById("crafting-refresh-button").addEventListener("click", handleCraftingRefresh);
   document.getElementById("crafting-connect-button").addEventListener("click", handleCraftingConnect);
-  document.getElementById("character-select").addEventListener("change", handleCraftingCharacterChange);
+  document.getElementById("scope-select").addEventListener("change", handleScopeChange);
   window.addEventListener("hashchange", handleHashChange);
 }
 

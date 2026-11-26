@@ -1474,6 +1474,14 @@ function importSettings(file) {
   reader.readAsText(file);
 }
 
+function currentPriceScope() {
+  const character = selectedCharacter();
+  if (character !== null && state.snapshots[character.slug]) {
+    return { ruleset: state.snapshots[character.slug].ruleset, faction: state.snapshots[character.slug].faction };
+  }
+  return { ruleset: "", faction: "" };
+}
+
 function questieItemIds() {
   const itemIds = [];
   for (const item of window.FOREVER_ITEMS) {

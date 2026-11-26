@@ -275,14 +275,6 @@ function formatMoney(copper) {
   return parts.join(" ");
 }
 
-function selectedRulesetAndFaction() {
-  const character = selectedCharacter();
-  if (character !== null && state.snapshots[character.slug]) {
-    return { ruleset: state.snapshots[character.slug].ruleset, faction: state.snapshots[character.slug].faction };
-  }
-  return { ruleset: "", faction: "" };
-}
-
 async function readQuestieFile(folder) {
   const questieFile = await window.WOW_FOLDER.readAddonFile(folder, window.QUESTIE.addonName, window.QUESTIE.fileName);
   if (questieFile === null) {
@@ -303,7 +295,7 @@ async function readTsmFromFolder(folder) {
     state.tsm = null;
     return;
   }
-  const scope = selectedRulesetAndFaction();
+  const scope = currentPriceScope();
   state.tsm = window.TSM.readPrices(tsmFile.text, scope.ruleset, scope.faction);
 }
 
@@ -314,7 +306,7 @@ async function readLegacyTsmFile(askPermission) {
     return;
   }
   const file = await handle.getFile();
-  const scope = selectedRulesetAndFaction();
+  const scope = currentPriceScope();
   state.tsm = window.TSM.readPrices(await file.text(), scope.ruleset, scope.faction);
 }
 
