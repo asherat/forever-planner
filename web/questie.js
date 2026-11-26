@@ -279,8 +279,9 @@ function itemDetails(reader, zones, itemId) {
   const vendors = [];
   for (const npcId of entityTable(reader, "Item", itemId, ITEM_FIELDS.vendors)) {
     const vendor = npcInfo(reader, zones, npcId);
+    const place = npcLocation(reader, zones, npcId);
     vendors.push(vendor);
-    sources.push({ type: "vendor", npc: vendor.name, title: vendor.title, zone: vendor.zone, friendlyTo: vendor.friendlyTo });
+    sources.push({ type: "vendor", npc: vendor.name, title: vendor.title, zone: place.zone || vendor.zone, x: place.x, y: place.y, friendlyTo: vendor.friendlyTo });
   }
 
   const dropNpcIds = entityTable(reader, "Item", itemId, ITEM_FIELDS.npcDrops);
@@ -293,7 +294,8 @@ function itemDetails(reader, zones, itemId) {
     }
     drops.sort(compareDropSources);
     for (const drop of drops.slice(0, MAX_DROP_SOURCES)) {
-      sources.push({ type: "drop", npc: drop.name, zone: drop.zone, minLevel: drop.minLevel, maxLevel: drop.maxLevel, rank: drop.rank });
+      const place = npcLocation(reader, zones, drop.id);
+      sources.push({ type: "drop", npc: drop.name, zone: drop.zone, x: place.x, y: place.y, minLevel: drop.minLevel, maxLevel: drop.maxLevel, rank: drop.rank });
     }
     if (drops.length > MAX_DROP_SOURCES) {
       sources.push({ type: "more-drops", count: drops.length - MAX_DROP_SOURCES });
@@ -390,6 +392,37 @@ function collectChain(reader, questId, ordered, visiting) {
   }
 }
 
+function questStarterFor(details, questId) {
+  if (!details.starterCache) {
+    details.starterCache = new Map();
+  }
+  if (!details.starterCache.has(questId)) {
+    details.starterCache.set(questId, questStarter(details.reader, details.zones, questId));
+  }
+  return details.starterCache.get(questId);
+}
+
+function parseDungeonEntrances(text, zones) {
+  const entrances = {};
+  const names = {};
+  const entryPattern = /\[(\d+)\] = \{"((?:[^"\\]|\\.)+)",(?:\{[^}]*\}|nil),(\d+),\{\{(\d+),\s*([\d.]+),\s*([\d.]+)\}/g;
+  let match = entryPattern.exec(text);
+  while (match !== null) {
+    names[match[1]] = match[2].replace(/\\(.)/g, "$1");
+    entrances[names[match[1]]] = { zone: zoneName(zones, Number(match[4])), x: Number(match[5]), y: Number(match[6]) };
+    match = entryPattern.exec(text);
+  }
+  const overridePattern = /dungeons\[(\d+)\]\[4\] = \{\{(\d+),\s*([\d.]+),\s*([\d.]+)\}/g;
+  match = overridePattern.exec(text);
+  while (match !== null) {
+    if (names[match[1]]) {
+      entrances[names[match[1]]] = { zone: zoneName(zones, Number(match[2])), x: Number(match[3]), y: Number(match[4]) };
+    }
+    match = overridePattern.exec(text);
+  }
+  return entrances;
+}
+
 function questChain(details, questId) {
   const ordered = [];
   collectChain(details.reader, questId, ordered, new Set());
@@ -426,5 +459,8 @@ window.QUESTIE = {
   fileName: QUESTIE_FILE_NAME,
   buildDetails: buildQuestieDetails,
   questChain: questChain,
+  questStarterFor: questStarterFor,
+  parseDungeonEntrances: parseDungeonEntrances,
+  dungeonFile: "support/Forever/Zones/dungeons.lua",
   decodeCbor: decodeCbor
 };

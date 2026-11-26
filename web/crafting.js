@@ -1,4 +1,5 @@
 const MAX_RECIPE_DEPTH = 6;
+const RECIPE_SOURCES_SHOWN = 2;
 const CRAFTING_MODES = { own: "Have", vendor: "Vendor", ah: "AH", craft: "Craft" };
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 const MODE_ICON_PATHS = {
@@ -583,6 +584,59 @@ function charactersKnowingRecipe(recipe) {
   return names;
 }
 
+function teachingSources(itemId) {
+  if (state.questie === null || !state.questie.items[itemId]) {
+    return [];
+  }
+  const letter = ownFactionLetter();
+  const sources = [];
+  for (const source of state.questie.items[itemId].sources) {
+    if (source.type === "vendor" && source.friendlyTo && source.friendlyTo.indexOf(letter) === -1) {
+      continue;
+    }
+    sources.push(source);
+  }
+  return sources;
+}
+
+function recipeSourceText(teachingName, source) {
+  if (source.type === "vendor") {
+    return teachingName + ": sold by " + source.npc + " in " + source.zone;
+  }
+  if (source.type === "drop") {
+    return teachingName + ": drops from " + source.npc + " in " + source.zone;
+  }
+  if (source.type === "world-drop") {
+    return teachingName + ": world drop";
+  }
+  return teachingName + ": " + source.type + " in " + (source.zone || "an unknown place");
+}
+
+function renderRecipeSource(recipe) {
+  const container = createElement("div", "recipe-source");
+  if (!recipe.teachingItemId) {
+    container.textContent = "Learned from a " + recipe.profession + " trainer.";
+    return container;
+  }
+  const teachingName = craftingItem(recipe.teachingItemId).name;
+  const sources = teachingSources(recipe.teachingItemId);
+  if (sources.length === 0) {
+    container.textContent = teachingName + ": source unknown. Check the auction house.";
+    return container;
+  }
+  for (const source of sources.slice(0, RECIPE_SOURCES_SHOWN)) {
+    const line = createElement("div", "recipe-source-line", recipeSourceText(teachingName, source));
+    const place = placeForSource(source);
+    if (place.x !== null) {
+      line.append(" (" + place.x.toFixed(1) + ", " + place.y.toFixed(1) + ")");
+    }
+    setMapTarget(line, place.zone, place.x, place.y, place.caption);
+    line.tabIndex = 0;
+    container.appendChild(line);
+  }
+  return container;
+}
+
 function planRequirements(plan) {
   const recipes = new Map();
   const bindOnPickup = new Map();
@@ -609,6 +663,7 @@ function renderRequirements(plan) {
       line.appendChild(createElement("span", "requirement-met", " known by " + knownBy.join(", ")));
     } else {
       line.appendChild(createElement("span", "requirement-missing", " none of your characters knows it yet"));
+      line.appendChild(renderRecipeSource(node.recipe));
     }
     list.appendChild(line);
   }
@@ -1059,6 +1114,7 @@ function handleHashChange() {
 }
 
 function startCrafting() {
+  enableMapPopovers();
   loadState();
   loadCraftingList();
   indexRecipes();
