@@ -1251,3 +1251,21 @@ legend {
     max-height: none;
   }
 }
+
+.found-characters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.found-characters p {
+  margin: 0;
+  width: 100%;
+}
+
+.inventory-account {
+  margin: 6px 0 0;
+  font-weight: 600;
+  font-size: 0.85rem;
+}

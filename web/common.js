@@ -318,6 +318,10 @@ async function readLegacyTsmFile(askPermission) {
   state.tsm = window.TSM.readPrices(await file.text(), scope.ruleset, scope.faction);
 }
 
+function compareAccountFiles(first, second) {
+  return first.account.localeCompare(second.account);
+}
+
 async function readInventoryFromFolder(folder) {
   const files = await window.WOW_FOLDER.readSavedVariablesFiles(folder, window.TSM.savedVariablesFile);
   if (files.length === 0) {
@@ -326,13 +330,19 @@ async function readInventoryFromFolder(folder) {
   }
   const characters = {};
   let newest = 0;
-  for (const file of files) {
-    Object.assign(characters, window.TSM.parseInventory(file.text));
+  files.sort(compareAccountFiles);
+  for (let index = 0; index < files.length; index += 1) {
+    const file = files[index];
+    const accountCharacters = window.TSM.parseInventory(file.text);
+    for (const name of Object.keys(accountCharacters)) {
+      accountCharacters[name].account = "Account " + (index + 1);
+    }
+    Object.assign(characters, accountCharacters);
     if (file.modifiedAt > newest) {
       newest = file.modifiedAt;
     }
   }
-  state.inventory = { characters: characters, modifiedAt: newest };
+  state.inventory = { characters: characters, modifiedAt: newest, accountCount: files.length };
 }
 
 async function readWowFolder(askPermission) {
