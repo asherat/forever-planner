@@ -1138,13 +1138,14 @@ function render() {
     "Comparing for " + specNames.join(" and ") +
     " · gear as of your logout on " + new Date(snapshot.lastLogout).toLocaleString();
 
+  document.getElementById("paperdoll").dataset.faction = String(snapshot.factionType || "").toLowerCase();
   const characterRender = document.getElementById("character-render");
   characterRender.setAttribute("aria-label", character.displayName);
   if (snapshot.render) {
-    characterRender.style.backgroundImage = "url(\"" + snapshot.render + "\")";
+    characterRender.style.setProperty("--render-image", "url(\"" + snapshot.render + "\")");
     characterRender.classList.remove("render-missing");
   } else {
-    characterRender.style.backgroundImage = "";
+    characterRender.style.removeProperty("--render-image");
     characterRender.classList.add("render-missing");
   }
 
