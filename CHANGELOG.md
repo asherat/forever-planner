@@ -2,6 +2,10 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.25.0 — 2026-11-26
+
+- The gear page compares only for the spec you selected. Upgrade cards and the header no longer show the other spec's gains.
+
 ## v0.24.0 — 2026-11-26
 
 - Mobs that drop an item link to their Wowhead page, on upgrade cards and for recipe drops in the crafting tool.
