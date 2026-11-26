@@ -14,6 +14,7 @@ It runs entirely in your browser. There is no server: your browser talks to Batt
 - Lists upgrades in order of value: for each slot the best upgrade within reach and a quicker option you can get now.
 - Reads your specs from your talents and lets you choose main or off spec, cat or bear for feral druids, and whether you mostly quest, run dungeons or do world PvP.
 - Only suggests items you can actually get: right faction and class, reputation within reach, quests you haven't completed, and a known source.
+- Quest names, vendors and mobs that drop an item link to their Wowhead page.
 
 **Leveling path**
 
@@ -22,7 +23,7 @@ It runs entirely in your browser. There is no server: your browser talks to Batt
 
 **Maps**
 
-- Hover a zone in the leveling path, a vendor, drop, quest giver or dungeon entrance, or a recipe source to see where it is: the continent with the zone highlighted, and a close-up with a pin at the exact coordinates.
+- Hover a zone in the leveling path, a vendor, drop, quest giver or dungeon entrance, or a recipe source to see where it is: the game's own continent map with the zone marked, and the zone map with a pin at the exact coordinates.
 - Click coordinates in the quest list to copy a `/way` command for Questie or TomTom.
 
 **Quest list**
@@ -93,6 +94,8 @@ node tools/build-maps.js
 ```
 
 ### Branches and releases
+
+Release notes are in [CHANGELOG.md](CHANGELOG.md). Design decisions and code conventions are in [CLAUDE.md](CLAUDE.md).
 
 git-flow: work happens on `feature/*`, which merges into `develop`. A release merges into `main` with a `vX.Y.Z` tag; every push to `main` publishes the site through GitHub Pages, and the version shows in the page header.
 

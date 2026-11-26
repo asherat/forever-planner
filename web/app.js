@@ -871,14 +871,17 @@ function renderSourceLine(source) {
     line.append(joinDetails([source.zone]));
     return line;
   }
+  if (source.type === "drop") {
+    line.append("Drops from ");
+    line.appendChild(wowheadPageLink("npc", source.npcId, source.npc));
+    line.append(joinDetails([creatureLevelText(source), creatureRankText(source.rank), source.zone]));
+    return line;
+  }
   line.textContent = describeSource(source);
   return line;
 }
 
 function describeSource(source) {
-  if (source.type === "drop") {
-    return "Drops from " + source.npc + joinDetails([creatureLevelText(source), creatureRankText(source.rank), source.zone]);
-  }
   if (source.type === "more-drops") {
     return "…and " + source.count + " more creatures";
   }
