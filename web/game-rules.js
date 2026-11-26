@@ -133,10 +133,11 @@ window.GAME_RULES = {
   feralSpecs: { cat: "druid-feral-cat", bear: "druid-feral-bear" },
 
   playstyles: {
-    "questing": { label: "Questing", multipliers: {} },
-    "dungeons": { label: "Dungeons", multipliers: { STAMINA: 0.6, HIT_RATING: 1.3, MANA_REGENERATION: 1.2 } },
-    "world-pvp": { label: "World PvP", multipliers: { STAMINA: 2.5, EXTRA_ARMOR: 1.5 } }
+    "questing": { label: "Questing", multipliers: {}, pvpRulesetLabel: "Questing (PvP realm)", pvpRulesetMultipliers: { STAMINA: 2.5, EXTRA_ARMOR: 1.5 } },
+    "dungeons": { label: "Dungeons", multipliers: { STAMINA: 0.6, HIT_RATING: 1.3, MANA_REGENERATION: 1.2 } }
   },
+
+  pvpRuleset: "PvP",
 
   defaultPlaystyle: "questing",
 
