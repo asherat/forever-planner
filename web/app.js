@@ -1258,7 +1258,7 @@ function renderOption(label, candidate, snapshot, character, slotDefinition) {
   option.appendChild(sourceList);
 
   const craftSource = firstCraftSource(sources);
-  const prices = renderOptionPrices(item, craftSource);
+  const prices = renderOptionPrices(item, craftSource, snapshot);
   if (prices !== null) {
     option.appendChild(prices);
   }
@@ -1295,11 +1295,28 @@ function averagePrice(itemId) {
   return price.regionMarketValue || price.marketValue || price.marketValueRecent || price.regionSale || null;
 }
 
-function averageMaterialCost(source) {
+function materialUnitPrice(itemId, snapshot) {
+  let vendor = null;
+  const known = window.FOREVER_CRAFTING_ITEMS[itemId];
+  if (known && known.vendorPrice > 0 && isVendorSoldFor(itemId, factionLetter(snapshot.factionType))) {
+    vendor = { price: known.vendorPrice * (1 - vendorDiscountRate()) };
+  }
+  let auction = null;
+  if (averagePrice(itemId) !== null) {
+    auction = { price: averagePrice(itemId) };
+  }
+  const offer = preferredOffer(vendor, auction);
+  if (offer === null) {
+    return null;
+  }
+  return offer.price;
+}
+
+function averageMaterialCost(source, snapshot) {
   let total = 0;
   let missing = 0;
   for (const reagent of source.reagents) {
-    const price = averagePrice(reagent.id);
+    const price = materialUnitPrice(reagent.id, snapshot);
     if (price === null) {
       missing += 1;
     } else {
@@ -1309,7 +1326,7 @@ function averageMaterialCost(source) {
   return { total: total, missing: missing };
 }
 
-function renderOptionPrices(item, craftSource) {
+function renderOptionPrices(item, craftSource, snapshot) {
   if (state.tsm === null) {
     return null;
   }
@@ -1319,7 +1336,7 @@ function renderOptionPrices(item, craftSource) {
     line.append("AH ", renderMoney(auctionPrice));
   }
   if (craftSource !== null) {
-    const cost = averageMaterialCost(craftSource);
+    const cost = averageMaterialCost(craftSource, snapshot);
     if (auctionPrice !== null) {
       line.append(" · ");
     }
@@ -1811,11 +1828,16 @@ function questieQuestIds() {
 }
 
 function questieItemIds() {
-  const itemIds = [];
+  const itemIds = new Set();
   for (const item of window.FOREVER_ITEMS) {
-    itemIds.push(item.id);
+    itemIds.add(item.id);
+    for (const source of item.sources || []) {
+      for (const reagent of source.reagents || []) {
+        itemIds.add(reagent.id);
+      }
+    }
   }
-  return itemIds;
+  return Array.from(itemIds);
 }
 
 function renderFolderStatus() {
