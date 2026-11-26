@@ -1,4 +1,4 @@
 data/cache/
 *.pyc
 __pycache__/
-web/settings.json
+node_modules/
