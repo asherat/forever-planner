@@ -907,6 +907,9 @@ function isWithinGoldLimit(price) {
 }
 
 function isBuyableOnAuctionHouse(item) {
+  if (item.suffix) {
+    return false;
+  }
   return isListedOnAuctionHouse(item) && isWithinGoldLimit(averagePrice(item.id));
 }
 
@@ -928,7 +931,10 @@ function sourceCost(source, snapshot) {
 }
 
 function cheapestCost(item, snapshot) {
-  let cheapest = averagePrice(item.id);
+  let cheapest = null;
+  if (!item.suffix) {
+    cheapest = averagePrice(item.id);
+  }
   for (const source of obtainableSources(item, snapshot)) {
     const cost = sourceCost(source, snapshot);
     if (cost !== null && (cheapest === null || cost < cheapest)) {
@@ -1855,7 +1861,9 @@ function renderOptionPrices(item, craftSource, snapshot, gain, unit) {
   const auctionPrice = averagePrice(item.id);
   if (auctionPrice !== null) {
     line.append("AH ", renderMoney(auctionPrice));
-    if (gain > 0) {
+    if (item.suffix) {
+      line.append(" for any suffix");
+    } else if (gain > 0) {
       line.append(" (≈ ", renderMoney(Math.round(auctionPrice / gain)), " per " + unit + ")");
     }
   }
