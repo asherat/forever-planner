@@ -2,6 +2,10 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.55.0 — 2026-11-27
+
+- Behind the scenes: the quest list now runs on Vue. It looks and works the same, including quest chains, hover maps and copying /way commands.
+
 ## v0.54.0 — 2026-11-27
 
 - Behind the scenes: the leveling path panel now runs on Vue. It looks and works the same, hover maps included.
