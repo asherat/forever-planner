@@ -1,13 +1,15 @@
 import { reactive } from "vue";
 import "../legacy.ts";
 import { COMPARED_SKILLS, SKILL_RANKS, buildGuide, levelingCosts, planStepMaterials, professionRecipes, skillRankAt, stepName } from "../profession-guide.ts";
-import type { CraftCheck, GuideLesson, GuideStep, SkillRank } from "../profession-guide.ts";
+import type { CraftCheck, Guide, GuideLesson, GuideStep, SkillRank } from "../profession-guide.ts";
 import { aggregatePlans, collectNodes, craftingItem } from "../crafting-plan.ts";
 import type { Plan, Recipe, ShoppingLine, TakingLine } from "../crafting-plan.ts";
 import { takingPlaces } from "./inventory-text.ts";
 import { professionOf, saveSettings, selectedCharacter, snapshotOf, state } from "../state.ts";
 import type { Character, SavedGuide } from "../types.ts";
-import { recipeSource } from "./recipe-sources.ts";
+import { recipeSource, trainerSource } from "./recipe-sources.ts";
+import { qualityClass } from "../prices.ts";
+import type { Tooltip } from "./upgrade-card.ts";
 import type { RecipeSourceView } from "./recipe-sources.ts";
 
 export const PROFESSIONS = ["Alchemy", "Blacksmithing", "Cooking", "Enchanting", "Engineering", "First Aid", "Leatherworking", "Tailoring"];
@@ -267,6 +269,23 @@ export interface StepRow {
   step: GuideStep;
   done: boolean;
   craftFirst: string;
+  recipe: Tooltip;
+}
+
+function recipeTooltip(profession: string, step: GuideStep): Tooltip {
+  const recipe = recipeById(profession, step.recipeId);
+  let makes = 1;
+  if (recipe !== null) {
+    makes = recipe.quantity;
+  }
+  return {
+    title: stepName(step.recipeId, step.itemId),
+    titleClass: qualityClass(craftingItem(step.itemId).quality),
+    subtitle: "One craft makes " + makes + " and takes:",
+    lines: step.reagents.map(function lineOf(reagent) {
+      return { className: "", text: reagent[1] + "× " + craftingItem(reagent[0]).name };
+    })
+  };
 }
 
 function craftFirstText(plans: Plan[]): string {
@@ -297,7 +316,7 @@ function canCraftFor(character: Character | null, profession: string): CraftChec
 
 function plannedStepRows(saved: SavedGuide, skill: number | null, character: Character | null): { rows: StepRow[]; plans: Map<number, Plan[]> } {
   const rows = saved.guide.steps.map(function rowOf(step, index) {
-    return { key: index + ":" + step.recipeId, index: index, step: step, done: isStepDone(saved, step, index, skill), craftFirst: "" };
+    return { key: index + ":" + step.recipeId, index: index, step: step, done: isStepDone(saved, step, index, skill), craftFirst: "", recipe: recipeTooltip(saved.guide.profession, step) };
   });
   const rowsLeft = rows.filter(function isLeft(row) {
     return !row.done;
@@ -319,18 +338,19 @@ export interface LessonRow {
   where: string;
   cost: number;
   hasCost: boolean;
-  source: RecipeSourceView | null;
+  source: RecipeSourceView;
 }
 
 function lessonRow(profession: string, lesson: GuideLesson): LessonRow {
   const recipe = recipeById(profession, lesson.recipeId);
-  let source: RecipeSourceView | null = null;
+  let source: RecipeSourceView;
+  let where: string;
   if (recipe !== null && recipe.teachingItemId) {
     source = recipeSource(recipe);
-  }
-  let where = "At a trainer, at skill " + lesson.learnAt;
-  if (lesson.teachingItemId !== null) {
     where = "Pattern, usable at skill " + lesson.learnAt;
+  } else {
+    source = trainerSource(profession, skillRankAt(lesson.learnAt).name);
+    where = "From a trainer at skill " + lesson.learnAt;
   }
   return { key: lesson.recipeId, name: stepName(lesson.recipeId, lesson.itemId), where: where, cost: lesson.cost, hasCost: lesson.cost > 0, source: source };
 }
@@ -381,6 +401,7 @@ export interface StageRow {
   key: string;
   title: string;
   training: string;
+  trainers: RecipeSourceView | null;
   cost: number;
   runningTotal: number;
   steps: StepRow[];
@@ -395,11 +416,22 @@ export interface StageRow {
   stillToBuy: number;
 }
 
+function needsTraining(rank: SkillRank, planFrom: number): boolean {
+  return rank !== SKILL_RANKS[0] && planFrom <= rank.from;
+}
+
 function trainingLine(rank: SkillRank, planFrom: number): string {
-  if (rank === SKILL_RANKS[0] || planFrom > rank.from) {
+  if (!needsTraining(rank, planFrom)) {
     return "";
   }
-  return "Before " + rank.from + ": train " + rank.name + " at your trainer. You can from skill " + rank.trainFrom + " and character level " + rank.characterLevel + ".";
+  return "Before " + rank.from + ": train " + rank.name + ". You can from skill " + rank.trainFrom + " and character level " + rank.characterLevel + ".";
+}
+
+function trainersFor(rank: SkillRank, guide: Guide): RecipeSourceView | null {
+  if (!needsTraining(rank, guide.from)) {
+    return null;
+  }
+  return trainerSource(guide.profession, rank.name);
 }
 
 function addStepCost(total: number, row: StepRow): number {
@@ -449,6 +481,7 @@ export function stageRows(saved: SavedGuide, skill: number | null, character: Ch
       key: rank.name,
       title: rank.name + " " + Math.max(rank.from, guide.from) + " → " + Math.min(rank.to, guide.to),
       training: trainingLine(rank, guide.from),
+      trainers: trainersFor(rank, guide),
       cost: cost,
       runningTotal: runningTotal,
       steps: stageSteps,

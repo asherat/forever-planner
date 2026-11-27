@@ -4,10 +4,12 @@ import "../legacy.ts";
 import { craftingItem } from "../crafting-plan.ts";
 import { stepName } from "../profession-guide.ts";
 import type { GuideStep } from "../profession-guide.ts";
+import type { Tooltip } from "../ui/upgrade-card.ts";
+import ComparisonTooltip from "./ComparisonTooltip.vue";
 import CraftingItemLabel from "./CraftingItemLabel.vue";
 import MoneyAmount from "./MoneyAmount.vue";
 
-const props = defineProps<{ step: GuideStep; done: boolean; craftFirst: string }>();
+const props = defineProps<{ step: GuideStep; done: boolean; craftFirst: string; recipe: Tooltip }>();
 const emit = defineEmits<{ toggle: [] }>();
 
 const isKnownItem = computed(function knownItem() {
@@ -55,8 +57,11 @@ function toggled(): void {
       <div class="guide-step-title">
         <span :class="colorClasses">{{ step.color }}</span>
         <span>{{ crafts }}</span>
-        <CraftingItemLabel v-if="isKnownItem" :item-id="step.itemId" />
-        <strong v-else>{{ name }}</strong>
+        <span class="recipe-hover">
+          <CraftingItemLabel v-if="isKnownItem" :item-id="step.itemId" />
+          <strong v-else tabindex="0">{{ name }}</strong>
+          <ComparisonTooltip :tooltip="recipe" extra-class="tooltip-recipe" />
+        </span>
         <span class="guide-step-cost"><MoneyAmount :copper="step.cost" /></span>
       </div>
       <p class="muted guide-step-reagents">{{ reagents }}</p>
