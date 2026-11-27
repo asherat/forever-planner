@@ -1,1 +1,5 @@
-export const plannerModules = "ready";
+import "./legacy.ts";
+import { TSM } from "./tsm.ts";
+
+window.TSM = TSM;
+window.start();

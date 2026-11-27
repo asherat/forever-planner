@@ -1,8 +1,6 @@
-const test = require("node:test");
-const assert = require("node:assert/strict");
-const { loadScripts } = require("./helpers/load");
-
-const tsm = loadScripts(["tsm.js"]).TSM;
+import test from "node:test";
+import assert from "node:assert/strict";
+import { TSM as tsm, tsmItemId } from "../web/src/tsm.ts";
 
 function toBase32(value) {
   return value.toString(32).toUpperCase();
@@ -103,4 +101,12 @@ test("skips WoW's index comments and keeps going after a broken section", () => 
 test("does not borrow another ruleset's auction house for the same faction", () => {
   const result = tsm.readPrices(appData, "Normal", "Horde");
   assert.equal(result.scope, null);
+});
+
+test("skips item-level variants and short rows instead of inventing prices", () => {
+  assert.equal(tsmItemId("i:285282::i1"), null);
+  assert.equal(tsmItemId("i:4304"), 4304);
+  const shortRow = 'select(2, ...).LoadData("AUCTIONDB_REGION_STAT","Forever-EU",[[return {downloadTime=1,fields={"itemString","regionMarketValue","regionSale"},data={{4304,' + (4500).toString(32) + '}}}]]) --<x>';
+  const result = tsm.readPrices(shortRow, "PvP", "Horde");
+  assert.deepEqual(Object.keys(result.prices[4304]), ["regionMarketValue"]);
 });
