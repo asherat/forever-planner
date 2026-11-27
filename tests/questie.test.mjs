@@ -184,3 +184,17 @@ test("reads an entity whose fields are packed as a plain list", () => {
   assert.equal(drop.rank, 1);
   assert.equal(drop.zone, "Zul'Farrak");
 });
+
+test("finds ranked profession trainers by title, with where they stand", () => {
+  const toc = buildToc([
+    tocLine("Npc-1-S", encodeBase64({ 1: "Drakk Stonehand", 9: 17, 13: "H", 14: "Artisan Leatherworker" })),
+    tocLine("Npc-1-7", encodeBase64({ 17: [[13, 43]] })),
+    tocLine("Npc-2-S", encodeBase64({ 1: "Telonis", 9: 17, 13: "A", 14: "Expert Leatherworker" })),
+    tocLine("Npc-3-S", encodeBase64({ 1: "Supplier", 9: 17, 14: "Leatherworking Supplies" }))
+  ]);
+  const details = questie.buildDetails(toc, [], zones, []);
+  const artisans = questie.trainersTitled(details, "Artisan Leatherworker");
+  assert.deepEqual(artisans.map(function placeOf(trainer) { return [trainer.npcId, trainer.name, trainer.zone, trainer.x, trainer.y, trainer.friendlyTo]; }), [[1, "Drakk Stonehand", "The Barrens", 13, 43, "H"]]);
+  assert.equal(questie.trainersTitled(details, "Expert Leatherworker").length, 1);
+  assert.equal(questie.trainersTitled(details, "Leatherworking Supplies").length, 0);
+});

@@ -3,6 +3,7 @@ import type { StageRow } from "../ui/profession-page.ts";
 import CraftingItemLabel from "./CraftingItemLabel.vue";
 import MoneyAmount from "./MoneyAmount.vue";
 import ProfessionGuideStep from "./ProfessionGuideStep.vue";
+import RecipeSourceLines from "./RecipeSourceLines.vue";
 
 defineProps<{ stage: StageRow }>();
 const emit = defineEmits<{ toggleStep: [index: number]; toggleBought: [key: string]; toggleAll: [] }>();
@@ -26,7 +27,10 @@ function allToggled(): void {
       <h2>{{ stage.title }}</h2>
       <span class="guide-stage-cost">{{ "Cost " }}<MoneyAmount :copper="stage.cost" /><span class="muted">{{ " · running total " }}<MoneyAmount :copper="stage.runningTotal" /></span></span>
     </header>
-    <p v-if="stage.training" class="guide-stage-training">{{ stage.training }}</p>
+    <div v-if="stage.training" class="guide-stage-training">
+      <p>{{ stage.training }}</p>
+      <RecipeSourceLines v-if="stage.trainers" :source="stage.trainers" />
+    </div>
     <div v-if="stage.hasLessons || stage.hasMaterials || stage.hasTaking" class="guide-stage-prep">
       <section v-if="stage.hasMaterials || stage.hasTaking" class="panel">
         <div class="guide-stage-prep-heading">
@@ -57,16 +61,13 @@ function allToggled(): void {
           <li v-for="lesson in stage.lessons" :key="lesson.key" class="summary-row">
             <strong>{{ lesson.name }}</strong>
             <span class="summary-value muted">{{ lesson.where }}<template v-if="lesson.hasCost">{{ ", about " }}<MoneyAmount :copper="lesson.cost" /></template></span>
-            <template v-if="lesson.source">
-              <span v-if="lesson.source.text" class="summary-value muted">{{ lesson.source.text }}</span>
-              <span v-for="line in lesson.source.lines" :key="line.key" :class="line.classes" v-bind="line.mapAttributes">{{ line.prefix }}<a v-if="line.npcUrl" :href="line.npcUrl" target="_blank" rel="noopener">{{ line.npcName }}</a>{{ line.suffix }}{{ line.coordinates }}</span>
-            </template>
+            <RecipeSourceLines :source="lesson.source" />
           </li>
         </ul>
       </section>
     </div>
     <ol class="crafting-list guide-steps">
-      <ProfessionGuideStep v-for="row in stage.steps" :key="row.key" :step="row.step" :done="row.done" :craft-first="row.craftFirst" @toggle="stepToggled(row.index)" />
+      <ProfessionGuideStep v-for="row in stage.steps" :key="row.key" :step="row.step" :done="row.done" :craft-first="row.craftFirst" :recipe="row.recipe" @toggle="stepToggled(row.index)" />
     </ol>
   </section>
 </template>

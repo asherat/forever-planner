@@ -2,6 +2,11 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.87.0 — 2026-11-27
+
+- Professions: recipes from a trainer and the "train the next rank" line say which trainer you need. For Expert and Artisan that's the actual NPCs of your faction (like "Artisan Leatherworker: Una in Thunder Bluff"), with Wowhead and map links; lower ranks say any trainer of the profession.
+- Hover the item on a step to see its recipe: what one craft takes and how many it makes.
+
 ## v0.86.0 — 2026-11-27
 
 - Professions: "Compare professions" shows what each profession costs to level to 150, 225 and 300, cheapest first. Pick one from the table to plan it.
