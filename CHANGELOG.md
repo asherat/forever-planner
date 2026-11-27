@@ -2,6 +2,11 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.43.0 — 2026-11-27
+
+- "Add a dungeon" also leaves out dungeons more than 5 levels below you, even when they have a small upgrade.
+- Fixed a horizontal scroll bar in the leveling path panel caused by long dungeon names in the menu.
+
 ## v0.42.0 — 2026-11-27
 
 - "Add a dungeon" lists only dungeons with upgrades for you (boss and rare drops and quest rewards, for your spec and gold limit), with how many and how big the best one is: "Zul'Farrak (42+) · 11 upgrades, best +40". Without Questie connected it shows dungeons up to 5 levels below you instead.
