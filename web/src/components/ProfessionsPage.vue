@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import "../legacy.ts";
-import { connectFolder, dataStatusText } from "../ui/folder-controls.ts";
+import { dataStatusText } from "../ui/folder-controls.ts";
 import { selectedCharacter, state } from "../state.ts";
-import { MAX_SKILL, characterSkill, chooseCharacter, chooseProfession, compareProfessions, comparisonRows, costStillToBuy, discardGuide, guideForm, guideSummary, makeGuide, professionChoices, savedGuide, shoppingRows, skillLine, stageRows, toggleBought, toggleStageBought, toggleStep } from "../ui/profession-page.ts";
+import { MAX_SKILL, characterSkill, chooseCharacter, chooseProfession, compareProfessions, comparisonRows, costStillToBuy, discardGuide, guideForm, guideSummary, hasProfessionsToCompare, makeGuide, professionChoices, savedGuide, shoppingRows, skillLine, stageRows, toggleBought, toggleStageBought, toggleStep } from "../ui/profession-page.ts";
 import type { StageRow } from "../ui/profession-page.ts";
 import CraftingItemLabel from "./CraftingItemLabel.vue";
 import MoneyAmount from "./MoneyAmount.vue";
@@ -38,6 +38,10 @@ const skillText = computed(function skillTextView() {
 
 const saved = computed(function savedPlan() {
   return savedGuide(selectedCharacter(), guideForm.profession);
+});
+
+const canCompare = computed(function severalToCompare() {
+  return hasProfessionsToCompare(selectedCharacter());
 });
 
 const hasNoPrices = computed(function pricesMissing() {
@@ -75,6 +79,10 @@ const summary = computed(function summaryView() {
 
 const shopping = computed(function shoppingView() {
   return shoppingRows(stages.value);
+});
+
+const shoppingLabel = computed(function shoppingSummary() {
+  return "Everything still to buy (" + shopping.value.length + ")";
 });
 
 const hasShopping = computed(function anyShopping() {
@@ -121,14 +129,15 @@ function discard(): void {
 </script>
 
 <template>
-  <section class="panel crafting-intro">
+  <header class="page-heading">
     <h1>Professions</h1>
-    <p class="muted">The cheapest way to level a profession with today's auction house and vendor prices. Orange recipes always give a point; yellow and green ones give one less often, so the plan counts the extra crafts. The plan is split by trainer rank, each with its own recipes to learn and materials to buy.</p>
-    <p class="muted">{{ status.text }}</p>
-    <div class="inline-fields">
-      <button type="button" :hidden="status.isConnected" @click="connectFolder">Connect WoW folder</button>
-    </div>
-  </section>
+    <p class="muted">The cheapest way to level a profession at today's prices.</p>
+    <details class="page-help">
+      <summary>How the plan works</summary>
+      <p class="muted">Orange recipes always give a skill point; yellow and green ones give one less often, so the plan counts the extra crafts. Crafting a recipe's own components gives skill too. Each trainer rank has its own recipes to learn and materials to buy.</p>
+    </details>
+    <p class="muted page-data-status">{{ status.text }}</p>
+  </header>
 
   <section class="panel guide-form">
     <label>Character
@@ -144,7 +153,7 @@ function discard(): void {
     <label>From skill <input v-model.number="guideForm.from" type="number" min="1" :max="MAX_SKILL - 1"></label>
     <label>To skill <input v-model.number="guideForm.to" type="number" min="2" :max="MAX_SKILL"></label>
     <button type="button" class="primary" :disabled="hasNoPrices" @click="makeGuide">{{ makeLabel }}</button>
-    <button type="button" :disabled="hasNoPrices" @click="compareProfessions">Compare professions</button>
+    <button v-if="canCompare" type="button" :disabled="hasNoPrices" @click="compareProfessions">Compare professions</button>
     <p class="muted guide-form-note">{{ skillText }}</p>
   </section>
 
@@ -153,7 +162,7 @@ function discard(): void {
   <section v-if="summary" class="crafting-layout">
     <div class="crafting-list-column">
       <h2>{{ summary.title }}</h2>
-      <p class="muted">{{ summary.made }} {{ summary.progress }}.</p>
+      <p class="muted">{{ summary.made }} · {{ summary.progress }}</p>
       <p v-if="summary.stuck" class="verdict-bad">{{ summary.stuck }}</p>
       <ProfessionGuideStage v-for="stage in stages" :key="stage.key" :stage="stage" @toggle-step="stepToggled" @toggle-bought="materialToggled" @toggle-all="stageToggled(stage)" />
       <div><button type="button" class="link" @click="discard">Remove this plan</button></div>
@@ -164,9 +173,8 @@ function discard(): void {
         <div>{{ "Whole plan: " }}<MoneyAmount :copper="summary.total" /></div>
         <div>{{ "Still to buy: " }}<MoneyAmount :copper="materialsCost" /></div>
       </section>
-      <section v-if="hasShopping" class="panel">
-        <h2>Still to buy</h2>
-        <p class="muted summary-value">Everything not ticked in the stages, after what your characters already have, at today's prices.</p>
+      <details v-if="hasShopping" class="panel summary-details">
+        <summary>{{ shoppingLabel }}</summary>
         <ul class="summary-list">
           <li v-for="row in shopping" :key="row.key" class="guide-shopping">
             <span class="guide-material-name">{{ row.quantity }} <CraftingItemLabel :item-id="row.itemId" /></span>
@@ -174,7 +182,7 @@ function discard(): void {
             <span v-else class="summary-value muted">no price</span>
           </li>
         </ul>
-      </section>
+      </details>
     </aside>
   </section>
 </template>

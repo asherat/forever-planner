@@ -180,7 +180,7 @@ export function planRequirements(plan: Plan): Requirements {
     const knownBy = charactersKnowingRecipe(recipe);
     let source: RecipeSourceView | null = null;
     if (knownBy.length === 0) {
-      source = recipeSource(recipe);
+      source = recipeSource(recipe, true);
     }
     recipeRows.push({ key: "recipe-" + recipe.id, profession: recipe.profession + " recipe: ", itemId: node.itemId, knownBy: knownBy.join(", "), source: source });
   }
