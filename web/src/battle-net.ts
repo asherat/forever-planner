@@ -41,7 +41,11 @@ export async function fetchFromBattleNet(path: string, namespacePrefix: string):
   const token = await fetchAccessToken();
   const url = "https://" + region + ".api.blizzard.com" + path +
     "?namespace=" + namespacePrefix + "-forever-" + region + "&locale=en_GB";
-  const response = await fetch(url, { headers: { "Authorization": "Bearer " + token } });
+  let cacheMode: RequestCache = "default";
+  if (namespacePrefix === "profile") {
+    cacheMode = "no-cache";
+  }
+  const response = await fetch(url, { headers: { "Authorization": "Bearer " + token }, cache: cacheMode });
   if (response.status === 404) {
     return null;
   }

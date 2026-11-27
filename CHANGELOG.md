@@ -2,6 +2,10 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.82.1 — 2026-11-27
+
+- Fixed: Refresh could show your character as it was hours ago (old logout time, old gear) even though Battle.net already had the new data. The browser was reusing an old copy of your profile; Refresh now always asks Battle.net.
+
 ## v0.82.0 — 2026-11-27
 
 - Crafting tool: your materials are used in list order, so the first craft takes them and the next ones get what's left. Reorder your crafts with ↑ ↓, or untick "Use my materials in list order" to see each item's cost as if all your materials were for it.
