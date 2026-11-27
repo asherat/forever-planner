@@ -11,7 +11,7 @@ export interface PlanPick {
   suffixName?: string;
 }
 
-export type PlanKind = "quest" | "drop" | "vendor" | "craft" | "auction" | "unknown";
+export type PlanKind = "owned" | "quest" | "drop" | "vendor" | "craft" | "auction" | "unknown";
 
 export interface PlanEntry {
   key: string;
@@ -21,6 +21,7 @@ export interface PlanEntry {
   kind: PlanKind;
   source: ItemSource | null;
   price: number | null;
+  priceNote: string;
 }
 
 export interface PlanGroup {
@@ -38,6 +39,7 @@ interface Placement {
   source: ItemSource | null;
 }
 
+const OWNED_ORDER = -1;
 const BUY_ORDER = 0;
 const CRAFT_ORDER = 1;
 const ROUTE_ORDER = 1000;
@@ -265,6 +267,10 @@ function freePlacement(sources: ItemSource[], snapshot: Snapshot, character: Cha
 
 function placement(item: Item, snapshot: Snapshot, character: Character): Placement {
   const sources = obtainableSources(item, snapshot);
+  const owned = firstOfType(sources, "owned");
+  if (owned !== null) {
+    return { key: "owned", title: "You have it", order: OWNED_ORDER, sortName: "Owned", kind: "owned", source: owned };
+  }
   const onRoute = routePlacement(item, snapshot, character, sources);
   if (onRoute !== null) {
     return onRoute;
@@ -305,6 +311,13 @@ function entryPrice(kind: PlanKind, item: Item, source: ItemSource | null, snaps
 
 type SortedGroup = PlanGroup & { order: number; sortName: string };
 
+function entryPriceNote(kind: PlanKind, source: ItemSource | null, snapshot: Snapshot): string {
+  if (kind === "craft" && source !== null && averageMaterialCost(source as CraftSource, snapshot).usesOwned) {
+    return " with what you have";
+  }
+  return "";
+}
+
 function compareGroups(first: SortedGroup, second: SortedGroup): number {
   if (first.order !== second.order) {
     return first.order - second.order;
@@ -327,7 +340,7 @@ export function planGroups(character: Character, snapshot: Snapshot): PlanGroup[
       }
       const place = placement(item, snapshot, character);
       const group = groups.get(place.key) || { key: place.key, title: place.title, order: place.order, sortName: place.sortName, entries: [] };
-      group.entries.push({ key: entryKey(slotKey, item), slotKey: slotKey, slotLabel: slotDefinition.label, item: item, kind: place.kind, source: place.source, price: entryPrice(place.kind, item, place.source, snapshot) });
+      group.entries.push({ key: entryKey(slotKey, item), slotKey: slotKey, slotLabel: slotDefinition.label, item: item, kind: place.kind, source: place.source, price: entryPrice(place.kind, item, place.source, snapshot), priceNote: entryPriceNote(place.kind, place.source, snapshot) });
       groups.set(place.key, group);
     }
   }

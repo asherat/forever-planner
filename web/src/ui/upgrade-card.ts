@@ -71,6 +71,12 @@ export function describeSource(source: ItemSource): string {
   if (source.type === "craft") {
     return "Crafted: " + String(source.profession);
   }
+  if (source.type === "owned") {
+    if (source.isOwn) {
+      return "You have it, in your " + String(source.place);
+    }
+    return "You have it on " + String(source.holder) + ", in their " + String(source.place) + ": mail it over";
+  }
   return "Unknown source";
 }
 
@@ -297,10 +303,15 @@ export function priceParts(item: Item, craftSource: CraftSource | null, snapshot
     }
     if (cost.total === 0 && cost.missing > 0) {
       parts.push(textPart("Craft: no material prices yet"));
+    } else if (cost.total === 0 && cost.usesOwned) {
+      parts.push(textPart("Craft: you have all the materials"));
     } else {
       parts.push(textPart("Craft "), moneyPart(cost.total));
       if (cost.missing > 0) {
         parts.push(textPart(" + unpriced materials"));
+      }
+      if (cost.usesOwned) {
+        parts.push(textPart(" with what you have"));
       }
     }
   }

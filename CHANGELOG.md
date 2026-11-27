@@ -2,6 +2,11 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.80.0 — 2026-11-27
+
+- Upgrades you already have, in the bags, bank or mailbox of this character or an alt on the same realm type and faction, say so ("You have it, in your bank", "You have it on Bank Alt…: mail it over") and come first in your gear plan. Soulbound gear on alts is left out.
+- Crafting costs on the gear page only count the materials you still need to buy ("Craft 1g 2s with what you have").
+
 ## v0.79.0 — 2026-11-27
 
 - Vendor buys in your gear plan are listed under the vendor's zone, next to everything else you'll do there; "Buy on the auction house" is just the auction house now.

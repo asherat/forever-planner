@@ -303,3 +303,44 @@ test("a free upgrade on your leveling path shows as 'On your way' when the other
   context.resetSourceCaches();
   assert.equal(context.upgradeOptions(neck, snapshot, character, context.emptyBlockList()).onTheWay, null);
 });
+
+function inventoryCharacter(name, faction, ruleset, places) {
+  return Object.assign({ name: name, faction: faction, ruleset: ruleset, bags: {}, bank: {}, mail: {}, auctions: {}, money: 0, professions: [], classKey: "DRUID" }, places);
+}
+
+test("gear you already have counts as a free source; soulbound gear on alts and other factions don't", async () => {
+  const { describeSource } = await import("../web/src/ui/upgrade-card.ts");
+  const bagHelm = sampleItem({ id: 140, name: "Bag Helm", slot: "HEAD", stats: { AGILITY: 20 }, sources: [] });
+  const altBoots = sampleItem({ id: 141, name: "Alt Boots", slot: "FEET", binding: "ON_EQUIP", stats: { AGILITY: 20 }, sources: [] });
+  const boundGloves = sampleItem({ id: 142, name: "Bound Gloves", slot: "HAND", binding: "ON_ACQUIRE", stats: { AGILITY: 20 }, sources: [] });
+  const allianceBelt = sampleItem({ id: 143, name: "Alliance Belt", slot: "WAIST", stats: { AGILITY: 20 }, sources: [] });
+  const { context, character, snapshot, state } = loadPlanner([bagHelm, altBoots, boundGloves, allianceBelt]);
+  snapshot.faction = "Horde";
+  state.inventory = { characters: {
+    "Test Hero": inventoryCharacter("Test Hero", "Horde", "Normal", { bags: { 140: 1 } }),
+    "Bank Alt": inventoryCharacter("Bank Alt", "Horde", "Normal", { bank: { 141: 1, 142: 1 } }),
+    "Ally Twink": inventoryCharacter("Ally Twink", "Alliance", "Normal", { bags: { 143: 1 } })
+  }, modifiedAt: 0, accountCount: 1 };
+  const owned = function ownedSourcesOf(item) {
+    return context.sourcesForCharacter(item, snapshot).filter(function isOwned(source) { return source.type === "owned"; });
+  };
+  assert.equal(describeSource(owned(bagHelm)[0]), "You have it, in your bags");
+  assert.equal(describeSource(owned(altBoots)[0]), "You have it on Bank Alt, in their bank: mail it over");
+  assert.deepEqual(owned(boundGloves), []);
+  assert.deepEqual(owned(allianceBelt), []);
+  assert.equal(context.cheapestCost(bagHelm, snapshot), 0);
+  const head = context.upgradeOptions(context.slotDefinitionByKey("HEAD"), snapshot, character, context.emptyBlockList());
+  assert.equal(head.best.item.name, "Bag Helm");
+  assert.equal(head.best.availableLevel, 40);
+});
+
+test("materials you already have don't count toward a craft's cost", () => {
+  const { context, snapshot, state } = loadPlanner([]);
+  globalThis.FOREVER_CRAFTING_ITEMS = {};
+  snapshot.faction = "Horde";
+  state.tsm = { prices: { 2318: tsmPrice(100, 100, 5), 2320: tsmPrice(20, 20, 5) } };
+  const craft = { type: "craft", profession: "Leatherworking", recipeId: 1, reagents: [{ id: 2318, name: "Light Leather", quantity: 6 }, { id: 2320, name: "Coarse Thread", quantity: 2 }] };
+  assert.deepEqual(context.averageMaterialCost(craft, snapshot), { total: 640, missing: 0, usesOwned: false });
+  state.inventory = { characters: { "Test Hero": inventoryCharacter("Test Hero", "Horde", "Normal", { bags: { 2318: 4 }, bank: { 2320: 5 } }) }, modifiedAt: 0, accountCount: 1 };
+  assert.deepEqual(context.averageMaterialCost(craft, snapshot), { total: 200, missing: 0, usesOwned: true });
+});

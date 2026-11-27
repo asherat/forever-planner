@@ -54,6 +54,7 @@ export interface Item {
   fromSimulator?: boolean;
   reputation?: string;
   reputationRequirement?: { factionId: number; tier: number };
+  binding?: string;
 }
 
 export type Equipment = Record<string, Item | undefined>;
