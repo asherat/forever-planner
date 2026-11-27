@@ -41,13 +41,13 @@ const moves = computed(function moveButtons() {
   return { upDisabled: props.moveUp === null, downDisabled: props.moveDown === null, showsMoves: props.moveUp !== null || props.moveDown !== null };
 });
 
-function moveUp(): void {
+function movedUp(): void {
   if (props.moveUp !== null) {
     swapEntries(props.index, props.moveUp);
   }
 }
 
-function moveDown(): void {
+function movedDown(): void {
   if (props.moveDown !== null) {
     swapEntries(props.index, props.moveDown);
   }
@@ -64,7 +64,7 @@ function quantityChanged(event: Event): void {
     <div class="crafting-entry-header">
       <h3 class="crafting-entry-title"><CraftingItemLabel :item-id="plan.entry.itemId" /></h3>
       <input :id="quantityId" class="crafting-quantity" type="number" min="1" :value="quantity" aria-label="How many" @change="quantityChanged">
-      <span v-if="moves.showsMoves" class="crafting-move"><button type="button" :disabled="moves.upDisabled" aria-label="Move up" @click="moveUp">↑</button><button type="button" :disabled="moves.downDisabled" aria-label="Move down" @click="moveDown">↓</button></span>
+      <span v-if="moves.showsMoves" class="crafting-move"><button type="button" :disabled="moves.upDisabled" aria-label="Move up" @click="movedUp">↑</button><button type="button" :disabled="moves.downDisabled" aria-label="Move down" @click="movedDown">↓</button></span>
       <button class="link" type="button" @click="removeEntry(index)">Remove</button>
     </div>
     <p v-if="isCrafted" class="crafting-verdict">{{ "Your plan costs " }}<MoneyOrUnknown :copper="plan.root.cost" :missing="plan.root.missingPrice" /><template v-if="verdict.isForSale">{{ " · ready-made " }}<MoneyAmount :copper="verdict.readyMade" /></template><template v-else>{{ ". Not for sale ready-made right now." }}</template><template v-if="verdict.hasSaving">{{ " · " }}<strong class="verdict-good">{{ "Crafting saves " }}<MoneyAmount :copper="verdict.saving" /></strong></template><template v-if="verdict.hasLoss">{{ " · " }}<strong class="verdict-bad">{{ "Buying it is cheaper by " }}<MoneyAmount :copper="verdict.loss" /></strong></template></p>

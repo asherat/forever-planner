@@ -87,7 +87,7 @@ async function childDirectory(directoryHandle: FileSystemDirectoryHandle | null,
   }
   try {
     return await directoryHandle.getDirectoryHandle(name);
-  } catch (error) {
+  } catch {
     return null;
   }
 }
@@ -126,7 +126,7 @@ async function readFile(directory: FileSystemDirectoryHandle, fileName: string):
     const fileHandle = await directory.getFileHandle(fileName);
     const file = await fileHandle.getFile();
     return { text: await file.text(), modifiedAt: file.lastModified };
-  } catch (error) {
+  } catch {
     return null;
   }
 }

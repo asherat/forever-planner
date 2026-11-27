@@ -157,6 +157,9 @@ export function itemScore(item: Item | null | undefined, weights: Weights, slotK
       score += item.stats[statKey] * weights[statKey];
     }
   }
+  if (weights.RANGED_ATTACK_POWER && item.stats && item.stats.ATTACK_POWER && item.stats.RANGED_ATTACK_POWER === undefined) {
+    score += item.stats.ATTACK_POWER * weights.RANGED_ATTACK_POWER;
+  }
   if (item.weapon) {
     score += item.weapon.damagePerSecond * weaponDamageWeight(item, weights, slotKey);
   }

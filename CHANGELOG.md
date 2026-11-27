@@ -2,6 +2,13 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.90.1 — 2026-11-27
+
+- Hunters: plain "attack power" on an item now counts as ranged attack power too, so Beast Mastery and Marksmanship see those items as upgrades.
+- Crafting: when a recipe makes more than you need (5 potions for 1), the tool compares the whole batch against buying just what you need.
+- Crafting: a buy/craft choice you click lasts for the list you're working on, not forever.
+- The code is linted in CI (named functions, no ternaries), and a few stat names with a stray comma from Battle.net are cleaned up.
+
 ## v0.90.0 — 2026-11-27
 
 - Less text everywhere. Professions: recipes from the trainer are one line per rank ("At the trainer: Thick Leather (175), …") instead of repeating the trainer under each recipe, pattern sources no longer repeat the pattern's name, sources with no known place are dropped, and the explanation of how the plan works is behind a "How the plan works" toggle.

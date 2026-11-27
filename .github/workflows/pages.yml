@@ -27,6 +27,8 @@ jobs:
           python-version: "3.12"
       - name: Install
         run: npm ci
+      - name: Lint
+        run: npm run lint
       - name: Web tests
         run: npm test
       - name: Data builder tests
