@@ -17,7 +17,7 @@ Its users are an experienced player and a brand-new player, so **simplicity beat
 
 A static site built with Vite from `web/` and served by GitHub Pages. There is no server.
 
-- **Migration to TypeScript + Vue 3 is in progress** (chosen 2026-11-27). Plan: (1) Vite pipeline with the old code unchanged — done; (2) logic files become typed modules in `web/src/`, tests with them — `tsm.ts`, `lua.ts`, `scoring.ts` and `sources.ts` done; `questie.js` is not converted because step 3 replaces it; (3) a loader that fetches QuestieDB's Forever release from GitHub instead of reading the local install; (4) the UI moves into Vue components one piece at a time, then the crafting page. Each step is its own release.
+- **Migration to TypeScript + Vue 3 is in progress** (chosen 2026-11-27). Plan: (1) Vite pipeline with the old code unchanged — done; (2) logic files become typed modules in `web/src/`, tests with them — `tsm.ts`, `lua.ts`, `scoring.ts`, `sources.ts` and `upgrades.ts` done; `route.js` (logic and its panel) is next; `questie.js` is not converted because step 3 replaces it; (3) a loader that fetches QuestieDB's Forever release from GitHub instead of reading the local install; (4) the UI moves into Vue components one piece at a time, then the crafting page. Each step is its own release.
 - Until a file is migrated it stays a plain classic `<script>` in `web/public/` that shares globals; Vite copies `web/public/` as-is (its "can't be bundled" warnings for those tags are expected). Load order is in `index.html` and `crafting.html`. New code goes in `web/src/` (TypeScript, Vue SFCs), entry `web/src/main.ts`.
 - **The browser calls the Battle.net API directly** with the user's own API client. The secret lives only in `localStorage`. Battle.net rejects `Origin: null`, so the site must be served over HTTP, never opened as `file://`.
 - **Local WoW files** are read through the File System Access API, from a picked `World of Warcraft` or `_forever_` folder whose handle is kept in IndexedDB. The files are read, never uploaded.
@@ -34,7 +34,7 @@ A static site built with Vite from `web/` and served by GitHub Pages. There is n
 | `web/src/scoring.ts` | Specs and weights, item scores, random-suffix variants, proficiencies, slot baselines (typed, no DOM) |
 | `web/src/types.ts` | Shared types: items, sources, snapshot, character, slots, game rules |
 | `web/src/sources.ts` | Where an item comes from: sources, quest/reputation rules, trash/container/skipped-dungeon rules, prices, gold limit (typed, no DOM; `resetSourceCaches` for tests) |
-| `web/public/upgrades.js` | Ranking candidates per slot, route availability, quicker option, ring/trinket and weapon pairing (no DOM) |
+| `web/src/upgrades.ts` | Ranking candidates per slot, route availability, quicker option, ring/trinket and weapon pairing (typed, no DOM). `observeRanking` lets `app.js` queue Wowhead tooltip checks for the top candidates without ranking knowing about it |
 | `web/src/` | New TypeScript and Vue code (see the migration plan above); `web/src/main.ts` is the module entry |
 | `vite.config.ts`, `tsconfig.json` | Build (`npm run build` → `dist/`) and type check (`npm run typecheck`) |
 | `web/crafting.html`, `web/public/crafting.js` | Crafting tool: recipe trees with own / vendor / AH / craft per material, totals, shopping list, recipe sources |
