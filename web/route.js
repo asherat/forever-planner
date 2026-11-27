@@ -1,5 +1,6 @@
 const MAX_CHARACTER_LEVEL = 60;
 const LATER_ZONE_WINDOW = 5;
+const DUNGEON_LEVELS_BELOW_YOU = 10;
 const SUGGESTED_READY_ZONES = 4;
 const SUGGESTED_LATER_ZONES = 2;
 const TIER_COLORS = { S: "tier-orange", A: "tier-yellow", B: "tier-green", C: "tier-grey", D: "tier-grey" };
@@ -85,6 +86,10 @@ function removeDungeon(route, dungeonName) {
   route.dungeons = route.dungeons.filter(function isOtherDungeon(chosen) {
     return chosen.name !== dungeonName;
   });
+}
+
+function isDungeonWorthRunning(dungeon, snapshot) {
+  return dungeon.minLevel >= snapshot.level - DUNGEON_LEVELS_BELOW_YOU;
 }
 
 function dungeonStartLevel(dungeon) {
@@ -438,7 +443,7 @@ function renderDungeonList(character, snapshot) {
   select.setAttribute("aria-label", "Add a dungeon");
   select.appendChild(createElement("option", null, "Add a dungeon…"));
   for (const dungeon of window.FOREVER_DUNGEONS) {
-    if (chosenDungeon(route, dungeon.name) === null) {
+    if (chosenDungeon(route, dungeon.name) === null && isDungeonWorthRunning(dungeon, snapshot)) {
       const option = createElement("option", null, dungeon.name + " (" + dungeon.minLevel + "+)");
       option.value = dungeon.name;
       select.appendChild(option);
