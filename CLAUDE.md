@@ -30,8 +30,9 @@ A static site built with Vite from `web/` and served by GitHub Pages. There is n
   - Questie (`QuestieDB_Forever.toc`, base64 CBOR records, plus `support/Forever/Zones/dungeons.lua`) supplies item sources, quest data and dungeon entrances.
   - TradeSkillMaster supplies prices (`TradeSkillMaster_AppHelper/AppData.lua`, base-32 copper) and inventory (`WTF/Account/*/SavedVariables/TradeSkillMaster.lua`).
 - **The wowsims/forever item database** (`assets/database/db.json`, MIT) fills in the items Forever hides from Battle.net and the game files until players discover them (new Forever items, and many relocated Classic ones). `data/build.py` adds every phase 1 item it has that Battle.net doesn't, marked `fromSimulator`, with quest and reputation sources; drops and vendors for them come from Questie at runtime like for any other item. Their icons come from Wowhead's icon CDN by name.
-- **Wowhead** is used for two things only:
+- **Wowhead** is used for three things only:
   - the nether tooltip API, to fill in reputation requirements that Battle.net omits (cached 14 days, failures retried after 1 day);
+  - the level each recipe is learned at, which is the start of its orange range (`tools/build-recipe-levels.js` reads the recipe list on each Forever profession page in a headless browser). The game files have no learn level; yellow and grey come from them (`SkillLineAbility`), and green is halfway between, as in the game. Wowhead's orange 0 means the recipe is learned at its yellow level, which its `learnedat` says. The builder refuses to write if more than 5% of recipes disagree with the game files on yellow or grey (79 of 2195 did in 2026-11, mostly late Blacksmithing);
   - outbound links to `https://www.wowhead.com/forever/{item|quest|npc}=ID`.
 
 | File | Role |
@@ -59,14 +60,17 @@ A static site built with Vite from `web/` and served by GitHub Pages. There is n
 | `web/public/data/*.js` | Generated game data. Don't edit by hand |
 | `web/public/maps/*.jpg` | Generated hover maps, one per `uiMapId` |
 | `data/build.py` | Crawls the Battle.net Forever API, wago.tools and the wowsims item database and writes `web/public/data/*.js` |
+| `tools/build-recipe-levels.js` | Writes `web/public/data/recipe-levels.js`: recipe spell ID → `[orange, yellow, green, grey]` skill levels (learn level from Wowhead, the rest from the game files) |
+| `tools/wago.js` | Shared wago.tools download, latest build and table reader for the Node builders |
 | `tools/build-maps.js` | Stitches the game's map tiles plus all explored-area overlays (wago.tools CASC; BLP2 in DXT1, DXT1 with 1-bit alpha, and DXT5) into 560 px JPEGs |
 
 ### Data rebuilds
 
 1. `python3 -I data/build.py` needs `~/.config/blizzard-api.env` with `BLIZZARD_CLIENT_ID` and `BLIZZARD_CLIENT_SECRET`.
 2. Then `node tools/build-maps.js`, which needs `npm install` for `jpeg-js`.
+3. Then `node tools/build-recipe-levels.js`, which needs a Chromium for `playwright-core` (`npx playwright install chromium-headless-shell`, or point `CHROME` at one). Wowhead pages are cached 30 days in `data/cache/wowhead/`.
 
-Both cache their downloads in `data/cache/`, which is not committed. wago tables are cached per game build (`data/cache/wago/<build>/`, one build per run), the wowsims database per commit (`SIMULATOR_COMMIT` in `build.py`; bump it to pick up newly discovered items), and Battle.net "not found" answers are retried after 7 days because Forever reveals items over time. Outputs are written only after everything has been built.
+All three cache their downloads in `data/cache/`, which is not committed. wago tables are cached per game build (`data/cache/wago/<build>/`, one build per run), the wowsims database per commit (`SIMULATOR_COMMIT` in `build.py`; bump it to pick up newly discovered items), and Battle.net "not found" answers are retried after 7 days because Forever reveals items over time. Outputs are written only after everything has been built.
 
 wago.tools returns 403 without a User-Agent and 429 when hit too fast. The builders send a User-Agent and throttle with retries.
 
