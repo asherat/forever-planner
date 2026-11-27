@@ -2,6 +2,17 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.45.0 — 2026-11-27
+
+- Fixed: random-stat items could still pass the gold limit through their any-suffix auction house price.
+- Fixed: the gold limit used an auction house price even when nothing was listed.
+- Fixed: a vendor item with an unknown price counted as a quick option under a gold limit.
+- Fixed: on a leveling path, quest rewards ignored the quest's own level, and a zone you visit twice only counted its first visit.
+- Fixed: dual-wielders could be offered the same quest-reward weapon for both hands.
+- Fixed: an item sold by the other faction's vendor was hidden even when it also drops.
+- Crafting costs on upgrade cards now use the same material prices as the crafting tool.
+- Faster rendering, more tests, and a sturdier data builder.
+
 ## v0.44.0 — 2026-11-27
 
 - Every dungeon counts automatically, on your leveling path or not; the dungeon list and the "Include …" checkboxes are gone. Upgrade cards from a dungeon have a "Skip <dungeon>" link when you're done with it or don't want to run it.

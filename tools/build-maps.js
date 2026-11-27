@@ -61,9 +61,9 @@ function parseCsv(text) {
 }
 
 async function wagoTable(tableName, build) {
-  const cacheFile = path.join(TABLE_DIRECTORY, tableName + ".csv");
+  const cacheFile = path.join(TABLE_DIRECTORY, build, tableName + ".csv");
   if (!fs.existsSync(cacheFile)) {
-    fs.mkdirSync(TABLE_DIRECTORY, { recursive: true });
+    fs.mkdirSync(path.dirname(cacheFile), { recursive: true });
     fs.writeFileSync(cacheFile, await download(WAGO_HOST + "/db2/" + tableName + "/csv?build=" + build));
   }
   return parseCsv(fs.readFileSync(cacheFile, "utf8"));

@@ -26,6 +26,7 @@ CREDENTIALS_FILE = Path.home() / ".config" / "blizzard-api.env"
 WAGO_HOST = "https://wago.tools"
 WAGO_PRODUCT = "wowf"
 WAGO_USER_AGENT = "forever-planner-data-builder"
+WAGO_THROTTLE_SECONDS = 1
 CONTINENT_MAP_TYPE = "2"
 ZONE_MAP_TYPES = {"3", "4"}
 TEACHING_ITEM_PREFIXES = ["Pattern: ", "Plans: ", "Formula: ", "Recipe: ", "Schematic: ", "Design: ", "Manual: "]
@@ -72,7 +73,11 @@ GAME_STAT_NAMES = {
     "88": "BONUS_STAT_SHADOW_DAMAGE_DONE", "89": "BONUS_STAT_ARCANE_DAMAGE_DONE",
 }
 
-SIMULATOR_DATABASE_URL = "https://raw.githubusercontent.com/wowsims/forever/master/assets/database/db.json"
+SIMULATOR_COMMIT = "510f0a8c3789899ab3237eed0d684adc0b8f97ae"
+SIMULATOR_DATABASE_URL = f"https://raw.githubusercontent.com/wowsims/forever/{SIMULATOR_COMMIT}/assets/database/db.json"
+MISSING_RETRY_SECONDS = 7 * 24 * 60 * 60
+DOWNLOAD_ATTEMPTS = 5
+RETRYABLE_STATUS_CODES = (429, 500, 502, 503, 504)
 SIMULATOR_CURRENT_PHASE = 1
 SIMULATOR_HEALING_POWER = "4"
 SIMULATOR_SPELL_DAMAGE = "5"
@@ -106,6 +111,7 @@ REPUTATION_TIER_NAMES = ["Hated", "Hostile", "Unfriendly", "Neutral", "Friendly"
 
 token_lock = threading.Lock()
 access_token = None
+wago_build = None
 
 
 def read_credentials():
@@ -126,7 +132,7 @@ def fetch_access_token():
     )
     basic_credentials = base64.b64encode(f"{client_id}:{client_secret}".encode()).decode()
     request.add_header("Authorization", f"Basic {basic_credentials}")
-    with urllib.request.urlopen(request) as response:
+    with urllib.request.urlopen(request, timeout=30) as response:
         return json.load(response)["access_token"]
 
 
@@ -161,14 +167,51 @@ def api_get(path, parameters=None):
     raise RuntimeError(f"Giving up on {url}")
 
 
+def write_atomically(path, text):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(path.name + ".tmp")
+    temporary.write_text(text)
+    temporary.replace(path)
+
+
+def is_fresh_cache(cache_file):
+    if not cache_file.exists():
+        return False
+    if cache_file.read_text().strip() != "null":
+        return True
+    return time.time() - cache_file.stat().st_mtime < MISSING_RETRY_SECONDS
+
+
 def cached_get(cache_key, path, parameters=None):
     cache_file = CACHE_DIR / f"{cache_key}.json"
-    if cache_file.exists():
+    if is_fresh_cache(cache_file):
         return json.loads(cache_file.read_text())
     payload = api_get(path, parameters)
-    cache_file.parent.mkdir(parents=True, exist_ok=True)
-    cache_file.write_text(json.dumps(payload))
+    write_atomically(cache_file, json.dumps(payload))
     return payload
+
+
+def download_text(url, timeout):
+    for attempt in range(DOWNLOAD_ATTEMPTS):
+        request = urllib.request.Request(url, headers={"User-Agent": WAGO_USER_AGENT})
+        try:
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                return response.read().decode("utf-8")
+        except urllib.error.HTTPError as error:
+            if error.code not in RETRYABLE_STATUS_CODES:
+                raise
+        except (urllib.error.URLError, TimeoutError):
+            pass
+        time.sleep(1 + attempt * 2)
+    raise RuntimeError(f"Giving up on {url}")
+
+
+def current_wago_build():
+    global wago_build
+    if wago_build is None:
+        builds = json.loads(download_text(f"{WAGO_HOST}/api/builds", 30))
+        wago_build = builds[WAGO_PRODUCT][0]["version"]
+    return wago_build
 
 
 def fetch_one(cache_prefix, path_template, identifier):
@@ -549,16 +592,11 @@ def reputation_names():
 
 
 def wago_table(table_name):
-    cache_file = CACHE_DIR / "wago" / f"{table_name}.csv"
+    build = current_wago_build()
+    cache_file = CACHE_DIR / "wago" / build / f"{table_name}.csv"
     if not cache_file.exists():
-        builds_request = urllib.request.Request(f"{WAGO_HOST}/api/builds", headers={"User-Agent": WAGO_USER_AGENT})
-        with urllib.request.urlopen(builds_request, timeout=30) as response:
-            build = json.load(response)[WAGO_PRODUCT][0]["version"]
-        table_request = urllib.request.Request(f"{WAGO_HOST}/db2/{table_name}/csv?build={build}", headers={"User-Agent": WAGO_USER_AGENT})
-        with urllib.request.urlopen(table_request, timeout=60) as response:
-            text = response.read().decode("utf-8")
-        cache_file.parent.mkdir(parents=True, exist_ok=True)
-        cache_file.write_text(text)
+        write_atomically(cache_file, download_text(f"{WAGO_HOST}/db2/{table_name}/csv?build={build}", 60))
+        time.sleep(WAGO_THROTTLE_SECONDS)
     return list(csv.DictReader(io.StringIO(cache_file.read_text())))
 
 
@@ -683,13 +721,9 @@ def build_random_suffixes():
 
 
 def simulator_database():
-    cache_file = CACHE_DIR / "wowsims" / "db.json"
+    cache_file = CACHE_DIR / "wowsims" / SIMULATOR_COMMIT / "db.json"
     if not cache_file.exists():
-        request = urllib.request.Request(SIMULATOR_DATABASE_URL, headers={"User-Agent": WAGO_USER_AGENT})
-        with urllib.request.urlopen(request, timeout=120) as response:
-            text = response.read().decode("utf-8")
-        cache_file.parent.mkdir(parents=True, exist_ok=True)
-        cache_file.write_text(text)
+        write_atomically(cache_file, download_text(SIMULATOR_DATABASE_URL, 120))
     return json.loads(cache_file.read_text())
 
 
@@ -911,7 +945,7 @@ def zone_names():
 def write_javascript_global(file_name, global_name, payload):
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     content = f"window.{global_name} = {json.dumps(payload, separators=(',', ':'), ensure_ascii=False)};\n"
-    (OUTPUT_DIR / file_name).write_text(content.replace("</", "<\\/"))
+    write_atomically(OUTPUT_DIR / file_name, content.replace("</", "<\\/"))
 
 
 def main():
@@ -957,16 +991,20 @@ def main():
     compact_items.extend(simulator_items(known_item_ids, reputation_names_by_id))
     compact_items.sort(key=record_id)
 
-    write_javascript_global("items.js", "FOREVER_ITEMS", compact_items)
-    write_javascript_global("zones.js", "FOREVER_ZONES", zone_names())
-    write_javascript_global("dungeons.js", "FOREVER_DUNGEONS", build_dungeons())
-    write_javascript_global("maps.js", "FOREVER_MAPS", build_maps())
-    write_javascript_global("reputations.js", "FOREVER_REPUTATIONS", reputation_names())
     recipes = build_recipe_list()
     add_teaching_items(recipes)
-    write_javascript_global("recipes.js", "FOREVER_RECIPES", recipes)
-    write_javascript_global("crafting-items.js", "FOREVER_CRAFTING_ITEMS", build_crafting_items(recipes))
-    print(f"Wrote {len(compact_items)} items", file=sys.stderr)
+    outputs = [
+        ("items.js", "FOREVER_ITEMS", compact_items),
+        ("zones.js", "FOREVER_ZONES", zone_names()),
+        ("dungeons.js", "FOREVER_DUNGEONS", build_dungeons()),
+        ("maps.js", "FOREVER_MAPS", build_maps()),
+        ("reputations.js", "FOREVER_REPUTATIONS", reputation_names()),
+        ("recipes.js", "FOREVER_RECIPES", recipes),
+        ("crafting-items.js", "FOREVER_CRAFTING_ITEMS", build_crafting_items(recipes)),
+    ]
+    for file_name, global_name, payload in outputs:
+        write_javascript_global(file_name, global_name, payload)
+    print(f"Wrote {len(compact_items)} items from wago build {current_wago_build()}", file=sys.stderr)
 
 
 if __name__ == "__main__":

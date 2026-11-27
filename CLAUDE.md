@@ -29,7 +29,11 @@ A static site in `web/`, served by GitHub Pages. There is no server and no build
 
 | File | Role |
 |---|---|
-| `web/index.html`, `web/app.js` | Gear page: paper doll, upgrade scoring and selection, upgrade cards, crafting list, quest list, settings dialog |
+| `web/index.html`, `web/app.js` | Gear page rendering and events: paper doll, upgrade cards, crafting list, quest list, settings dialog |
+| `web/scoring.js` | Specs and weights, item scores, random-suffix variants, proficiencies, slot baselines (no DOM) |
+| `web/sources.js` | Where an item comes from: sources, quest/reputation rules, trash/container/skipped-dungeon rules, prices, gold limit (no DOM) |
+| `web/upgrades.js` | Ranking candidates per slot, route availability, quicker option, ring/trinket and weapon pairing (no DOM) |
+| `web/main.js` | Calls `start()`; keep it last so every other script can be loaded in tests |
 | `web/crafting.html`, `web/crafting.js` | Crafting tool: recipe trees with own / vendor / AH / craft per material, totals, shopping list, recipe sources |
 | `web/common.js` | Shared state, storage keys, Battle.net fetch, WoW folder reading, prices and money, Wowhead links, map popovers |
 | `web/route.js` | Leveling path editor: zone suggestions, gap filling, route legs used by gear availability |
@@ -47,7 +51,7 @@ A static site in `web/`, served by GitHub Pages. There is no server and no build
 1. `python3 -I data/build.py` needs `~/.config/blizzard-api.env` with `BLIZZARD_CLIENT_ID` and `BLIZZARD_CLIENT_SECRET`.
 2. Then `node tools/build-maps.js`, which needs `npm install` for `jpeg-js`.
 
-Both cache their downloads in `data/cache/`, which is not committed.
+Both cache their downloads in `data/cache/`, which is not committed. wago tables are cached per game build (`data/cache/wago/<build>/`, one build per run), the wowsims database per commit (`SIMULATOR_COMMIT` in `build.py`; bump it to pick up newly discovered items), and Battle.net "not found" answers are retried after 7 days because Forever reveals items over time. Outputs are written only after everything has been built.
 
 wago.tools returns 403 without a User-Agent and 429 when hit too fast. The builders send a User-Agent and throttle with retries.
 
@@ -90,7 +94,7 @@ Battle.net Forever namespaces are `static-forever-{region}`, `profile-forever-{r
 
 ## Tests and verification
 
-- `npm test` runs `node:test`. Scripts are loaded into a vm sandbox via `tests/helpers/load.js`, and `tests/helpers/cbor.js` builds Questie fixtures.
+- `npm test` runs `node:test`. Scripts are loaded into a vm sandbox via `tests/helpers/load.js`, and `tests/helpers/cbor.js` builds Questie fixtures. `tests/planner.test.js` loads every gear-page script (all but `main.js`) and tests scoring, sources and ranking directly; script-level `const`s such as `state` are read with `evaluate(context, "state")`.
 - `python3 -m unittest discover -s tests -p "test_*.py"` tests the data builder.
 - Both run in CI before every deploy.
 - For UI changes, serve `web/` (`python3 -m http.server`) and check in a real browser. Playwright with a Battle.net client and a local Questie copy works well. Keep those scripts out of the repo.
