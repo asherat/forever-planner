@@ -181,9 +181,9 @@ test("removing the last zone leaves no empty levels behind", () => {
   assert.deepEqual(Array.from(legs, function zoneOf(leg) { return leg.zone; }), ["Riverglades", "Tanaris"]);
 });
 
-test("the dungeon menu leaves out dungeons more than 10 levels below you", () => {
+test("without Questie the dungeon menu leaves out dungeons more than 5 levels below you", () => {
   const { context, snapshot } = freshRoute();
-  assert.equal(context.isDungeonWorthRunning({ minLevel: 32 }, snapshot), true);
-  assert.equal(context.isDungeonWorthRunning({ minLevel: 31 }, snapshot), false);
+  assert.equal(context.isDungeonWorthRunning({ minLevel: 37 }, snapshot), true);
+  assert.equal(context.isDungeonWorthRunning({ minLevel: 36 }, snapshot), false);
   assert.equal(context.isDungeonWorthRunning({ minLevel: 55 }, snapshot), true);
 });
