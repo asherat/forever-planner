@@ -1,5 +1,5 @@
 window.ZONE_GUIDE = {
-  credit: "Tiers from the \"Every Zone in WoW Forever RANKED WORST to BEST\" video. Level ranges from Icy Veins' \"Every Zone from 1 to 60\" guide and dungeon ranges from its \"Dungeons Overview\".",
+  credit: "Tiers from the \"Every Zone in WoW Forever RANKED WORST to BEST\" video. Level ranges from Icy Veins' \"Every Zone from 1 to 60\" guide.",
   tierOrder: ["S", "A", "B", "C", "D"],
   zones: [
     { name: "Mount Hyjal", tier: "S", minLevel: 55, maxLevel: 60, faction: "both", note: "Best max-level zone: dense quests, elite quests with blue rewards." },
@@ -14,7 +14,7 @@ window.ZONE_GUIDE = {
     { name: "Darkshore", tier: "S", minLevel: 10, maxLevel: 20, faction: "alliance", note: "Around 15 quests on arrival, mostly in the northern half." },
     { name: "The Hinterlands", tier: "S", minLevel: 40, maxLevel: 50, faction: "both", note: "A dozen quests with no prerequisites, great for Horde; Jintha'Alor is elite-heavy." },
     { name: "Thousand Needles", tier: "A", minLevel: 25, maxLevel: 35, faction: "both", note: "The Shimmering Flats: about eight quests in one area, very fast." },
-    { name: "Wetlands", tier: "A", minLevel: 20, maxLevel: 30, faction: "alliance", note: "More quests in Forever and a new dungeon, but some long walks.", dungeons: [{ name: "Excavation Site" }] },
+    { name: "Wetlands", tier: "A", minLevel: 20, maxLevel: 30, faction: "alliance", note: "More quests in Forever and a new dungeon, but some long walks.", dungeons: [{ name: "Excavation Site: Wetlands" }] },
     { name: "Loch Modan", tier: "A", minLevel: 10, maxLevel: 20, faction: "alliance", note: "Fast troll and Kobold areas; can get crowded." },
     { name: "Hillsbrad Foothills", tier: "A", minLevel: 20, maxLevel: 30, faction: "both", note: "Great for Horde: lots of quests near Tarren Mill and the Undercity." },
     { name: "Searing Gorge", tier: "A", minLevel: 45, maxLevel: 50, faction: "both", note: "Compact, every quest a few minutes away; Blackrock Depths prequests.", dungeons: [{ name: "Blackrock Depths" }] },

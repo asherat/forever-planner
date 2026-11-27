@@ -87,18 +87,8 @@ function removeDungeon(route, dungeonName) {
   });
 }
 
-function dungeonStartLevel(dungeon, snapshot) {
-  let level = 0;
-  for (const questId of dungeon.questIds) {
-    const quest = questieQuest(questId);
-    if (quest !== null && quest.requiredLevel > level && isQuestForCharacter(questId, snapshot)) {
-      level = quest.requiredLevel;
-    }
-  }
-  if (level === 0) {
-    return dungeon.minLevel;
-  }
-  return level;
+function dungeonStartLevel(dungeon) {
+  return dungeon.minLevel;
 }
 
 function zoneDungeonsChosen(route, zone) {
@@ -194,7 +184,7 @@ function legForSource(character, snapshot, source) {
   if (chosen === null || (source.type === "quest" && !chosen.quests)) {
     return null;
   }
-  return { zone: dungeon.name, fromLevel: dungeonStartLevel(dungeon, snapshot), toLevel: MAX_CHARACTER_LEVEL, dungeon: true };
+  return { zone: dungeon.name, fromLevel: dungeonStartLevel(dungeon), toLevel: MAX_CHARACTER_LEVEL, dungeon: true };
 }
 
 function isRouteActive(character) {
@@ -255,7 +245,7 @@ function dungeonLabel(dungeon) {
   if (known === null) {
     return dungeon.name;
   }
-  return known.name + " (" + known.minLevel + "–" + known.maxLevel + ")";
+  return known.name + " (" + known.minLevel + "+)";
 }
 
 function setZoneMapTarget(element, zone) {
@@ -413,7 +403,7 @@ function renderChosenDungeon(character, snapshot, chosen) {
   removeButton.dataset.removeDungeon = chosen.name;
   header.appendChild(removeButton);
   item.appendChild(header);
-  let detail = "From level " + dungeonStartLevel(dungeon, snapshot);
+  let detail = "From level " + dungeonStartLevel(dungeon);
   const pathZone = dungeonZoneOnPath(character, snapshot, chosen.name);
   if (pathZone !== null) {
     detail += " · on your path: " + pathZone;
@@ -449,7 +439,7 @@ function renderDungeonList(character, snapshot) {
   select.appendChild(createElement("option", null, "Add a dungeon…"));
   for (const dungeon of window.FOREVER_DUNGEONS) {
     if (chosenDungeon(route, dungeon.name) === null) {
-      const option = createElement("option", null, dungeon.name + " (" + dungeon.minLevel + "–" + dungeon.maxLevel + ")");
+      const option = createElement("option", null, dungeon.name + " (" + dungeon.minLevel + "+)");
       option.value = dungeon.name;
       select.appendChild(option);
     }
