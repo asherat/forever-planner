@@ -37,12 +37,48 @@ async function latestBuild() {
   return builds[WAGO_PRODUCT][0].version;
 }
 
+function csvRecords(text) {
+  const records = [];
+  let record = [];
+  let value = "";
+  let isQuoted = false;
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    if (isQuoted) {
+      if (character === "\"" && text[index + 1] === "\"") {
+        value += "\"";
+        index += 1;
+      } else if (character === "\"") {
+        isQuoted = false;
+      } else {
+        value += character;
+      }
+    } else if (character === "\"") {
+      isQuoted = true;
+    } else if (character === ",") {
+      record.push(value);
+      value = "";
+    } else if (character === "\n") {
+      record.push(value.replace(/\r$/, ""));
+      records.push(record);
+      record = [];
+      value = "";
+    } else {
+      value += character;
+    }
+  }
+  if (value !== "" || record.length > 0) {
+    record.push(value.replace(/\r$/, ""));
+    records.push(record);
+  }
+  return records;
+}
+
 function parseCsv(text) {
-  const lines = text.trim().split(/\r?\n/);
-  const header = lines[0].split(",");
+  const records = csvRecords(text);
+  const header = records[0];
   const rows = [];
-  for (const line of lines.slice(1)) {
-    const values = line.split(",");
+  for (const values of records.slice(1)) {
     const row = {};
     for (let index = 0; index < header.length; index += 1) {
       row[header[index]] = values[index];
@@ -61,4 +97,5 @@ async function wagoTable(tableName, build) {
   return parseCsv(fs.readFileSync(cacheFile, "utf8"));
 }
 
-module.exports = { ROOT: ROOT, WAGO_HOST: WAGO_HOST, wait: wait, download: download, latestBuild: latestBuild, wagoTable: wagoTable };
+module.exports = {
+  parseCsv: parseCsv, ROOT: ROOT, WAGO_HOST: WAGO_HOST, wait: wait, download: download, latestBuild: latestBuild, wagoTable: wagoTable };
