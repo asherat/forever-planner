@@ -2,6 +2,11 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.36.0 — 2026-11-27
+
+- Removing a zone from the middle of your leveling path asks how to fill its levels: pick another zone for them, or let the next zone start earlier. Before, the next zone silently stretched back, even below its level range.
+- A zone that starts before its level range shows a warning, like one that runs past it.
+
 ## v0.35.0 — 2026-11-27
 
 - Random-stat items (like "Greater Maul of the Tiger") no longer count as something you can buy on the auction house. TSM's price covers every suffix together, so the one we suggest may cost much more or not be listed. Their cards show "AH … for any suffix" for information; crafted ones are unaffected.
