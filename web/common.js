@@ -16,6 +16,7 @@ const REGIONS = ["eu", "us", "kr", "tw"];
 const BARTERING_DISCOUNT_PER_RANK = 0.05;
 const VENDOR_PREFERENCE_MARGIN = 0.15;
 const WOWHEAD_URL = "https://www.wowhead.com/forever/";
+const WOWHEAD_ICON_URL = "https://wow.zamimg.com/images/wow/icons/medium/";
 
 const state = {
   credentials: null,
@@ -189,6 +190,9 @@ function qualityClass(quality) {
 function iconUrlForItem(item) {
   if (item.iconUrl) {
     return item.iconUrl;
+  }
+  if (item.iconName) {
+    return WOWHEAD_ICON_URL + item.iconName + ".jpg";
   }
   let iconId = window.GAME_RULES.unknownIconId;
   if (item.icon) {
