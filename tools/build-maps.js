@@ -6,7 +6,7 @@ const jpeg = require("jpeg-js");
 const ROOT = path.join(__dirname, "..");
 const CACHE_DIRECTORY = path.join(ROOT, "data", "cache", "map-tiles");
 const TABLE_DIRECTORY = path.join(ROOT, "data", "cache", "wago");
-const OUTPUT_DIRECTORY = path.join(ROOT, "web", "maps");
+const OUTPUT_DIRECTORY = path.join(ROOT, "web", "public", "maps");
 const WAGO_HOST = "https://wago.tools";
 const WAGO_PRODUCT = "wowf";
 const USER_AGENT = "forever-planner-data-builder";
@@ -137,7 +137,7 @@ function decodeBlp(file) {
 function loadMapData() {
   const context = { window: {} };
   vm.createContext(context);
-  vm.runInContext(fs.readFileSync(path.join(ROOT, "web", "data", "maps.js"), "utf8"), context);
+  vm.runInContext(fs.readFileSync(path.join(ROOT, "web", "public", "data", "maps.js"), "utf8"), context);
   return context.window.FOREVER_MAPS;
 }
 
