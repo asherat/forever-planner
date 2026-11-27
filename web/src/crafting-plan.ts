@@ -15,6 +15,7 @@ export interface Recipe {
   reagents: [number, number][];
   teachingItemId?: number;
   tools?: number[];
+  cooldown?: number;
 }
 
 export interface CraftingEntry {
@@ -161,7 +162,17 @@ export function craftingItem(itemId: number): CraftingItem {
   if (known) {
     return { id: itemId, name: known.name, quality: known.quality, icon: known.icon, vendorPrice: known.vendorPrice || 0 };
   }
-  return { id: itemId, name: "Item " + itemId, quality: "COMMON", icon: null, vendorPrice: 0 };
+  return { id: itemId, name: nameFromRecipe(itemId) || "Item " + itemId, quality: "COMMON", icon: null, vendorPrice: 0 };
+}
+
+function nameFromRecipe(itemId: number): string | null {
+  for (const recipe of crafting.recipesByItem.get(itemId) || []) {
+    const name = (window.FOREVER_RECIPE_NAMES || {})[recipe.id];
+    if (name) {
+      return name;
+    }
+  }
+  return null;
 }
 
 export function isBindOnPickup(itemId: number): boolean {

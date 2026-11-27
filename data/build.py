@@ -24,6 +24,8 @@ CACHE_DIR = ROOT / "data" / "cache"
 OUTPUT_DIR = ROOT / "web" / "public" / "data"
 CREDENTIALS_FILE = Path.home() / ".config" / "blizzard-api.env"
 WAGO_HOST = "https://wago.tools"
+UNFINISHED_RECIPE_MARK = "[DNT]"
+MINIMUM_RECIPE_COOLDOWN_SECONDS = 60
 WAGO_PRODUCT = "wowf"
 WAGO_USER_AGENT = "forever-planner-data-builder"
 WAGO_THROTTLE_SECONDS = 1
@@ -504,7 +506,7 @@ def build_recipe_list():
                     if recipe is None:
                         continue
                     crafted_item = recipe.get("crafted_item") or recipe.get("horde_crafted_item") or recipe.get("alliance_crafted_item")
-                    if not recipe.get("reagents"):
+                    if not recipe.get("reagents") or UNFINISHED_RECIPE_MARK in recipe.get("name", ""):
                         continue
                     crafted_item_id = None
                     if crafted_item is not None:
@@ -646,6 +648,21 @@ def reputation_names():
             side = faction["player_faction"]["type"]
         names[faction["name"]] = {"id": faction_id, "side": side}
     return names
+
+
+def add_recipe_cooldowns(recipes):
+    spells = {}
+    for ability in wago_table("SkillLineAbility"):
+        spells[ability["ID"]] = ability["Spell"]
+    cooldowns = {}
+    for row in wago_table("SpellCooldowns"):
+        milliseconds = max(int(row["RecoveryTime"] or 0), int(row["CategoryRecoveryTime"] or 0))
+        if milliseconds >= MINIMUM_RECIPE_COOLDOWN_SECONDS * 1000:
+            cooldowns[row["SpellID"]] = milliseconds // 1000
+    for recipe in recipes:
+        seconds = cooldowns.get(spells.get(str(recipe["id"])))
+        if seconds:
+            recipe["cooldown"] = seconds
 
 
 def wago_table(table_name):
@@ -1051,6 +1068,7 @@ def main():
     recipes = build_recipe_list()
     add_teaching_items(recipes)
     add_recipe_tools(recipes)
+    add_recipe_cooldowns(recipes)
     tools = build_tools(recipes)
     outputs = [
         ("items.js", "FOREVER_ITEMS", compact_items),
