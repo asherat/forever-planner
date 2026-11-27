@@ -56,7 +56,7 @@ export function render(): void {
   state.upgradesBySlot = optionsBySlot;
   allOptions.sort(compareUpgradeOptions);
   state.upgradeOptions = allOptions;
-  runTooltipChecks();
+  runTooltipChecks(render);
 }
 
 export function currentPriceScope(): PriceScope {

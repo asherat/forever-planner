@@ -1,5 +1,4 @@
 import "./legacy.ts";
-import { render } from "./gear.ts";
 import { REPUTATION_TIER_NAMES, sourcesForCharacter } from "./sources.ts";
 import { STORAGE_KEYS, state, writeStorage } from "./state.ts";
 import type { Candidate, Item, ReputationRequirement, Snapshot } from "./types.ts";
@@ -81,7 +80,7 @@ async function lookUpTooltipRequirement(itemId: number): Promise<void> {
   }
 }
 
-export async function runTooltipChecks(): Promise<void> {
+export async function runTooltipChecks(afterChecks: () => void): Promise<void> {
   if (tooltipChecks.running || tooltipChecks.pending.size === 0) {
     return;
   }
@@ -93,5 +92,5 @@ export async function runTooltipChecks(): Promise<void> {
   }
   writeStorage(STORAGE_KEYS.tooltipRequirements, state.tooltipRequirements);
   tooltipChecks.running = false;
-  render();
+  afterChecks();
 }
