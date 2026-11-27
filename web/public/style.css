@@ -73,7 +73,7 @@ body {
   font: 15px/1.5 var(--font-body);
 }
 
-#gear-page, #crafting-page {
+#gear-page, #crafting-page, #professions-page {
   display: contents;
 }
 
@@ -1785,4 +1785,98 @@ legend {
   margin: -7px 0 0 -7px;
   background: transparent;
   border: 3px solid var(--map-pin);
+}
+
+.guide-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 16px;
+}
+
+.guide-form label {
+  display: grid;
+  gap: 4px;
+  font-size: 0.9rem;
+}
+
+.guide-form input[type="number"] {
+  width: 6em;
+}
+
+.guide-form-note {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.guide-steps {
+  gap: 8px;
+}
+
+.guide-step {
+  display: grid;
+  grid-template-columns: 7.5em minmax(0, 1fr);
+  gap: 4px 12px;
+  align-items: start;
+  padding: 10px 14px;
+}
+
+.guide-step-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.guide-step-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+
+.guide-step-cost {
+  margin-left: auto;
+}
+
+.guide-step-reagents {
+  margin: 2px 0 0;
+  font-size: 0.85rem;
+}
+
+.guide-step-done .guide-step-body {
+  opacity: 0.55;
+}
+
+.guide-step-done .guide-step-range {
+  text-decoration: line-through;
+}
+
+.skill-chip {
+  text-transform: capitalize;
+}
+
+.guide-material {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 2px 8px;
+}
+
+.guide-material-name .crafting-item {
+  display: inline-flex;
+  min-width: 0;
+  justify-content: flex-start;
+}
+
+.guide-material-how {
+  display: block;
+  font-size: 0.8rem;
+}
+
+@media (max-width: 480px) {
+  .guide-step {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

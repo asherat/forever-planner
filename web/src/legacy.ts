@@ -12,6 +12,8 @@ declare global {
     FOREVER_ITEMS: Item[];
     FOREVER_CRAFTING_ITEMS: Record<string, { name: string; quality: string; icon: number | null; vendorPrice?: number; bindOnPickup?: boolean }>;
     FOREVER_RECIPES: Recipe[];
+    FOREVER_RECIPE_LEVELS: Record<string, [number, number, number, number]>;
+    FOREVER_RECIPE_NAMES: Record<string, string>;
     FOREVER_DUNGEONS: GuideDungeon[];
     ZONE_GUIDE: ZoneGuide;
     FOREVER_MAPS: { zones: Record<string, MapZone>; continents: Record<string, { uiMapId: number }> };

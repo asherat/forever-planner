@@ -264,6 +264,23 @@ function marketUnitCost(itemId: number, depth: number, path: number[]): MarketCo
   return best;
 }
 
+export function marketCost(itemId: number): number | null {
+  const market = marketUnitCost(itemId, 0, []);
+  if (market === null) {
+    return null;
+  }
+  return market.cost;
+}
+
+export function isCheaperToCraft(itemId: number): boolean {
+  const market = marketUnitCost(itemId, 0, []);
+  return market !== null && market.mode === "craft";
+}
+
+export function clearMarketCache(): void {
+  crafting.marketCache.clear();
+}
+
 function cheapestRecipe(itemId: number, depth: number, path: number[]): { recipe: Recipe; unitCost: number } | null {
   const recipes = crafting.recipesByItem.get(itemId);
   if (!recipes || depth >= MAX_RECIPE_DEPTH || path.indexOf(itemId) !== -1) {
