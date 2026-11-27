@@ -2,6 +2,12 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.44.0 — 2026-11-27
+
+- Every dungeon counts automatically, on your leveling path or not; the dungeon list and the "Include …" checkboxes are gone. Upgrade cards from a dungeon have a "Skip <dungeon>" link when you're done with it or don't want to run it.
+- "Not interested" and "Skip" show an Undo right away.
+- Refresh tidies the not-interested list: items that aren't an upgrade for any of your specs anymore, and skipped dungeons with nothing left for you, are dropped from it.
+
 ## v0.43.0 — 2026-11-27
 
 - "Add a dungeon" also leaves out dungeons more than 5 levels below you, even when they have a small upgrade.
