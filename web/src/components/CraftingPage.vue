@@ -6,6 +6,7 @@ import { renderTick } from "../ui/render-tick.ts";
 import { addByName, connectCraftingFolder, dataStatusText, searchNames } from "../ui/crafting-page.ts";
 import CraftingEntry from "./CraftingEntry.vue";
 import CraftingSummary from "./CraftingSummary.vue";
+import { state } from "../state.ts";
 
 const search = ref("");
 const searchQuantity = ref("1");

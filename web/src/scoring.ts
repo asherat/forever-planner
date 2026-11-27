@@ -1,6 +1,7 @@
 import "./legacy.ts";
 import { itemById, itemFaction } from "./sources.ts";
 import type { Character, Item, Proficiencies, RandomSuffix, SlotDefinition, Snapshot, TalentSpecializations, Weights } from "./types.ts";
+import { state } from "./state.ts";
 
 type TalentGroup = NonNullable<TalentSpecializations["specialization_groups"]>[number];
 

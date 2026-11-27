@@ -11,6 +11,7 @@ import QuestList from "./QuestList.vue";
 import RoutePanel from "./RoutePanel.vue";
 import SlotColumn from "./SlotColumn.vue";
 import UndoNotice from "./UndoNotice.vue";
+import { selectedCharacter, state } from "../state.ts";
 
 const header = computed(function headerView() {
   renderTick.value;

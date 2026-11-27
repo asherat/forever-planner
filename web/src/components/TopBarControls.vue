@@ -4,6 +4,7 @@ import "../legacy.ts";
 import { renderTick } from "../ui/render-tick.ts";
 import { openSettings } from "../ui/settings.ts";
 import { characterOptions, isRefreshing, refreshSelectedCharacter, selectCharacter } from "../ui/top-bar.ts";
+import { state } from "../state.ts";
 
 const options = computed(function optionsView() {
   renderTick.value;

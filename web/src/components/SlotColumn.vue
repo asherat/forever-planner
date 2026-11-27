@@ -4,6 +4,7 @@ import "../legacy.ts";
 import type { Character, SlotDefinition, Snapshot, UpgradeOptions } from "../types.ts";
 import { renderTick } from "../ui/render-tick.ts";
 import PaperDollSlot from "./PaperDollSlot.vue";
+import { selectedCharacter, state } from "../state.ts";
 
 const props = defineProps<{ column: string }>();
 

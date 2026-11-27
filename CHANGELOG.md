@@ -2,6 +2,10 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.66.0 — 2026-11-27
+
+- Behind the scenes: the shared code of both pages (settings and storage, Battle.net, prices, reading the WoW folder, hover maps) is rewritten in TypeScript. Everything works the same.
+
 ## v0.65.0 — 2026-11-27
 
 - Behind the scenes: reading your WoW folder is rewritten in TypeScript and now has tests. It finds and reads the same files.

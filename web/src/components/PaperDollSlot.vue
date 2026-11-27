@@ -6,6 +6,7 @@ import { comparisonTooltip, itemTooltip } from "../ui/upgrade-card.ts";
 import { renderTick } from "../ui/render-tick.ts";
 import ComparisonTooltip from "./ComparisonTooltip.vue";
 import ItemIcon from "./ItemIcon.vue";
+import { wowheadUrl } from "../prices.ts";
 
 const props = defineProps<{ slotDefinition: SlotDefinition; snapshot: Snapshot; character: Character; options: UpgradeOptions | null }>();
 

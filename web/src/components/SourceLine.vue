@@ -5,6 +5,7 @@ import type { ItemSource } from "../types.ts";
 import { hasMap, mapTargetAttributes } from "../ui/map-target.ts";
 import type { MapAttributes } from "../ui/map-target.ts";
 import { creatureLevelText, creatureRankText, describeSource, joinDetails, sourcePlace } from "../ui/upgrade-card.ts";
+import { WOWHEAD_URL } from "../prices.ts";
 
 const props = defineProps<{ source: ItemSource }>();
 

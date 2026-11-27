@@ -4,6 +4,8 @@ import { routeEditor } from "../route.ts";
 import { pruneCraftingCart } from "./crafting-cart.ts";
 import { pruneNotInterested } from "./not-interested.ts";
 import { pruneQuestList } from "./quest-list.ts";
+import { readWowFolder } from "../folder-data.ts";
+import { saveSettings, selectedCharacter, setStatus, state } from "../state.ts";
 
 export const isRefreshing = ref(false);
 
