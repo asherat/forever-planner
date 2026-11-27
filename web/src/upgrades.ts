@@ -2,7 +2,7 @@ import "./legacy.ts";
 import { isRouteActive, legsForSource } from "./route.ts";
 import { activeSpec, bestGainAnySlot, bestSuffixVariant, canUseItem, characterSpecs, characterWeights, comparisonBaseline, isTwoHanded, isWorthwhileGain, itemScore, slotDefinitionByKey, slotItemTypes, suitsSpec, weightsForSpec } from "./scoring.ts";
 import { cheapestCost, earliestSourceLevel, equippedItemIds, hasEasySource, hasKnownSource, hasOwnProfessionCraft, isBuyableOnAuctionHouse, isReputationWithinReach, isWithinGoldLimit, itemDungeons, itemUsableLevel, obtainableSources, sourcesForCharacter } from "./sources.ts";
-import type { BlockList, Candidate, Character, Item, PairedUpgradeOptions, RouteLeg, SlotDefinition, Snapshot, UpgradeOptions } from "./types.ts";
+import type { BlockList, Candidate, Character, Item, ItemSource, PairedUpgradeOptions, RouteLeg, SlotDefinition, Snapshot, UpgradeOptions } from "./types.ts";
 import { state } from "./state.ts";
 
 const QUICKER_PASSES = ["easy-now", "easy-soon", "own-profession", "usable-now"];
@@ -45,6 +45,23 @@ export function routeAvailability(item: Item, snapshot: Snapshot, character: Cha
   return best;
 }
 
+function isFreeSource(source: ItemSource): boolean {
+  return source.type === "quest" || source.type === "drop";
+}
+
+function isZoneLeg(leg: RouteLeg): boolean {
+  return !leg.dungeon;
+}
+
+export function isFreeOnRoute(item: Item, snapshot: Snapshot, character: Character): boolean {
+  for (const source of obtainableSources(item, snapshot)) {
+    if (isFreeSource(source) && legsForSource(character, snapshot, source).some(isZoneLeg)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function rankedCandidatesForSlot(slotDefinition: SlotDefinition, snapshot: Snapshot, character: Character): Candidate[] {
   const equipment = snapshot.equipment;
   if (slotDefinition.key === "OFF_HAND" && isTwoHanded(equipment.MAIN_HAND)) {
@@ -67,7 +84,10 @@ export function rankedCandidatesForSlot(slotDefinition: SlotDefinition, snapshot
     }
     const variant = bestSuffixVariant(item, weights, slotDefinition.key);
     const gain = itemScore(variant, weights, slotDefinition.key) - comparisonBaseline(slotDefinition, snapshot, variant, weights);
-    if (!isWorthwhileGain(gain, snapshot, weights) || !hasKnownSource(variant, snapshot) || !isWithinGoldLimit(cheapestCost(variant, snapshot))) {
+    if (gain <= 0 || !hasKnownSource(variant, snapshot) || !isWithinGoldLimit(cheapestCost(variant, snapshot))) {
+      continue;
+    }
+    if (!isWorthwhileGain(gain, snapshot, weights) && !(routeActive && isFreeOnRoute(variant, snapshot, character))) {
       continue;
     }
     let availableLevel = Math.max(itemUsableLevel(item, snapshot), earliestSourceLevel(variant, snapshot));
@@ -158,6 +178,9 @@ function picksOf(options: UpgradeOptions): Candidate[] {
   if (options.quicker !== null) {
     picks.push(options.quicker);
   }
+  if (options.onTheWay !== null) {
+    picks.push(options.onTheWay);
+  }
   return picks;
 }
 
@@ -198,7 +221,19 @@ export function upgradeOptions(slotDefinition: SlotDefinition, snapshot: Snapsho
   }
   const best = candidates[0];
   const quicker = quickerOption(best, candidates, snapshot);
-  return { slotDefinition: slotDefinition, best: best, quicker: quicker, priority: best.gain };
+  return { slotDefinition: slotDefinition, best: best, quicker: quicker, onTheWay: onTheWayOption(best, quicker, candidates, snapshot, character), priority: best.gain };
+}
+
+function onTheWayOption(best: Candidate, quicker: Candidate | null, candidates: Candidate[], snapshot: Snapshot, character: Character): Candidate | null {
+  if (!isRouteActive(character) || isFreeOnRoute(best.item, snapshot, character) || (quicker !== null && isFreeOnRoute(quicker.item, snapshot, character))) {
+    return null;
+  }
+  for (const candidate of candidates) {
+    if (candidate !== best && candidate !== quicker && isFreeOnRoute(candidate.item, snapshot, character)) {
+      return candidate;
+    }
+  }
+  return null;
 }
 
 export function pairedUpgradeOptions(slotDefinition: SlotDefinition, snapshot: Snapshot, character: Character): PairedUpgradeOptions {
@@ -233,7 +268,9 @@ export function compareUpgradeOptions(first: { priority: number }, second: { pri
 export function isUpgradeForAnySpec(item: Item, character: Character, snapshot: Snapshot): boolean {
   for (const specKey of characterSpecs(character, snapshot)) {
     const weights = weightsForSpec(character, specKey);
-    if (suitsSpec(item, specKey, snapshot) && isWorthwhileGain(bestGainAnySlot(item, snapshot, weights), snapshot, weights)) {
+    const gain = bestGainAnySlot(item, snapshot, weights);
+    const counts = isWorthwhileGain(gain, snapshot, weights) || (gain > 0 && isRouteActive(character) && isFreeOnRoute(item, snapshot, character));
+    if (suitsSpec(item, specKey, snapshot) && counts) {
       return true;
     }
   }
