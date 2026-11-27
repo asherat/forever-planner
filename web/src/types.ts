@@ -16,8 +16,10 @@ export interface RandomSuffix {
   stats: Stats;
 }
 
+export type SourceType = "quest" | "craft" | "drop" | "more-drops" | "world-drop" | "object" | "vendor" | "owned";
+
 export interface ItemSource {
-  type: string;
+  type: SourceType;
   zone?: string;
   questId?: number;
   quest?: string;

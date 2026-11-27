@@ -23,7 +23,7 @@ export interface CraftingEntry {
 
 export interface CraftingList {
   entries: CraftingEntry[];
-  overrides: Record<string, string>;
+  overrides: Record<string, PlanMode>;
   useInventory: boolean;
   excludedCharacters: string[];
   scope: string | null;
@@ -65,11 +65,13 @@ export interface CraftingItem {
   vendorPrice: number;
 }
 
+export type PlanMode = "own" | "vendor" | "ah" | "craft" | "buy";
+
 export interface PlanNode {
   itemId: number;
   quantity: number;
   available: number;
-  mode: string;
+  mode: PlanMode;
   taken: Holding[];
   ownUsed: number;
   buyQuantity: number;
@@ -113,7 +115,7 @@ export interface PlanTotals {
   missing: boolean;
 }
 
-type MarketCost = { cost: number; mode: string } | null;
+type MarketCost = { cost: number; mode: "buy" | "craft" } | null;
 type StockPool = Map<number, Holding[]>;
 
 export function defaultCraftingList(): CraftingList {
@@ -235,7 +237,7 @@ export function buyOffer(itemId: number): Offer | null {
   return preferredOffer(vendorOffer(itemId), auctionOffer(itemId));
 }
 
-function offerForMode(itemId: number, mode: string): Offer | null {
+function offerForMode(itemId: number, mode: PlanMode): Offer | null {
   if (mode === "vendor" && vendorOffer(itemId) !== null) {
     return vendorOffer(itemId);
   }
@@ -373,7 +375,7 @@ function takeFromStock(pool: StockPool, itemId: number, quantity: number): Holdi
   return taken;
 }
 
-function remainderMode(itemId: number, depth: number, path: number[]): string {
+function remainderMode(itemId: number, depth: number, path: number[]): PlanMode {
   const market = marketUnitCost(itemId, depth, path);
   if (market !== null) {
     return market.mode;
@@ -384,7 +386,7 @@ function remainderMode(itemId: number, depth: number, path: number[]): string {
   return "buy";
 }
 
-function defaultMode(itemId: number, available: number, depth: number, path: number[]): string {
+function defaultMode(itemId: number, available: number, depth: number, path: number[]): PlanMode {
   if (available > 0) {
     return "own";
   }
@@ -398,7 +400,7 @@ function totalFor(offer: Offer | null, quantity: number): number | null {
   return offer.price * quantity;
 }
 
-function emptyNode(itemId: number, quantity: number, available: number, mode: string, canCraft: boolean): PlanNode {
+function emptyNode(itemId: number, quantity: number, available: number, mode: PlanMode, canCraft: boolean): PlanNode {
   return {
     itemId: itemId,
     quantity: quantity,
