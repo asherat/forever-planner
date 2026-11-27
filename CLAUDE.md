@@ -59,7 +59,7 @@ A static site built with Vite from `web/` and served by GitHub Pages. There is n
 | `web/public/data/*.js` | Generated game data. Don't edit by hand |
 | `web/public/maps/*.jpg` | Generated hover maps, one per `uiMapId` |
 | `data/build.py` | Crawls the Battle.net Forever API, wago.tools and the wowsims item database and writes `web/public/data/*.js` |
-| `tools/build-maps.js` | Stitches the game's map tiles (wago.tools CASC, BLP2 DXT1) into 560 px JPEGs |
+| `tools/build-maps.js` | Stitches the game's map tiles plus all explored-area overlays (wago.tools CASC; BLP2 in DXT1, DXT1 with 1-bit alpha, and DXT5) into 560 px JPEGs |
 
 ### Data rebuilds
 
@@ -95,7 +95,7 @@ Battle.net Forever namespaces are `static-forever-{region}`, `profile-forever-{r
 - **Upgrade cards show only sources, the region-average AH price and the crafted price.** Recipe knowledge belongs in the crafting tool.
 - **The crafting tool does not persist its items.** The crafting list on the gear page feeds it through "Craft all".
 - **Vendor materials beat the AH unless the AH is more than 15% cheaper.** The Bartering perk takes 5% off per rank.
-- **Hover maps are the game's own map art, kept light** (about 50 KB per map, loaded only on hover). Drawn or SVG maps were rejected because they must look the same as in game.
+- **Hover maps are the game's own map art, fully explored, kept light** (about 55 KB per map, loaded only on hover). `tools/build-maps.js` draws the base art and then every explored-area overlay on top (`WorldMapOverlay`, skipping player-condition variants), so roads, towns and terrain show as on a discovered map. No POIs or flight points are added: the game has no map art with those. Drawn or SVG maps were rejected because they must look the same as in game.
 - **Wowhead links go on names whose single source is clear:** quests, vendors and drop mobs. Materials like Light Leather have too many sources to link.
 
 ## Code conventions
