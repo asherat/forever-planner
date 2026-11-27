@@ -38,6 +38,7 @@ It runs entirely in your browser. There is no server: your browser talks to Batt
 
 - "Craft all" in your gear plan opens your crafted picks in the crafting tool.
 - The crafting tool expands each recipe and lets you choose per material: use what your characters have, buy from a vendor, buy on the auction house, or craft it. It shows the total, a shopping list, who has which materials and who can craft.
+- Your materials are shared down the list: the first craft uses them and the next ones get what's left. Reorder crafts with ↑ ↓, or switch sharing off to see each item's cost as if it had all your materials. Items that are cheaper to buy (or that you already have) are listed first.
 
 ## Setup
 

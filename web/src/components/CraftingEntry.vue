@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import type { Plan } from "../crafting-plan.ts";
-import { changeQuantity, planRequirements, planVerdict, removeEntry } from "../ui/crafting-page.ts";
+import { changeQuantity, planRequirements, planVerdict, removeEntry, swapEntries } from "../ui/crafting-page.ts";
 import CraftingItemLabel from "./CraftingItemLabel.vue";
 import MoneyAmount from "./MoneyAmount.vue";
 import MoneyOrUnknown from "./MoneyOrUnknown.vue";
 import PlanTreeNode from "./PlanTreeNode.vue";
 
-const props = defineProps<{ plan: Plan; index: number }>();
+const props = defineProps<{ plan: Plan; index: number; moveUp: number | null; moveDown: number | null }>();
 
 const quantityId = computed(function quantityInputId() {
   return "crafting-quantity-" + props.index;
@@ -33,6 +33,22 @@ const requirements = computed(function requirementsView() {
   return planRequirements(props.plan);
 });
 
+const moves = computed(function moveButtons() {
+  return { upDisabled: props.moveUp === null, downDisabled: props.moveDown === null, showsMoves: props.moveUp !== null || props.moveDown !== null };
+});
+
+function moveUp(): void {
+  if (props.moveUp !== null) {
+    swapEntries(props.index, props.moveUp);
+  }
+}
+
+function moveDown(): void {
+  if (props.moveDown !== null) {
+    swapEntries(props.index, props.moveDown);
+  }
+}
+
 function quantityChanged(event: Event): void {
   changeQuantity(props.index, (event.target as HTMLInputElement).value);
 }
@@ -44,6 +60,7 @@ function quantityChanged(event: Event): void {
     <div class="crafting-entry-header">
       <h3 class="crafting-entry-title"><CraftingItemLabel :item-id="plan.entry.itemId" /></h3>
       <input :id="quantityId" class="crafting-quantity" type="number" min="1" :value="quantity" aria-label="How many" @change="quantityChanged">
+      <span v-if="moves.showsMoves" class="crafting-move"><button type="button" :disabled="moves.upDisabled" aria-label="Move up" @click="moveUp">↑</button><button type="button" :disabled="moves.downDisabled" aria-label="Move down" @click="moveDown">↓</button></span>
       <button class="link" type="button" @click="removeEntry(index)">Remove</button>
     </div>
     <p class="crafting-verdict">{{ "Your plan costs " }}<MoneyOrUnknown :copper="plan.root.cost" :missing="plan.root.missingPrice" /><template v-if="verdict.isForSale">{{ " · ready-made " }}<MoneyAmount :copper="verdict.readyMade" /></template><template v-else>{{ ". Not for sale ready-made right now." }}</template><template v-if="verdict.hasSaving">{{ " · " }}<strong class="verdict-good">{{ "Crafting saves " }}<MoneyAmount :copper="verdict.saving" /></strong></template><template v-if="verdict.hasLoss">{{ " · " }}<strong class="verdict-bad">{{ "Buying it is cheaper by " }}<MoneyAmount :copper="verdict.loss" /></strong></template></p>
