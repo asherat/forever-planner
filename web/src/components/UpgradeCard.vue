@@ -8,7 +8,7 @@ import { hideItem, skipDungeon } from "../ui/not-interested.ts";
 import { renderTick } from "../ui/render-tick.ts";
 import { addToCart } from "../ui/crafting-cart.ts";
 import { addToQuestList, isInQuestList } from "../ui/quest-list.ts";
-import { comparisonTooltip, gainText, optionSubtitle, priceParts, routeBadge } from "../ui/upgrade-card.ts";
+import { auctionOnlyText, comparisonTooltip, gainText, optionSubtitle, priceParts, routeBadge } from "../ui/upgrade-card.ts";
 import ComparisonTooltip from "./ComparisonTooltip.vue";
 import ItemIcon from "./ItemIcon.vue";
 import MoneyAmount from "./MoneyAmount.vue";
@@ -61,6 +61,11 @@ const reputationNote = computed(function reputationText() {
 const sources = computed(function itemSources() {
   renderTick.value;
   return sourcesForCharacter(item.value, props.snapshot);
+});
+
+const auctionOnly = computed(function onlyOnAuctionHouse() {
+  renderTick.value;
+  return auctionOnlyText(item.value, props.snapshot);
 });
 
 function sourceRow(source: (typeof sources.value)[number], index: number) {
@@ -151,7 +156,10 @@ const skippers = computed(function dungeonSkippers() {
     <div v-if="suffixNote" class="option-note">{{ suffixNote }}</div>
     <div v-if="badge" :class="badge.className">{{ badge.text }}</div>
     <div v-if="reputationNote" class="option-requirement">{{ reputationNote }}</div>
-    <ul class="sources">
+    <ul v-if="auctionOnly" class="sources">
+      <li>{{ auctionOnly }}</li>
+    </ul>
+    <ul v-else class="sources">
       <SourceLine v-for="row in shownSources" :key="row.key" :source="row.source" />
       <li v-if="moreSources" class="muted">{{ moreSources }}</li>
     </ul>
