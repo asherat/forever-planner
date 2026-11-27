@@ -1,9 +1,12 @@
 const fs = require("node:fs");
 const path = require("node:path");
+const vm = require("node:vm");
 const { chromium } = require("playwright-core");
 const { ROOT, latestBuild, wait, wagoTable } = require("./wago.js");
 
 const CACHE_DIRECTORY = path.join(ROOT, "data", "cache", "wowhead");
+const RECIPES_FILE = path.join(ROOT, "web", "public", "data", "recipes.js");
+const CRAFTING_ITEMS_FILE = path.join(ROOT, "web", "public", "data", "crafting-items.js");
 const OUTPUT_FILE = path.join(ROOT, "web", "public", "data", "recipe-levels.js");
 const WOWHEAD_SKILL_URL = "https://www.wowhead.com/forever/skill=";
 const PAGE_SETTLE_MILLISECONDS = 6000;
@@ -70,6 +73,47 @@ function professionAbilities(abilities) {
   });
 }
 
+function plannerData() {
+  const context = { window: {} };
+  vm.createContext(context);
+  vm.runInContext(fs.readFileSync(RECIPES_FILE, "utf8"), context);
+  vm.runInContext(fs.readFileSync(CRAFTING_ITEMS_FILE, "utf8"), context);
+  return context.window;
+}
+
+function unnamedRecipeNames(recipes, craftingItems, spellNames, abilities) {
+  const names = new Map();
+  for (const name of spellNames) {
+    names.set(name.ID, name.Name_lang);
+  }
+  const spells = new Map();
+  for (const ability of abilities) {
+    spells.set(ability.ID, ability.Spell);
+  }
+  const unnamed = {};
+  for (const recipe of recipes) {
+    const spellName = names.get(spells.get(String(recipe.id)));
+    if (!craftingItems[recipe.itemId] && spellName) {
+      unnamed[recipe.id] = spellName;
+    }
+  }
+  return unnamed;
+}
+
+function patternSkillRanks(recipes, items) {
+  const requiredRanks = new Map();
+  for (const item of items) {
+    requiredRanks.set(item.ID, Number(item.RequiredSkillRank));
+  }
+  const ranks = new Map();
+  for (const recipe of recipes) {
+    if (recipe.teachingItemId && requiredRanks.get(String(recipe.teachingItemId)) > 0) {
+      ranks.set(String(recipe.id), requiredRanks.get(String(recipe.teachingItemId)));
+    }
+  }
+  return ranks;
+}
+
 function learnLevel(row, yellow) {
   if (row === undefined || !hasColors(row)) {
     return yellow;
@@ -80,10 +124,13 @@ function learnLevel(row, yellow) {
   return Math.min(row.learnedAt || yellow, yellow);
 }
 
-function recipeLevels(ability, row) {
+function recipeLevels(ability, row, patternRank) {
   const yellow = Number(ability.TrivialSkillLineRankLow);
   const grey = Number(ability.TrivialSkillLineRankHigh);
   let learnedAt = learnLevel(row, yellow);
+  if (patternRank !== undefined) {
+    learnedAt = Math.min(patternRank, yellow);
+  }
   if (ability.AcquireMethod === LEARNED_WITH_PROFESSION) {
     learnedAt = 1;
   }
@@ -97,6 +144,9 @@ function hasColors(row) {
 async function main() {
   const build = await latestBuild();
   const abilities = professionAbilities(await wagoTable("SkillLineAbility", build));
+  const planner = plannerData();
+  const patternRanks = patternSkillRanks(planner.FOREVER_RECIPES, await wagoTable("ItemSparse", build));
+  const recipeNames = unnamedRecipeNames(planner.FOREVER_RECIPES, planner.FOREVER_CRAFTING_ITEMS, await wagoTable("SpellName", build), abilities);
   const browser = await chromium.launch({ executablePath: process.env.CHROME || undefined });
   const wowheadRows = new Map();
   try {
@@ -116,7 +166,7 @@ async function main() {
   let withoutLearnLevel = 0;
   for (const ability of abilities) {
     const row = wowheadRows.get(Number(ability.Spell));
-    levels[ability.ID] = recipeLevels(ability, row);
+    levels[ability.ID] = recipeLevels(ability, row, patternRanks.get(ability.ID));
     if (row === undefined || !hasColors(row)) {
       withoutLearnLevel += 1;
       continue;
@@ -131,7 +181,7 @@ async function main() {
   if (compared === 0 || mismatched / compared > MAXIMUM_MISMATCH_SHARE) {
     throw new Error("Too many recipes disagree with the game files; not writing " + OUTPUT_FILE);
   }
-  fs.writeFileSync(OUTPUT_FILE, "window.FOREVER_RECIPE_LEVELS = " + JSON.stringify(levels) + ";\n");
+  fs.writeFileSync(OUTPUT_FILE, "window.FOREVER_RECIPE_LEVELS = " + JSON.stringify(levels) + ";\nwindow.FOREVER_RECIPE_NAMES = " + JSON.stringify(recipeNames) + ";\n");
   console.error("Wrote " + Object.keys(levels).length + " recipes to " + path.relative(ROOT, OUTPUT_FILE));
 }
 
