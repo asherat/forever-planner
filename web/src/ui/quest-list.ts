@@ -4,6 +4,7 @@ import { CLASS_BITS, completedQuests, equippedItemIds, itemById, itemName, sourc
 import type { Character, Snapshot } from "../types.ts";
 import type { ChainStep, Place } from "../questie.ts";
 import { saveSettings, selectedCharacter, setStatus, state } from "../state.ts";
+import { render } from "../gear.ts";
 
 export interface QuestListEntry {
   questId: number;

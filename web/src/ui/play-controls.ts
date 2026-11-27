@@ -2,6 +2,7 @@ import "../legacy.ts";
 import { characterPlaystyle, characterSpecs, hasFeralSpec, isPvpRuleset, specLabel } from "../scoring.ts";
 import type { Character, Snapshot } from "../types.ts";
 import { saveSettings, selectedCharacter } from "../state.ts";
+import { render } from "../gear.ts";
 
 export interface Choice {
   value: string;
