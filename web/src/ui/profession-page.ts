@@ -255,7 +255,9 @@ export function compareProfessions(): void {
   if (character === null) {
     return;
   }
-  comparison.rows = professionChoices(character).map(function rowOf(choice) {
+  comparison.rows = professionChoices(character).filter(function isPrimary(choice) {
+    return !isSecondary(choice.name);
+  }).map(function rowOf(choice) {
     return comparisonRow(character, choice.name);
   }).sort(compareRowsByCost);
   comparison.characterSlug = character.slug;
