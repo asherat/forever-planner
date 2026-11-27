@@ -1285,6 +1285,11 @@ legend {
   margin: 0;
 }
 
+#crafting-cart-content {
+  display: grid;
+  gap: 8px;
+}
+
 .crafting-cart-items {
   list-style: none;
   margin: 0;

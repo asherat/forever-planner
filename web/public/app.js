@@ -400,7 +400,6 @@ function render() {
   state.upgradeOptions = allOptions;
   state.craftedUpgradePicks = craftedUpgradePicks(allOptions, snapshot);
   state.questUpgradePicks = questUpgradePicks(allOptions, snapshot);
-  renderCart();
   runTooltipChecks();
 }
 
@@ -782,175 +781,6 @@ async function handleRefreshClick() {
   }
 }
 
-function craftedPick(options, snapshot) {
-  if (firstCraftSource(sourcesForCharacter(options.best.item, snapshot)) !== null) {
-    return options.best.item.id;
-  }
-  if (options.quicker !== null && firstCraftSource(sourcesForCharacter(options.quicker.item, snapshot)) !== null) {
-    return options.quicker.item.id;
-  }
-  return null;
-}
-
-function upgradeParts(allOptions) {
-  const parts = [];
-  for (const options of allOptions) {
-    if (options.group) {
-      for (const part of options.parts) {
-        parts.push(part);
-      }
-    } else {
-      parts.push(options);
-    }
-  }
-  return parts;
-}
-
-function craftedUpgradePicks(allOptions, snapshot) {
-  const picks = [];
-  for (const part of upgradeParts(allOptions)) {
-    const itemId = craftedPick(part, snapshot);
-    if (itemId !== null && picks.indexOf(itemId) === -1) {
-      picks.push(itemId);
-    }
-  }
-  return picks;
-}
-
-function questPick(candidate, snapshot) {
-  const questSource = firstQuestSource(sourcesForCharacter(candidate.item, snapshot));
-  if (questSource === null) {
-    return null;
-  }
-  return { questId: questSource.questId, itemId: candidate.item.id };
-}
-
-function questUpgradePicks(allOptions, snapshot) {
-  const picks = [];
-  const questIds = new Set();
-  for (const part of upgradeParts(allOptions)) {
-    let pick = questPick(part.best, snapshot);
-    if (pick === null && part.quicker !== null) {
-      pick = questPick(part.quicker, snapshot);
-    }
-    if (pick !== null && !questIds.has(pick.questId)) {
-      questIds.add(pick.questId);
-      picks.push(pick);
-    }
-  }
-  return picks;
-}
-
-function isInCart(itemId) {
-  for (const entry of state.craftingCart) {
-    if (entry.itemId === itemId) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function addCraftedUpgrades() {
-  for (const itemId of state.craftedUpgradePicks) {
-    if (!isInCart(itemId)) {
-      state.craftingCart.push({ itemId: itemId, quantity: 1 });
-    }
-  }
-  writeStorage(STORAGE_KEYS.craftingCart, state.craftingCart);
-  renderCart();
-}
-
-function addToCart(itemId) {
-  for (const entry of state.craftingCart) {
-    if (entry.itemId === itemId) {
-      entry.quantity += 1;
-      writeStorage(STORAGE_KEYS.craftingCart, state.craftingCart);
-      renderCart();
-      return;
-    }
-  }
-  state.craftingCart.push({ itemId: itemId, quantity: 1 });
-  writeStorage(STORAGE_KEYS.craftingCart, state.craftingCart);
-  renderCart();
-}
-
-function cartHash() {
-  const parts = [];
-  for (const entry of state.craftingCart) {
-    parts.push(entry.itemId + ":" + entry.quantity);
-  }
-  return "#items=" + parts.join(",");
-}
-
-function renderCart() {
-  const list = document.getElementById("crafting-cart-items");
-  list.replaceChildren();
-  const isEmpty = state.craftingCart.length === 0;
-  document.getElementById("crafting-cart-empty").hidden = !isEmpty;
-  document.getElementById("crafting-cart-actions").hidden = isEmpty;
-  for (let index = 0; index < state.craftingCart.length; index += 1) {
-    const entry = state.craftingCart[index];
-    const row = createElement("li", "crafting-cart-row");
-    const item = itemById(entry.itemId);
-    if (item !== null) {
-      row.appendChild(itemIcon(item, "icon-small"));
-      row.appendChild(wowheadLink(item));
-    } else {
-      row.appendChild(createElement("span", null, "Item " + entry.itemId));
-    }
-    const quantity = createElement("input", "cart-quantity");
-    quantity.type = "number";
-    quantity.min = "1";
-    quantity.value = String(entry.quantity);
-    quantity.id = "cart-quantity-" + index;
-    quantity.dataset.cartIndex = String(index);
-    quantity.setAttribute("aria-label", "How many");
-    row.appendChild(quantity);
-    const removeButton = createElement("button", "cart-remove", "×");
-    removeButton.type = "button";
-    removeButton.dataset.cartRemove = String(index);
-    removeButton.setAttribute("aria-label", "Remove from crafting list");
-    row.appendChild(removeButton);
-    list.appendChild(row);
-  }
-  document.getElementById("craft-all-link").href = "crafting.html" + cartHash();
-  let missing = 0;
-  for (const itemId of state.craftedUpgradePicks || []) {
-    if (!isInCart(itemId)) {
-      missing += 1;
-    }
-  }
-  const addButton = document.getElementById("add-crafted-button");
-  addButton.hidden = missing === 0;
-  addButton.textContent = "Add crafted upgrades (" + missing + ")";
-}
-
-function handleCartClick(event) {
-  const target = event.target;
-  if (target.dataset.cartRemove !== undefined) {
-    state.craftingCart.splice(Number(target.dataset.cartRemove), 1);
-  } else if (target.id === "clear-cart-button") {
-    state.craftingCart = [];
-  } else if (target.id === "add-crafted-button") {
-    addCraftedUpgrades();
-    return;
-  } else {
-    return;
-  }
-  writeStorage(STORAGE_KEYS.craftingCart, state.craftingCart);
-  renderCart();
-}
-
-function handleCartChange(event) {
-  const target = event.target;
-  if (target.dataset.cartIndex === undefined) {
-    return;
-  }
-  state.craftingCart[Number(target.dataset.cartIndex)].quantity = Math.max(1, Number(target.value) || 1);
-  writeStorage(STORAGE_KEYS.craftingCart, state.craftingCart);
-  renderCart();
-}
-
 function handleCharacterListClick(event) {
   const slug = event.target.dataset.removeCharacterSlug;
   if (slug !== undefined) {
@@ -986,8 +816,6 @@ function bindEvents() {
   document.getElementById("found-characters").addEventListener("click", handleFoundCharacterClick);
   document.querySelector(".settings-tabs").addEventListener("click", handleSettingsTabClick);
   document.getElementById("settings-form").addEventListener("keydown", handleSettingsKeydown);
-  document.getElementById("crafting-cart").addEventListener("click", handleCartClick);
-  document.getElementById("crafting-cart").addEventListener("change", handleCartChange);
 }
 
 function handleTsmStartupError(error) {
