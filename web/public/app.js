@@ -262,45 +262,15 @@ function render() {
   refreshVue();
   clearSourceCache();
   const character = selectedCharacter();
-  const welcome = document.getElementById("welcome");
-  const armory = document.getElementById("armory");
-  const priorities = document.getElementById("priorities");
   let snapshot = null;
   if (character !== null) {
     snapshot = state.snapshots[character.slug] || null;
   }
   if (character === null || snapshot === null) {
-    welcome.hidden = false;
-    armory.hidden = true;
-    priorities.hidden = true;
-    document.getElementById("planner-sidebar").hidden = true;
     if (character !== null) {
       setStatus("Press Refresh to load " + character.displayName + ".", "info");
     }
     return;
-  }
-  welcome.hidden = true;
-  armory.hidden = false;
-  priorities.hidden = false;
-  document.getElementById("planner-sidebar").hidden = false;
-
-  document.getElementById("character-name").textContent = character.displayName;
-  document.getElementById("character-meta").textContent =
-    "Level " + snapshot.level + " " + snapshot.raceName + " " + snapshot.className + " · " + snapshot.faction +
-    " · " + snapshot.ruleset;
-  document.getElementById("character-specs").textContent =
-    "Comparing for " + specLabel(activeSpec(character)) +
-    " · gear as of your logout on " + new Date(snapshot.lastLogout).toLocaleString();
-
-  document.getElementById("paperdoll").dataset.faction = String(snapshot.factionType || "").toLowerCase();
-  const characterRender = document.getElementById("character-render");
-  characterRender.setAttribute("aria-label", character.displayName);
-  if (snapshot.render) {
-    characterRender.style.setProperty("--render-image", "url(\"" + snapshot.render + "\")");
-    characterRender.classList.remove("render-missing");
-  } else {
-    characterRender.style.removeProperty("--render-image");
-    characterRender.classList.add("render-missing");
   }
 
   const optionsBySlot = {};
@@ -340,8 +310,6 @@ function render() {
 
   state.upgradesBySlot = optionsBySlot;
 
-  document.getElementById("lookahead-label").textContent = String(state.settings.lookaheadLevels);
-  document.getElementById("route-credit").textContent = window.ZONE_GUIDE.credit;
   allOptions.sort(compareUpgradeOptions);
   state.upgradeOptions = allOptions;
   state.craftedUpgradePicks = craftedUpgradePicks(allOptions, snapshot);

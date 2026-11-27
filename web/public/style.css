@@ -73,6 +73,10 @@ body {
   font: 15px/1.5 var(--font-body);
 }
 
+#gear-page {
+  display: contents;
+}
+
 main {
   max-width: 1440px;
   margin: 0 auto;
