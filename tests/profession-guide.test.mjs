@@ -401,7 +401,7 @@ test("a rank's buy list can be copied for TSM, Auctionator or as text, without w
   assert.equal(stages[1].exportName, "Tailoring Journeyman");
   assert.deepEqual(stages[1].toBuy, [{ itemId: LINEN, quantity: 5, fromVendor: false }]);
   const lines = stages[1].toBuy.concat([{ itemId: WOOL, quantity: 2, fromVendor: false }, { itemId: BOLT, quantity: 1, fromVendor: true }]);
-  assert.equal(exportText("tsm", "Tailoring Journeyman", lines), "i:2589,i:2592");
+  assert.equal(exportText("tsm", "Tailoring Journeyman", lines), "Linen Cloth/exact/x5;Wool Cloth/exact/x2");
   assert.equal(exportText("auctionator", "Tailoring Journeyman", lines), "Tailoring Journeyman^\"Linen Cloth\"^\"Wool Cloth\"");
   assert.equal(exportText("text", "Tailoring Journeyman", lines), "5x Linen Cloth\n2x Wool Cloth\n1x Bolt of Linen Cloth");
 });
