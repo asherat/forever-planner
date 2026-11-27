@@ -35,6 +35,27 @@ EXCLUDED_QUALITIES = {"POOR"}
 EXCLUDED_NAME_PATTERN = re.compile(r"^\[TMP\]|\bTEST\b|^QA|\[PH\]|Monster -|^Deprecated", re.IGNORECASE)
 ICON_FILE_PATTERN = re.compile(r"/icons/\d+/(\d+)\.jpg$")
 FERAL_ATTACK_POWER_PATTERN = re.compile(r"\+(\d+) Attack Power in Cat, Bear, and Dire Bear forms only")
+BONUS_TYPE_STAT = "2"
+BONUS_TYPE_NAME_SUFFIX = "5"
+QUALITY_BUDGET_COLUMNS = {"2": "Good", "3": "Superior", "4": "Epic"}
+INVENTORY_TYPE_BUDGET_INDEX = {
+    "1": 0, "5": 0, "7": 0, "17": 0, "20": 0,
+    "3": 1, "6": 1, "8": 1, "10": 1, "12": 1,
+    "2": 2, "9": 2, "11": 2, "14": 2, "16": 2, "23": 2,
+    "13": 3, "21": 3, "22": 3,
+    "15": 4, "25": 4, "26": 4, "28": 4,
+}
+GAME_STAT_NAMES = {
+    "3": "AGILITY", "4": "STRENGTH", "5": "INTELLECT", "6": "SPIRIT", "7": "STAMINA",
+    "12": "DEFENSE_SKILL_RATING", "13": "DODGE_RATING", "14": "PARRY_RATING", "15": "BLOCK_RATING",
+    "31": "HIT_RATING", "32": "CRIT_RATING", "38": "ATTACK_POWER", "39": "RANGED_ATTACK_POWER",
+    "41": "SPELL_HEALING_DONE", "42": "SPELL_DAMAGE_DONE", "43": "MANA_REGENERATION", "45": "SPELL_POWER",
+    "46": "HEALTH_REGEN", "47": "SPELL_PENETRATION", "48": "BLOCK_VALUE", "50": "EXTRA_ARMOR",
+    "51": "FIRE_RESISTANCE", "52": "FROST_RESISTANCE", "54": "SHADOW_RESISTANCE", "55": "NATURE_RESISTANCE",
+    "56": "ARCANE_RESISTANCE", "84": "BONUS_STAT_HOLY_DAMAGE_DONE", "85": "BONUS_STAT_FIRE_DAMAGE_DONE",
+    "86": "BONUS_STAT_NATURE_DAMAGE_DONE", "87": "BONUS_STAT_FROST_DAMAGE_DONE",
+    "88": "BONUS_STAT_SHADOW_DAMAGE_DONE", "89": "BONUS_STAT_ARCANE_DAMAGE_DONE",
+}
 
 token_lock = threading.Lock()
 access_token = None
@@ -544,6 +565,74 @@ def build_maps():
     return {"continents": continents, "zones": zones}
 
 
+def suffix_stat_value(budget, allocation):
+    return int(budget * int(allocation) / 10000 + 0.5)
+
+
+def random_suffix(bonus_rows, suffix_names, budget):
+    name = None
+    stats = {}
+    for row in bonus_rows:
+        if row["Type"] == BONUS_TYPE_NAME_SUFFIX:
+            name = suffix_names[row["Value_0"]]
+        elif row["Type"] == BONUS_TYPE_STAT:
+            stat_name = GAME_STAT_NAMES[row["Value_0"]]
+            stats[stat_name] = stats.get(stat_name, 0) + suffix_stat_value(budget, row["Value_1"])
+    if name is None or EXCLUDED_NAME_PATTERN.search(name):
+        return None
+    return {"bonusId": int(bonus_rows[0]["ParentItemBonusListID"]), "name": name, "stats": stats}
+
+
+def bonus_list_ids_of_tree(tree_id, nodes_by_tree):
+    bonus_list_ids = []
+    for node in nodes_by_tree.get(tree_id, []):
+        if node["ChildItemBonusTreeID"] != "0":
+            bonus_list_ids.extend(bonus_list_ids_of_tree(node["ChildItemBonusTreeID"], nodes_by_tree))
+        if node["ChildItemBonusListID"] != "0":
+            bonus_list_ids.append(node["ChildItemBonusListID"])
+    return bonus_list_ids
+
+
+def item_budget(sparse_row, budgets_by_level):
+    quality_column = QUALITY_BUDGET_COLUMNS.get(sparse_row["OverallQualityID"])
+    budget_index = INVENTORY_TYPE_BUDGET_INDEX.get(sparse_row["InventoryType"])
+    budgets = budgets_by_level.get(sparse_row["ItemLevel"])
+    if quality_column is None or budget_index is None or budgets is None:
+        return None
+    return int(budgets[f"{quality_column}_{budget_index}"])
+
+
+def build_random_suffixes():
+    suffix_names = {}
+    for row in wago_table("ItemNameDescription"):
+        suffix_names[row["ID"]] = row["Description_lang"]
+    bonus_rows_by_list = {}
+    for row in wago_table("ItemBonus"):
+        bonus_rows_by_list.setdefault(row["ParentItemBonusListID"], []).append(row)
+    nodes_by_tree = {}
+    for row in wago_table("ItemBonusTreeNode"):
+        nodes_by_tree.setdefault(row["ParentItemBonusTreeID"], []).append(row)
+    budgets_by_level = {}
+    for row in wago_table("RandPropPoints"):
+        budgets_by_level[row["ID"]] = row
+    sparse_rows = {}
+    for row in wago_table("ItemSparse"):
+        sparse_rows[row["ID"]] = row
+    suffixes_by_item = {}
+    for row in wago_table("ItemXBonusTree"):
+        sparse_row = sparse_rows.get(row["ItemID"])
+        if sparse_row is None:
+            continue
+        budget = item_budget(sparse_row, budgets_by_level)
+        if budget is None:
+            continue
+        for bonus_list_id in bonus_list_ids_of_tree(row["ItemBonusTreeID"], nodes_by_tree):
+            suffix = random_suffix(bonus_rows_by_list.get(bonus_list_id, []), suffix_names, budget)
+            if suffix is not None:
+                suffixes_by_item.setdefault(int(row["ItemID"]), []).append(suffix)
+    return suffixes_by_item
+
+
 def zone_names():
     area_index = cached_get("quest-area-index", "/data/wow/quest/area/index")
     names = {}
@@ -569,6 +658,7 @@ def main():
 
     factions_by_reputation = reputation_factions(items)
     icons = item_icons(items)
+    random_suffixes = build_random_suffixes()
     compact_items = []
     for item in items.values():
         if item["item_class"]["name"] not in EQUIPPABLE_ITEM_CLASSES:
@@ -587,6 +677,8 @@ def main():
             record["sources"] = item_sources
         if item["id"] in icons:
             record["icon"] = icons[item["id"]]
+        if item["id"] in random_suffixes:
+            record["randomSuffixes"] = random_suffixes[item["id"]]
         faction = item_faction(item, item_sources, factions_by_reputation)
         if faction is not None:
             record["faction"] = faction

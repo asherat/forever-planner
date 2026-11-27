@@ -83,3 +83,28 @@ class QuestTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RandomSuffixTest(unittest.TestCase):
+    def test_scales_suffix_stats_by_the_item_budget(self):
+        rows = [
+            {"ParentItemBonusListID": "12727", "Type": "2", "Value_0": "3", "Value_1": "6666"},
+            {"ParentItemBonusListID": "12727", "Type": "2", "Value_0": "4", "Value_1": "6666"},
+            {"ParentItemBonusListID": "12727", "Type": "5", "Value_0": "14307", "Value_1": "0"},
+        ]
+        suffix = build.random_suffix(rows, {"14307": "of the Tiger"}, 19)
+        self.assertEqual(suffix, {"bonusId": 12727, "name": "of the Tiger", "stats": {"AGILITY": 13, "STRENGTH": 13}})
+
+    def test_ignores_bonus_lists_without_a_suffix_name(self):
+        rows = [{"ParentItemBonusListID": "13899", "Type": "0", "Value_0": "0", "Value_1": "0"}]
+        self.assertIsNone(build.random_suffix(rows, {}, 19))
+
+    def test_skips_test_suffixes(self):
+        rows = [{"ParentItemBonusListID": "1", "Type": "5", "Value_0": "9", "Value_1": "0"}]
+        self.assertIsNone(build.random_suffix(rows, {"9": "Test"}, 19))
+
+    def test_budget_depends_on_slot_and_quality(self):
+        budgets = {"45": {"Good_0": "19", "Good_1": "14", "Superior_0": "26"}}
+        self.assertEqual(build.item_budget({"OverallQualityID": "2", "InventoryType": "1", "ItemLevel": "45"}, budgets), 19)
+        self.assertEqual(build.item_budget({"OverallQualityID": "2", "InventoryType": "3", "ItemLevel": "45"}, budgets), 14)
+        self.assertEqual(build.item_budget({"OverallQualityID": "3", "InventoryType": "1", "ItemLevel": "45"}, budgets), 26)
