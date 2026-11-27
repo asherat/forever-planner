@@ -2,6 +2,10 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.52.0 — 2026-11-27
+
+- Questie reading is rewritten in TypeScript, and that fixed a misreading: some creatures and containers showed up as "Unknown creature" or "Container" with wrong levels, now they have their real names (for example Witch Doctor Zum'rah in Zul'Farrak, as a boss).
+
 ## v0.51.0 — 2026-11-27
 
 - Behind the scenes: the leveling path logic is rewritten in TypeScript, which finishes moving the planner's logic to typed code. Recommendations and the path editor are unchanged.

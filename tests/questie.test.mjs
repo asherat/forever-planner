@@ -1,9 +1,9 @@
-const test = require("node:test");
-const assert = require("node:assert/strict");
-const { loadScripts } = require("./helpers/load");
-const { encodeBase64 } = require("./helpers/cbor");
+import test from "node:test";
+import assert from "node:assert/strict";
+import { createRequire } from "node:module";
+import { QUESTIE as questie } from "../web/src/questie.ts";
 
-const questie = loadScripts(["questie.js"]).QUESTIE;
+const { encodeBase64 } = createRequire(import.meta.url)("./helpers/cbor.js");
 const zones = { 17: "The Barrens", 1176: "Zul'Farrak", 440: "Tanaris" };
 const ALLIANCE_RACES = 77;
 const HORDE_RACES = 178;
@@ -157,4 +157,30 @@ test("treats an either-or prerequisite as met when one of them is done", () => {
   const details = questie.buildDetails(toc, [], zones, []);
   const chain = questie.questChain(details, 3);
   assert.equal(questie.availableSteps(chain, new Set([1]))[0].name, "Shared Next");
+});
+
+test("reads spawns of creatures in zone 1, which are packed as a plain list", () => {
+  const toc = buildToc([
+    tocLine("Item-200-S", encodeBase64({ 1: "Dwarven Boots" })),
+    tocLine("Item-200-14", encodeBase64([1238])),
+    tocLine("Npc-1238-S", encodeBase64({ 1: "Gamili Frosthide", 9: 1, 13: "A" })),
+    tocLine("Npc-1238-7", encodeBase64([[[45, 51]]]))
+  ]);
+  const source = questie.buildDetails(toc, [200], { 1: "Dun Morogh" }, []).items[200].sources[0];
+  assert.equal(source.zone, "Dun Morogh");
+  assert.equal(source.x, 45);
+  assert.equal(source.y, 51);
+});
+
+test("reads an entity whose fields are packed as a plain list", () => {
+  const toc = buildToc([
+    tocLine("Item-300-S", encodeBase64({ 1: "Zum'rah's Vexing Cane" })),
+    tocLine("Item-300-2", encodeBase64([220076])),
+    tocLine("Npc-220076-S", encodeBase64(["Witch Doctor Zum'rah", 0, 0, 46, 46, 1, 0, 0, 1176]))
+  ]);
+  const drop = questie.buildDetails(toc, [300], zones, []).items[300].sources[0];
+  assert.equal(drop.npc, "Witch Doctor Zum'rah");
+  assert.equal(drop.minLevel, 46);
+  assert.equal(drop.rank, 1);
+  assert.equal(drop.zone, "Zul'Farrak");
 });

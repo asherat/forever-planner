@@ -1,3 +1,4 @@
+import type { QUESTIE } from "./questie.ts";
 import type { TSM } from "./tsm.ts";
 import type { Character, GameRules, GuideDungeon, Item, QuestieData, ReputationRequirement, Snapshot, ZoneGuide } from "./types.ts";
 import type { TsmPrices } from "./tsm.ts";
@@ -5,6 +6,7 @@ import type { TsmPrices } from "./tsm.ts";
 declare global {
   interface Window {
     TSM: typeof TSM;
+    QUESTIE: typeof QUESTIE;
     GAME_RULES: GameRules;
     FOREVER_ITEMS: Item[];
     FOREVER_CRAFTING_ITEMS: Record<string, { vendorPrice?: number }>;
