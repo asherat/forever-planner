@@ -145,13 +145,13 @@ window.GAME_RULES = {
     "feral-cat": {
       weights: {
         STRENGTH: 1.0, AGILITY: 1.2, ATTACK_POWER: 0.5, FERAL_ATTACK_POWER: 0.5,
-        CRIT_RATING: 1.0, HIT_RATING: 1.2, STAMINA: 0.3, EXTRA_ARMOR: 0.02, WEAPON_DPS: 0
+        CRIT_RATING: 1.0, HIT_RATING: 1.2, STAMINA: 0.3, EXTRA_ARMOR: 0.02, WEAPON_DPS: 7.0
       }
     },
     "feral-bear": {
       weights: {
         STAMINA: 1.0, AGILITY: 0.9, STRENGTH: 0.5, EXTRA_ARMOR: 0.1, DODGE_RATING: 0.9,
-        DEFENSE_SKILL_RATING: 0.7, FERAL_ATTACK_POWER: 0.2, ATTACK_POWER: 0.2, HIT_RATING: 0.5, WEAPON_DPS: 0
+        DEFENSE_SKILL_RATING: 0.7, FERAL_ATTACK_POWER: 0.2, ATTACK_POWER: 0.2, HIT_RATING: 0.5, WEAPON_DPS: 2.8
       }
     },
     "melee-strength": {
