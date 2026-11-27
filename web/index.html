@@ -73,76 +73,7 @@
   </div>
 </main>
 
-<dialog id="settings-dialog" aria-labelledby="settings-title">
-  <form id="settings-form" method="dialog" novalidate>
-    <div class="settings-header">
-      <h2 id="settings-title">Settings</h2>
-      <button id="settings-save-button" type="submit" class="settings-close" aria-label="Close settings">×</button>
-    </div>
-    <div class="settings-tabs" role="tablist" aria-label="Settings sections">
-      <button type="button" role="tab" id="settings-tab-characters" aria-controls="settings-panel-characters" data-settings-tab="characters">Characters</button>
-      <button type="button" role="tab" id="settings-tab-battlenet" aria-controls="settings-panel-battlenet" data-settings-tab="battlenet">Battle.net</button>
-      <button type="button" role="tab" id="settings-tab-folder" aria-controls="settings-panel-folder" data-settings-tab="folder">WoW folder</button>
-      <button type="button" role="tab" id="settings-tab-backup" aria-controls="settings-panel-backup" data-settings-tab="backup">Backup</button>
-    </div>
-
-    <div class="settings-panels">
-      <section id="settings-panel-characters" role="tabpanel" aria-labelledby="settings-tab-characters" class="settings-panel">
-        <div id="character-list" class="character-list"></div>
-        <div id="found-characters" class="found-characters" hidden></div>
-        <div class="add-character">
-          <input id="new-character-name" placeholder="First name" aria-label="First name">
-          <input id="new-character-surname" placeholder="Surname" aria-label="Surname">
-          <button id="add-character-button" type="button">Add</button>
-        </div>
-        <div class="settings-row">
-          <label for="lookahead-input">Show upgrades up to</label>
-          <input id="lookahead-input" type="number" min="0" max="10">
-          <span class="muted">levels above you</span>
-        </div>
-      </section>
-
-      <section id="settings-panel-battlenet" role="tabpanel" aria-labelledby="settings-tab-battlenet" class="settings-panel" hidden>
-        <p class="muted">Create a client at <a href="https://develop.battle.net/access/clients" target="_blank" rel="noopener">develop.battle.net</a>. It stays in this browser and is only sent to Battle.net.</p>
-        <div class="settings-grid">
-          <label for="client-id-input">Client ID</label>
-          <input id="client-id-input" autocomplete="off" spellcheck="false">
-          <label for="client-secret-input">Client secret</label>
-          <input id="client-secret-input" class="masked-input" autocomplete="off" spellcheck="false">
-          <label for="region-select">Region</label>
-          <select id="region-select">
-            <option value="eu">EU</option>
-            <option value="us">US</option>
-            <option value="kr">KR</option>
-            <option value="tw">TW</option>
-          </select>
-        </div>
-      </section>
-
-      <section id="settings-panel-folder" role="tabpanel" aria-labelledby="settings-tab-folder" class="settings-panel" hidden>
-        <p class="muted">Pick your <code>World of Warcraft</code> or <code>_forever_</code> folder. The planner only reads it, on every Refresh; nothing leaves your PC.</p>
-        <p id="wow-folder-status" class="folder-status"></p>
-        <ul class="source-checklist">
-          <li id="questie-status"></li>
-          <li id="tsm-status"></li>
-          <li id="inventory-status"></li>
-        </ul>
-        <div class="inline-fields">
-          <button id="wow-folder-connect-button" type="button">Connect WoW folder</button>
-          <button id="wow-folder-disconnect-button" type="button" class="link">Disconnect</button>
-        </div>
-      </section>
-
-      <section id="settings-panel-backup" role="tabpanel" aria-labelledby="settings-tab-backup" class="settings-panel" hidden>
-        <p class="muted">Saves your characters, leveling paths and hidden items to a file. The client secret is never included.</p>
-        <div class="inline-fields">
-          <button id="export-button" type="button">Save settings file</button>
-          <label class="file-button">Load settings file<input id="import-input" type="file" accept="application/json"></label>
-        </div>
-      </section>
-    </div>
-  </form>
-</dialog>
+<div id="settings-root"></div>
 
 <script src="data/items.js?build=__BUILD__"></script>
 <script src="data/crafting-items.js?build=__BUILD__"></script>
