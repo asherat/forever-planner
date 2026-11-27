@@ -1,3 +1,5 @@
+import type { Guide } from "./profession-guide.ts";
+
 export type Stats = Record<string, number>;
 export type Weights = Record<string, number>;
 
@@ -67,7 +69,7 @@ export interface Snapshot {
   equipment: Equipment;
   talentSpecs?: string[];
   completedQuestIds?: number[];
-  professions: { name: string; recipeIds?: number[] }[];
+  professions: { name: string; skillPoints?: number; recipeIds?: number[] }[];
   reputations: Record<string, number>;
   raceName?: string;
   faction?: string;
@@ -86,7 +88,15 @@ export interface Character {
   feralForm?: string;
   maxGoldPerUpgrade?: number | null;
   route?: SavedRoute;
+  professionGuides?: Record<string, SavedGuide>;
   [field: string]: unknown;
+}
+
+export interface SavedGuide {
+  createdAt: number;
+  guide: Guide;
+  doneSteps: number[];
+  boughtItemIds: number[];
 }
 
 export interface Settings {

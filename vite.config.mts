@@ -12,7 +12,8 @@ export default defineConfig({
     rollupOptions: {
       input: {
         gear: resolve(import.meta.dirname, "web/index.html"),
-        crafting: resolve(import.meta.dirname, "web/crafting.html")
+        crafting: resolve(import.meta.dirname, "web/crafting.html"),
+        professions: resolve(import.meta.dirname, "web/professions.html")
       }
     }
   }

@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Forever Professions</title>
+<link rel="stylesheet" href="style.css?build=__BUILD__">
+</head>
+<body>
+<header class="topbar">
+  <nav class="page-nav" aria-label="Pages">
+    <span class="brand">Forever Planner</span>
+    <span class="version-tag" title="Version">__VERSION__</span>
+    <a href="index.html" class="page-link">Gear</a>
+    <a href="crafting.html" class="page-link">Crafting</a>
+    <a href="professions.html" class="page-link" aria-current="page">Professions</a>
+  </nav>
+  <div id="crafting-top-controls" class="topbar-controls"></div>
+</header>
+
+<main>
+  <p id="status-line" class="status-line" role="status"></p>
+
+  <div id="professions-page"></div>
+</main>
+
+<script src="data/zones.js?build=__BUILD__"></script>
+<script src="data/maps.js?build=__BUILD__"></script>
+<script src="zone-guide.js?build=__BUILD__"></script>
+<script src="data/recipes.js?build=__BUILD__"></script>
+<script src="data/crafting-items.js?build=__BUILD__"></script>
+<script src="data/recipe-levels.js?build=__BUILD__"></script>
+<script src="game-rules.js?build=__BUILD__"></script>
+<script type="module" src="./src/professions.ts"></script>
+</body>
+</html>
