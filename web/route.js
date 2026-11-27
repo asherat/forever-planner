@@ -122,15 +122,28 @@ function addLeg(character, snapshot, zoneName, toLevel) {
 }
 
 function legForSource(character, snapshot, source) {
+  const legs = legsForSource(character, snapshot, source);
+  if (legs.length === 0) {
+    return null;
+  }
+  return legs[0];
+}
+
+function legsForSource(character, snapshot, source) {
+  const legs = [];
   for (const leg of routeLegs(character, snapshot)) {
     if (leg.zone === source.zone) {
-      return leg;
+      legs.push(leg);
     }
   }
   const dungeon = dungeonForArea(source.zone);
-  if (dungeon === null) {
-    return null;
+  if (dungeon !== null) {
+    legs.push(dungeonLeg(dungeon));
   }
+  return legs;
+}
+
+function dungeonLeg(dungeon) {
   return { zone: dungeon.name, fromLevel: dungeonStartLevel(dungeon), toLevel: MAX_CHARACTER_LEVEL, dungeon: true };
 }
 
@@ -165,26 +178,6 @@ function resolveGap(character, snapshot, resolution, fillerZone) {
 
 function tierBadge(tier) {
   return createElement("span", "tier-badge " + TIER_COLORS[tier], tier);
-}
-
-function zoneHasDungeon(zone, dungeonName) {
-  for (const dungeon of zone.dungeons || []) {
-    if (dungeon.name === dungeonName) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function dungeonNames(zone) {
-  const names = [];
-  if (zone === null) {
-    return names;
-  }
-  for (const dungeon of zone.dungeons || []) {
-    names.push(dungeon.name);
-  }
-  return names;
 }
 
 function dungeonLabel(dungeon) {

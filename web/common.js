@@ -8,6 +8,7 @@ const STORAGE_KEYS = {
 };
 
 const DEFAULT_LOOKAHEAD_LEVELS = 3;
+const MAX_LOOKAHEAD_LEVELS = 10;
 const MAP_POPOVER_GAP = 8;
 const MAP_IMAGE_DIRECTORY = "maps/";
 const MAP_IMAGE_WIDTH = 560;

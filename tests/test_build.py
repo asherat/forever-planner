@@ -158,3 +158,21 @@ class DungeonNameTest(unittest.TestCase):
         self.assertEqual(build.instance_name("Zul'Farak"), "Zul'Farrak")
         self.assertEqual(build.instance_name("Stormwind Stockades"), "The Stockade")
         self.assertEqual(build.instance_name("Krol'dok Stronghold"), "Krol'dok Stronghold")
+
+
+class CacheTest(unittest.TestCase):
+    def test_retries_items_that_were_missing_a_week_ago(self):
+        import os
+        import tempfile
+        import time
+        with tempfile.TemporaryDirectory() as directory:
+            missing = Path(directory) / "item.json"
+            missing.write_text("null")
+            self.assertTrue(build.is_fresh_cache(missing))
+            old = time.time() - build.MISSING_RETRY_SECONDS - 60
+            os.utime(missing, (old, old))
+            self.assertFalse(build.is_fresh_cache(missing))
+            found = Path(directory) / "found.json"
+            found.write_text('{"id": 1}')
+            os.utime(found, (old, old))
+            self.assertTrue(build.is_fresh_cache(found))
