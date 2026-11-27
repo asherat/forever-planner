@@ -98,7 +98,8 @@ export interface SavedGuide {
   createdAt: number;
   guide: Guide;
   doneSteps: number[];
-  boughtItemIds: number[];
+  boughtMaterials: string[];
+  boughtItemIds?: number[];
 }
 
 export interface Settings {

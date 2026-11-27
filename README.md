@@ -43,7 +43,7 @@ It runs entirely in your browser. There is no server: your browser talks to Batt
 **Professions**
 
 - The Professions page plans the cheapest way to level a profession from your current skill (read from Battle.net) to any target, with your auction house and vendor prices. Each step says what to craft and about how many times: orange recipes always give a point, yellow and green ones less often, so the plan counts the extra crafts.
-- It lists the recipes to learn (trainer, or a pattern with where to get it and its price) and the materials for the steps you have left, marking the ones that are cheaper to craft yourself.
+- The plan is split by trainer rank (Apprentice, Journeyman, Expert, Artisan), with when to train the next rank. Each stage lists its recipes to learn (trainer, or a pattern with where to get it and its price), the materials to buy for it, marking the ones that are cheaper to craft yourself, and its cost with a running total. The side panel adds up everything still to buy.
 - Your plan is saved per character and profession. Tick steps and materials as you go and come back later; steps below your skill tick themselves after a Refresh.
 - Enchanting only has its rods and oils for now: the enchants themselves aren't in the data yet.
 
