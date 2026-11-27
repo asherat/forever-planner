@@ -10,10 +10,11 @@ export const INVENTORY_PLACES: ("bags" | "bank" | "mail")[] = ["bags", "bank", "
 export interface Recipe {
   id: number;
   profession: string;
-  itemId: number;
+  itemId: number | null;
   quantity: number;
   reagents: [number, number][];
   teachingItemId?: number;
+  tools?: number[];
 }
 
 export interface CraftingEntry {
@@ -142,6 +143,9 @@ export function saveCraftingList(): void {
 export function indexRecipes(): void {
   crafting.recipesByItem.clear();
   for (const recipe of window.FOREVER_RECIPES) {
+    if (recipe.itemId === null) {
+      continue;
+    }
     const recipes = crafting.recipesByItem.get(recipe.itemId) || [];
     recipes.push(recipe);
     crafting.recipesByItem.set(recipe.itemId, recipes);

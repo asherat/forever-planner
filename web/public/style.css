@@ -1817,12 +1817,6 @@ legend {
   margin-top: 0;
 }
 
-.guide-comparison-note {
-  display: block;
-  font-size: 0.8rem;
-  font-weight: normal;
-}
-
 .guide-comparison-scroll {
   position: relative;
   overflow-x: auto;

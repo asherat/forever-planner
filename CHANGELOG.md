@@ -2,6 +2,11 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.88.0 — 2026-11-27
+
+- Professions: Enchanting now plans with the enchants themselves, not just rods and oils.
+- Plans know the tools recipes need, from the game files: the right Runed Rod for enchants, a Blacksmith Hammer, an Arclight Spanner. Each step says what it needs, and the first step that needs a tool gets it ("Craft first: 1× Runed Silver Rod", or a hammer in the buy list). A better rod you already have covers the lesser ones.
+
 ## v0.87.0 — 2026-11-27
 
 - Professions: recipes from a trainer and the "train the next rank" line say which trainer you need. For Expert and Artisan that's the actual NPCs of your faction (like "Artisan Leatherworker: Una in Thunder Bluff"), with Wowhead and map links; lower ranks say any trainer of the profession.
