@@ -73,7 +73,7 @@ body {
   font: 15px/1.5 var(--font-body);
 }
 
-#gear-page {
+#gear-page, #crafting-page {
   display: contents;
 }
 
