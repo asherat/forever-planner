@@ -1,5 +1,6 @@
 import { createApp } from "vue";
 import NotInterested from "./components/NotInterested.vue";
+import PriorityList from "./components/PriorityList.vue";
 import QuestList from "./components/QuestList.vue";
 import RoutePanel from "./components/RoutePanel.vue";
 import UndoNotice from "./components/UndoNotice.vue";
@@ -29,3 +30,4 @@ createApp(UndoNotice).mount("#undo-notice");
 createApp(NotInterested).mount("#not-interested");
 createApp(RoutePanel).mount("#route-content");
 createApp(QuestList).mount("#quest-list");
+createApp(PriorityList).mount("#priority-list");

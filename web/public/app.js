@@ -1,4 +1,3 @@
-const MAX_SOURCES_SHOWN = 2;
 const WOWHEAD_TOOLTIP_URL = "https://nether.wowhead.com/forever/tooltip/item/";
 const MAX_TOOLTIP_CHECKS_PER_RUN = 60;
 const TOOLTIP_CHECK_BATCH = 4;
@@ -6,7 +5,6 @@ const TOOLTIP_CHECKS_PER_SLOT = 5;
 const TOOLTIP_CACHE_DAYS = 14;
 const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000;
 const tooltipChecks = { pending: new Set(), running: false };
-const CREATURE_RANKS = { 1: "elite", 2: "rare elite", 3: "boss", 4: "rare" };
 
 function fetchProfile(characterSlugValue, path) {
   return fetchFromBattleNet("/profile/wow/character/" + encodeURIComponent(characterSlugValue) + path, "profile");
@@ -260,100 +258,6 @@ async function refreshCharacter(character) {
   setStatus("Updated from your last logout (" + new Date(profile.last_login_timestamp).toLocaleString() + ").", "success");
 }
 
-function gainBadge(value, label, unit) {
-  const badge = createElement("span", "gain");
-  if (value > 0) {
-    badge.classList.add("gain-positive");
-    badge.textContent = label + " +" + value + " " + unit;
-  } else if (value < 0) {
-    badge.classList.add("gain-negative");
-    badge.textContent = label + " " + value + " " + unit;
-  } else {
-    badge.textContent = label + " ±0";
-  }
-  return badge;
-}
-
-function gainBadges(candidate, character) {
-  const gains = createElement("div", "gains");
-  gains.appendChild(gainBadge(candidate.gain, specLabel(activeSpec(character)), specPreset(activeSpec(character)).unit));
-  return gains;
-}
-
-function joinDetails(parts) {
-  const filled = [];
-  for (const part of parts) {
-    if (part) {
-      filled.push(part);
-    }
-  }
-  if (filled.length === 0) {
-    return "";
-  }
-  return " (" + filled.join(", ") + ")";
-}
-
-function creatureRankText(rank) {
-  return CREATURE_RANKS[rank] || "";
-}
-
-function creatureLevelText(source) {
-  if (!source.minLevel) {
-    return "";
-  }
-  if (source.maxLevel && source.maxLevel !== source.minLevel) {
-    return "level " + source.minLevel + "-" + source.maxLevel;
-  }
-  return "level " + source.minLevel;
-}
-
-function renderSourceLine(source) {
-  const line = createElement("li");
-  if (source.type === "quest") {
-    let levelPart = "";
-    if (source.level) {
-      levelPart = "level " + source.level;
-    }
-    line.append("Quest: ");
-    line.appendChild(wowheadPageLink("quest", source.questId, source.quest));
-    line.append(joinDetails([levelPart, source.zone]));
-    return line;
-  }
-  if (source.type === "vendor") {
-    line.append("Vendor: ");
-    line.appendChild(wowheadPageLink("npc", source.npcId, source.npc));
-    if (source.title) {
-      line.append(", " + source.title);
-    }
-    line.append(joinDetails([source.zone]));
-    return line;
-  }
-  if (source.type === "drop") {
-    line.append("Drops from ");
-    line.appendChild(wowheadPageLink("npc", source.npcId, source.npc));
-    line.append(joinDetails([creatureLevelText(source), creatureRankText(source.rank), source.zone]));
-    return line;
-  }
-  line.textContent = describeSource(source);
-  return line;
-}
-
-function describeSource(source) {
-  if (source.type === "more-drops") {
-    return "…and " + source.count + " more creatures";
-  }
-  if (source.type === "world-drop") {
-    return "World drop (" + source.count + " creatures can drop it)";
-  }
-  if (source.type === "object") {
-    return "Found in " + source.name + joinDetails([source.zone]);
-  }
-  if (source.type === "craft") {
-    return "Crafted: " + source.profession;
-  }
-  return "Unknown source";
-}
-
 function levelText(item, snapshot, prefix) {
   const level = itemUsableLevel(item, snapshot);
   if (isLevelEstimated(item, snapshot)) {
@@ -545,112 +449,6 @@ function renderSlot(slotDefinition, snapshot, character, optionsBySlot) {
   return slot;
 }
 
-function renderOption(label, candidate, snapshot, character, slotDefinition) {
-  const item = candidate.item;
-  const option = createElement("div", "option");
-  option.appendChild(createElement("div", "option-label", label));
-
-  const heading = createElement("div", "option-heading");
-  heading.appendChild(itemIcon(item, "icon-medium"));
-  const title = createElement("div", "option-title");
-  title.appendChild(wowheadLink(item));
-  let subtitle = item.itemSubclass + " · " + levelText(item, snapshot, "level ");
-  if (candidate.availableLevel > itemUsableLevel(item, snapshot)) {
-    subtitle = item.itemSubclass + " · from level " + candidate.availableLevel;
-  }
-  if (candidate.availableLevel <= snapshot.level) {
-    subtitle = item.itemSubclass + " · usable now";
-  }
-  title.appendChild(createElement("span", "muted", subtitle));
-  heading.appendChild(title);
-  heading.appendChild(renderComparisonTooltip(slotDefinition, snapshot, character, candidate));
-  heading.tabIndex = 0;
-  option.appendChild(heading);
-
-  option.appendChild(gainBadges(candidate, character));
-  if (item.suffix) {
-    option.appendChild(createElement("div", "option-note", "Comes with random stats. Best for you: " + item.suffix.name + "."));
-  }
-  if (candidate.routeLeg && candidate.routeLeg.dungeon) {
-    option.appendChild(createElement("div", "route-badge tier-grey", "Dungeon: " + candidate.routeLeg.zone + ", from level " + candidate.routeLeg.fromLevel));
-  } else if (candidate.routeLeg) {
-    const zone = guideZone(candidate.routeLeg.zone);
-    let tierClass = "tier-grey";
-    if (zone !== null) {
-      tierClass = TIER_COLORS[zone.tier];
-    }
-    option.appendChild(createElement("div", "route-badge " + tierClass, "On your path: " + candidate.routeLeg.zone + " (" + candidate.routeLeg.fromLevel + "–" + candidate.routeLeg.toLevel + ")"));
-  }
-  if (itemReputationRequirement(item, snapshot) !== null && !meetsReputation(item, snapshot)) {
-    option.appendChild(createElement("div", "option-requirement", reputationRequirementText(item, snapshot)));
-  }
-
-  const sources = sourcesForCharacter(item, snapshot);
-  const sourceList = createElement("ul", "sources");
-  for (const source of sources.slice(0, MAX_SOURCES_SHOWN)) {
-    const line = renderSourceLine(source);
-    setSourceMapTarget(line, source);
-    sourceList.appendChild(line);
-  }
-  if (sources.length > MAX_SOURCES_SHOWN) {
-    sourceList.appendChild(createElement("li", "muted", "+" + (sources.length - MAX_SOURCES_SHOWN) + " more"));
-  }
-  option.appendChild(sourceList);
-
-  const craftSource = firstCraftSource(sources);
-  const prices = renderOptionPrices(item, craftSource, snapshot, candidate.gain, specPreset(activeSpec(character)).unit);
-  if (prices !== null) {
-    option.appendChild(prices);
-  }
-
-  const actions = createElement("div", "option-actions");
-  const questSource = firstQuestSource(sources);
-  if (questSource !== null && !isInQuestList(character, questSource.questId)) {
-    const questButton = createElement("button", "link", "Add quest");
-    questButton.type = "button";
-    questButton.dataset.questAdd = String(questSource.questId);
-    questButton.dataset.questItem = String(item.id);
-    actions.appendChild(questButton);
-  }
-  if (craftSource !== null) {
-    const cartButton = createElement("button", "link", "Add to crafting list");
-    cartButton.type = "button";
-    cartButton.dataset.cartAdd = String(item.id);
-    actions.appendChild(cartButton);
-  }
-  const hideButton = createElement("button", "link", "Not interested");
-  hideButton.type = "button";
-  hideButton.dataset.hideItemId = String(item.id);
-  actions.appendChild(hideButton);
-  for (const dungeonName of itemDungeons(item, snapshot)) {
-    const skipButton = createElement("button", "link", "Skip " + dungeonName);
-    skipButton.type = "button";
-    skipButton.dataset.skipDungeon = dungeonName;
-    actions.appendChild(skipButton);
-  }
-  option.appendChild(actions);
-  return option;
-}
-
-function setSourceMapTarget(element, source) {
-  let place = null;
-  if (source.type === "quest") {
-    if (state.questie !== null && state.questie.reader) {
-      const starter = window.QUESTIE.questStarterFor(state.questie, source.questId);
-      if (starter !== null && starter.zone) {
-        place = placeForSource(starter);
-        place.caption = "Quest giver " + starter.name + ", " + place.caption;
-      }
-    }
-  } else if (source.type === "vendor" || source.type === "drop" || source.type === "object") {
-    place = placeForSource(source);
-  }
-  if (place !== null) {
-    setMapTarget(element, place.zone, place.x, place.y, place.caption);
-    element.tabIndex = 0;
-  }
-}
-
 function pruneNotInterested(character, snapshot) {
   const removedNames = [];
   const keptItems = [];
@@ -690,98 +488,6 @@ function pruneCraftingCart(snapshot) {
   state.craftingCart = kept;
   writeStorage(STORAGE_KEYS.craftingCart, state.craftingCart);
   return removedNames;
-}
-
-function renderOptionPrices(item, craftSource, snapshot, gain, unit) {
-  if (state.tsm === null) {
-    return null;
-  }
-  const line = createElement("div", "option-price");
-  const auctionPrice = averagePrice(item.id);
-  if (auctionPrice !== null) {
-    line.append("AH ", renderMoney(auctionPrice));
-    if (item.suffix) {
-      line.append(" for any suffix");
-    } else if (gain > 0) {
-      line.append(" (≈ ", renderMoney(Math.round(auctionPrice / gain)), " per " + unit + ")");
-    }
-  }
-  if (craftSource !== null) {
-    const cost = averageMaterialCost(craftSource, snapshot);
-    if (auctionPrice !== null) {
-      line.append(" · ");
-    }
-    if (cost.total === 0 && cost.missing > 0) {
-      line.append("Craft: no material prices yet");
-    } else {
-      line.append("Craft ", renderMoney(cost.total));
-      if (cost.missing > 0) {
-        line.append(" + unpriced materials");
-      }
-    }
-  }
-  if (line.childNodes.length === 0) {
-    return null;
-  }
-  return line;
-}
-
-function renderReplacementPart(options, snapshot, character) {
-  const part = createElement("div", "priority-part");
-  part.id = "upgrade-" + options.slotDefinition.key;
-  const equipped = snapshot.equipment[options.slotDefinition.key];
-  const label = createElement("h4", "priority-part-heading");
-  if (equipped) {
-    label.append("Replace ");
-    label.appendChild(wowheadLink(equipped));
-  } else {
-    label.append("Fill your empty " + options.slotDefinition.label.toLowerCase() + " slot");
-  }
-  part.appendChild(label);
-  const optionRow = createElement("div", "option-row");
-  optionRow.appendChild(renderOption("Best upgrade", options.best, snapshot, character, options.slotDefinition));
-  if (options.quicker !== null) {
-    optionRow.appendChild(renderOption("Quicker option", options.quicker, snapshot, character, options.slotDefinition));
-  }
-  part.appendChild(optionRow);
-  return part;
-}
-
-function renderPriorityGroup(group, snapshot, character) {
-  const entry = createElement("li", "priority");
-  entry.appendChild(createElement("h3", "priority-heading", group.slotDefinition.groupLabel));
-  for (const part of group.parts) {
-    entry.appendChild(renderReplacementPart(part, snapshot, character));
-  }
-  return entry;
-}
-
-function renderPriority(options, snapshot, character) {
-  if (options.group) {
-    return renderPriorityGroup(options, snapshot, character);
-  }
-  const slotDefinition = options.slotDefinition;
-  const entry = createElement("li", "priority");
-  entry.id = "upgrade-" + slotDefinition.key;
-
-  const heading = createElement("h3", "priority-heading");
-  heading.appendChild(createElement("span", null, slotDefinition.label));
-  const equipped = snapshot.equipment[slotDefinition.key];
-  if (equipped) {
-    const current = createElement("span", "priority-current muted");
-    current.appendChild(document.createTextNode("now "));
-    current.appendChild(wowheadLink(equipped));
-    heading.appendChild(current);
-  }
-  entry.appendChild(heading);
-
-  const optionRow = createElement("div", "option-row");
-  optionRow.appendChild(renderOption("Best upgrade", options.best, snapshot, character, slotDefinition));
-  if (options.quicker !== null) {
-    optionRow.appendChild(renderOption("Quicker option", options.quicker, snapshot, character, slotDefinition));
-  }
-  entry.appendChild(optionRow);
-  return entry;
 }
 
 function renderCharacterSelect() {
@@ -893,11 +599,7 @@ function render() {
   renderPlayControls(character, snapshot);
   document.getElementById("route-credit").textContent = window.ZONE_GUIDE.credit;
   allOptions.sort(compareUpgradeOptions);
-  const priorityList = document.getElementById("priority-list");
-  priorityList.replaceChildren();
-  for (const options of allOptions) {
-    priorityList.appendChild(renderPriority(options, snapshot, character));
-  }
+  state.upgradeOptions = allOptions;
   state.craftedUpgradePicks = craftedUpgradePicks(allOptions, snapshot);
   state.questUpgradePicks = questUpgradePicks(allOptions, snapshot);
   renderCart();
@@ -1503,25 +1205,6 @@ function handleCartChange(event) {
   renderCart();
 }
 
-function handlePriorityListClick(event) {
-  if (event.target.dataset.questAdd !== undefined) {
-    addToQuestList(Number(event.target.dataset.questAdd), Number(event.target.dataset.questItem));
-    return;
-  }
-  if (event.target.dataset.cartAdd !== undefined) {
-    addToCart(Number(event.target.dataset.cartAdd));
-    return;
-  }
-  if (event.target.dataset.skipDungeon !== undefined) {
-    skipDungeon(event.target.dataset.skipDungeon);
-    return;
-  }
-  const itemId = event.target.dataset.hideItemId;
-  if (itemId !== undefined) {
-    hideItem(Number(itemId));
-  }
-}
-
 function handleCharacterListClick(event) {
   const slug = event.target.dataset.removeCharacterSlug;
   if (slug !== undefined) {
@@ -1582,7 +1265,6 @@ function bindEvents() {
   document.getElementById("wow-folder-disconnect-button").addEventListener("click", handleWowFolderDisconnectClick);
   document.getElementById("import-input").addEventListener("change", handleImportChange);
   document.getElementById("character-select").addEventListener("change", handleCharacterSelectChange);
-  document.getElementById("priority-list").addEventListener("click", handlePriorityListClick);
   document.getElementById("character-list").addEventListener("click", handleCharacterListClick);
   document.getElementById("play-controls").addEventListener("change", handlePlayControlsChange);
   document.getElementById("found-characters").addEventListener("click", handleFoundCharacterClick);
