@@ -1978,6 +1978,7 @@ legend {
 
 .guide-material-name .crafting-item {
   display: inline-flex;
+  vertical-align: middle;
   min-width: 0;
   justify-content: flex-start;
 }
