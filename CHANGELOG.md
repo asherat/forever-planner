@@ -2,6 +2,12 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.78.0 — 2026-11-27
+
+- Pick as many upgrades per slot as you like, for example a quick one to wear now and the best one for later.
+- Your gear plan lists crafts first (you can make them right away), and each dungeon right after its zone, so Krol'dok Stronghold comes right after Riverglades. The leveling path is back on top of the sidebar.
+- Upgrades now need at least 2% of your whole gear to be suggested (was 1%); free ones on your leveling path need 1%, so tiny ones like a +1 shoulder no longer show.
+
 ## v0.77.1 — 2026-11-27
 
 - The crafting tool's hints now point to your gear plan instead of the old crafting list.

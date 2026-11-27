@@ -66,7 +66,7 @@ const removeLabel = computed(function removeText() {
 });
 
 function remove(): void {
-  removePick(props.entry.slotKey);
+  removePick(props.entry.slotKey, props.entry.item);
 }
 </script>
 

@@ -28,8 +28,8 @@ It runs entirely in your browser. There is no server: your browser talks to Batt
 
 **Your gear plan**
 
-- Click the upgrade cards you want (one per slot); picked cards are highlighted. Click again to unpick.
-- The plan on the right lists your picks grouped by where to get them, following your leveling path: each zone in order, then other places and dungeons, then things to buy and to craft. Quests show their next step, who gives it and the chain progress; drops and vendors show who and where.
+- Click the upgrade cards you want, as many as you like; picked cards are highlighted. Click again to unpick.
+- The plan on the right, under your leveling path, lists your picks grouped by where to get them: things to craft first, then each zone of your path in order with its dungeons, then other places, then things to buy. Quests show their next step, who gives it and the chain progress; drops and vendors show who and where.
 - Refresh drops picks you've equipped or outgrown.
 
 **Crafting**

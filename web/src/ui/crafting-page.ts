@@ -9,6 +9,7 @@ import { inventoryStatusText, questieStatusText, readWowFolder, tsmStatusText } 
 import { placeForSource } from "../map-popover.ts";
 import { WOWHEAD_URL } from "../prices.ts";
 import { selectedCharacter, setStatus, state } from "../state.ts";
+import { slotPicks } from "./gear-plan.ts";
 import type { PlanPick } from "./gear-plan.ts";
 import { WOW_FOLDER } from "../wow-folder.ts";
 
@@ -543,7 +544,10 @@ function entriesFromPlan(): CraftingEntry[] {
   if (character === null) {
     return [];
   }
-  const picks = Object.values((character.plan || {}) as Record<string, PlanPick>);
+  const plan = (character.plan || {}) as Record<string, PlanPick[] | PlanPick>;
+  const picks = Object.keys(plan).flatMap(function picksOf(slotKey) {
+    return slotPicks(plan, slotKey);
+  });
   return picks.filter(function hasRecipe(pick) {
     return crafting.recipesByItem.has(pick.itemId);
   }).map(function entryOf(pick) {
