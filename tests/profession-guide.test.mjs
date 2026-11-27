@@ -107,3 +107,21 @@ test("stops where no recipe gives skill", () => {
   const guide = buildGuide("Tailoring", 1, 40, []);
   assert.equal(guide.stuckAt, 20);
 });
+
+test("adds up materials across steps and lists the dearest first", async () => {
+  const { sumMaterials } = await import("../web/src/profession-guide.ts");
+  function unitCost(itemId) {
+    return { [LINEN]: 10, [WOOL]: 30 }[itemId];
+  }
+  function isCrafted(itemId) {
+    return itemId === WOOL;
+  }
+  const steps = [
+    { reagents: [[LINEN, 2]], crafts: 5 },
+    { reagents: [[LINEN, 1], [WOOL, 1]], crafts: 3 }
+  ];
+  assert.deepEqual(sumMaterials(steps, { unitCost: unitCost, isCrafted: isCrafted }), [
+    { itemId: LINEN, quantity: 13, cost: 130, craft: false },
+    { itemId: WOOL, quantity: 3, cost: 90, craft: true }
+  ]);
+});

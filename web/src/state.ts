@@ -147,3 +147,29 @@ export function findCharacter(slug: string | null): Character | null {
 export function selectedCharacter(): Character | null {
   return findCharacter(state.settings.selectedCharacterSlug);
 }
+
+export type SnapshotProfession = Snapshot["professions"][number];
+
+export function snapshotOf(character: Character | null): Snapshot | null {
+  if (character === null) {
+    return null;
+  }
+  return state.snapshots[character.slug] || null;
+}
+
+export function professionOf(snapshot: Snapshot | null, name: string | undefined): SnapshotProfession | null {
+  if (snapshot === null) {
+    return null;
+  }
+  for (const profession of snapshot.professions) {
+    if (profession.name === name) {
+      return profession;
+    }
+  }
+  return null;
+}
+
+export function knowsRecipe(snapshot: Snapshot | null, professionName: string | undefined, recipeId: number | undefined): boolean {
+  const profession = professionOf(snapshot, professionName);
+  return profession !== null && recipeId !== undefined && (profession.recipeIds || []).indexOf(recipeId) !== -1;
+}

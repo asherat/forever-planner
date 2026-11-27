@@ -37,3 +37,16 @@ test("settings stay deeply reactive, so edits in place update what reads them", 
   assert.equal(hiddenCount.value, 1);
   assert.equal(character.slug, state.settings.characters[0].slug);
 });
+
+test("answers profession questions about a character's snapshot", async () => {
+  const { knowsRecipe, professionOf, snapshotOf } = await import("../web/src/state.ts");
+  const { character, snapshot } = resetPlanner();
+  snapshot.professions = [{ name: "Tailoring", skillPoints: 120, recipeIds: [2359] }];
+  assert.deepEqual(snapshotOf(character), snapshot);
+  assert.equal(snapshotOf(null), null);
+  assert.equal(professionOf(snapshot, "Tailoring").skillPoints, 120);
+  assert.equal(professionOf(snapshot, "Alchemy"), null);
+  assert.equal(knowsRecipe(snapshot, "Tailoring", 2359), true);
+  assert.equal(knowsRecipe(snapshot, "Tailoring", 1), false);
+  assert.equal(knowsRecipe(snapshot, "Alchemy", 2359), false);
+});
