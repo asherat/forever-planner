@@ -8,7 +8,7 @@ A gear, leveling and crafting planner for **WoW: Forever** characters. It exists
 
 Its users are an experienced player and a brand-new player, so **simplicity beats configurability**:
 
-- No stat-weight knobs. Weights come from spec presets plus a single Questing / Dungeons choice. Questing on a PvP-ruleset character uses survival-heavy (stamina, armor) multipliers automatically, read from the profile's ruleset; dungeons are PvE everywhere.
+- No stat-weight knobs. Weights come from spec presets plus a single Questing / Dungeons choice. Questing halves hit and expertise (same-level mobs need far less hit than the bosses the presets are tuned for). Questing on a PvP-ruleset character, read from the profile, also gives Stamina at least 60% of the spec's main-stat weight; dungeons use the presets as they are.
 - Specs are detected from talents. Main/off spec is one selector, plus cat/bear for feral druids.
 - Every UI choice should be something a new player understands without reading docs.
 - Suggestions must be things you can actually get: right faction and class, a known source, reputation within reach, quests not yet completed, a zone on your path.
@@ -62,7 +62,9 @@ Battle.net Forever namespaces are `static-forever-{region}`, `profile-forever-{r
 - **Quest chains are prerequisite trees, not lines.** The quest list shows every quest whose prerequisites are done (`QUESTIE.availableSteps`), never a single "step N of M". Battle.net can't see the quest log, so completed quests are the only progress signal.
 - **Refresh prunes the lists:** quest entries whose reward quest is completed or whose item is equipped, and crafting list items that are equipped.
 - **Every slot pairs a best upgrade with a quicker option you can reach now.** Rings and trinkets are paired so both picks never come from the same quest.
-- **Weapon DPS counts for feral druids.** In Forever, Cat and Bear form attacks use the weapon's DPS (speed doesn't matter), unlike Classic. One DPS is worth 14 attack power, so the feral presets weigh it at 14 times their attack power weight.
+- **Stat weights come from the Forever simulator, wowsims/forever** (`ui/specs/*/presets.ts` and `ui/specs/druid/feral_ep.ts`, taken at commit 510f0a8). Each preset is the sim's weights scaled so one unit is 1 attack power, spell power, healing or stamina, and that unit is shown on the gain badge. Weapon DPS is weighed per slot: main hand, off hand and ranged. Never use Classic assumptions; in Forever, for example, feral form attacks use weapon DPS.
+  - Taken directly: cat and bear, Arms, Fury, Prot warrior, the three rogue specs, Ret ("Unsealed Wrath"), Enhancement, Elemental, Shadow, Holy and Disc priest ("single target"), Balance, hunters (BM and MM use "Turret", Survival uses "Melee").
+  - Borrowed, because the sim has no weights for them: Holy paladin, Resto druid and Resto shaman use the Holy priest weights; Prot paladin uses Prot warrior's; mages and warlocks use Balance's caster weights with their own school damage, plus Elemental's Spell Piercing weight for warlocks (Method's Forever guides rank it high for them). Replace these when the sim adds those specs.
 - **Random-suffix items are scored as their best suffix for the selected spec.** The card names that suffix and links to it on Wowhead. Suffix stats come from the game files (`ItemXBonusTree` → `ItemBonus`, scaled by `RandPropPoints`); the roll chances are not in them, so none are shown.
 - **Upgrade cards show only sources, the region-average AH price and the crafted price.** Recipe knowledge belongs in the crafting tool.
 - **The crafting tool does not persist its items.** The crafting list on the gear page feeds it through "Craft all".
