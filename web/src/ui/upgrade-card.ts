@@ -145,6 +145,23 @@ function slotSubtitle(slotLabel: string, item: Item): string {
   return slotLabel;
 }
 
+export function itemTooltip(item: Item, slotLabel: string): Tooltip {
+  const lines: TooltipLine[] = [];
+  if (item.weapon) {
+    lines.push({ className: "", text: item.weapon.damagePerSecond.toFixed(1) + " damage per second" });
+  }
+  for (const statKey of Object.keys(item.stats || {})) {
+    lines.push({ className: "", text: "+" + item.stats[statKey] + " " + statLabel(statKey) });
+  }
+  for (const effect of item.effects || []) {
+    lines.push({ className: "tooltip-effect", text: effect });
+  }
+  for (const enchantment of item.enchantments || []) {
+    lines.push({ className: "tooltip-enchant", text: enchantment });
+  }
+  return { title: item.name, titleClass: qualityClass(item.quality), subtitle: slotSubtitle(slotLabel, item), lines: lines };
+}
+
 export function comparisonTooltip(slotDefinition: SlotDefinition, snapshot: Snapshot, character: Character, candidate: Candidate): Tooltip {
   const upgradeItem = candidate.item;
   let subtitle = slotSubtitle(slotDefinition.label, upgradeItem);

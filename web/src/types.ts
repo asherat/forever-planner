@@ -40,6 +40,7 @@ export interface Item {
   armor?: number;
   stats: Stats;
   effects: string[];
+  enchantments?: string[];
   weapon?: WeaponStats;
   classes?: string[];
   faction?: string;
