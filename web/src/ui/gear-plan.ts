@@ -1,9 +1,9 @@
 import "../legacy.ts";
 import { dungeonForArea, isRouteActive, routeLegs } from "../route.ts";
-import { characterWeights, comparisonBaseline, itemScore, itemWithSuffix, slotDefinitionByKey, slotItemTypes } from "../scoring.ts";
+import { activeSpec, comparisonBaseline, itemScore, itemWithSuffix, slotDefinitionByKey, slotItemTypes, weightsForSpec } from "../scoring.ts";
 import { averageMaterialCost, averagePrice, equippedItemIds, firstCraftSource, isBuyableOnAuctionHouse, itemById, obtainableSources } from "../sources.ts";
 import { STORAGE_KEYS, readStorage, saveSettings, selectedCharacter, state } from "../state.ts";
-import type { Character, CraftSource, Item, ItemSource, RouteLeg, Snapshot } from "../types.ts";
+import type { Character, CraftSource, Item, ItemSource, RouteLeg, Snapshot, Weights } from "../types.ts";
 import { routeAvailability } from "../upgrades.ts";
 
 export interface PlanPick {
@@ -48,11 +48,37 @@ const DUNGEON_AFTER_ZONE = 0.5;
 
 type StoredPlan = Record<string, PlanPick[] | PlanPick>;
 
-export function characterPlan(character: Character): Record<string, PlanPick[]> {
-  if (!character.plan) {
-    character.plan = {};
+type SpecPlans = Record<string, Record<string, PlanPick[]>>;
+
+function planSpec(character: Character): string | null {
+  if (!state.snapshots[character.slug]) {
+    return null;
   }
-  return character.plan as Record<string, PlanPick[]>;
+  return activeSpec(character);
+}
+
+function specPlans(character: Character): SpecPlans {
+  return (character.plans || {}) as SpecPlans;
+}
+
+export function characterPlan(character: Character): Record<string, PlanPick[]> {
+  const specKey = planSpec(character);
+  if (specKey === null) {
+    return {};
+  }
+  return specPlans(character)[specKey] || {};
+}
+
+function editablePlan(character: Character): Record<string, PlanPick[]> {
+  const specKey = planSpec(character) as string;
+  if (!character.plans) {
+    character.plans = {};
+  }
+  const plans = character.plans as SpecPlans;
+  if (!plans[specKey]) {
+    plans[specKey] = {};
+  }
+  return plans[specKey];
 }
 
 export function slotPicks(plan: StoredPlan, slotKey: string): PlanPick[] {
@@ -110,7 +136,7 @@ export function togglePick(slotKey: string, item: Item): void {
   if (character === null) {
     return;
   }
-  const plan = characterPlan(character);
+  const plan = editablePlan(character);
   const picks = slotPicks(plan, slotKey);
   if (isPicked(character, slotKey, item)) {
     setSlotPicks(plan, slotKey, withoutItem(picks, item));
@@ -125,7 +151,7 @@ export function removePick(slotKey: string, item: Item): void {
   if (character === null) {
     return;
   }
-  const plan = characterPlan(character);
+  const plan = editablePlan(character);
   setSlotPicks(plan, slotKey, withoutItem(slotPicks(plan, slotKey), item));
   saveSettings();
 }
@@ -357,30 +383,33 @@ export function craftAllHref(itemIds: number[]): string {
   }).join(",");
 }
 
-function isStillAnUpgrade(slotKey: string, item: Item, character: Character, snapshot: Snapshot): boolean {
+function isStillAnUpgrade(slotKey: string, item: Item, weights: Weights, snapshot: Snapshot): boolean {
   const slotDefinition = slotDefinitionByKey(slotKey);
   if (slotDefinition === null) {
     return false;
   }
-  const weights = characterWeights(character);
   return itemScore(item, weights, slotKey) > comparisonBaseline(slotDefinition, snapshot, item, weights);
 }
 
 export function pruneGearPlan(character: Character, snapshot: Snapshot): string[] {
-  const plan = characterPlan(character);
+  const plans = specPlans(character);
   const equipped = equippedItemIds(snapshot);
   const removedNames: string[] = [];
-  for (const slotKey of Object.keys(plan)) {
-    const kept: PlanPick[] = [];
-    for (const pick of slotPicks(plan, slotKey)) {
-      const item = pickedItem(pick);
-      if (item !== null && !equipped.has(item.id) && isStillAnUpgrade(slotKey, item, character, snapshot)) {
-        kept.push(pick);
-      } else if (item !== null) {
-        removedNames.push(item.name);
+  for (const specKey of Object.keys(plans)) {
+    const plan = plans[specKey];
+    const weights = weightsForSpec(character, specKey);
+    for (const slotKey of Object.keys(plan)) {
+      const kept: PlanPick[] = [];
+      for (const pick of slotPicks(plan, slotKey)) {
+        const item = pickedItem(pick);
+        if (item !== null && !equipped.has(item.id) && isStillAnUpgrade(slotKey, item, weights, snapshot)) {
+          kept.push(pick);
+        } else if (item !== null && removedNames.indexOf(item.name) === -1) {
+          removedNames.push(item.name);
+        }
       }
+      setSlotPicks(plan, slotKey, kept);
     }
-    setSlotPicks(plan, slotKey, kept);
   }
   saveSettings();
   return removedNames;
@@ -396,7 +425,7 @@ function slotFor(item: Item, snapshot: Snapshot): string | null {
 }
 
 function addOldEntries(character: Character, snapshot: Snapshot, itemIds: number[]): void {
-  const plan = characterPlan(character);
+  const plan = editablePlan(character);
   for (const itemId of itemIds) {
     const item = itemById(itemId);
     if (item === null) {
@@ -409,26 +438,29 @@ function addOldEntries(character: Character, snapshot: Snapshot, itemIds: number
   }
 }
 
-function listEveryPlanSlot(character: Character): boolean {
-  const plan = (character.plan || {}) as StoredPlan;
-  let changed = false;
-  for (const slotKey of Object.keys(plan)) {
-    if (!Array.isArray(plan[slotKey])) {
-      plan[slotKey] = slotPicks(plan, slotKey);
-      changed = true;
+function moveSharedPlanToSpec(character: Character): boolean {
+  if (!character.plan || !state.snapshots[character.slug]) {
+    return false;
+  }
+  const shared = character.plan as StoredPlan;
+  const plan = editablePlan(character);
+  for (const slotKey of Object.keys(shared)) {
+    if (!plan[slotKey]) {
+      plan[slotKey] = slotPicks(shared, slotKey);
     }
   }
-  return changed;
+  delete character.plan;
+  return true;
 }
 
 export function moveOldListsIntoPlans(): void {
   let changed = false;
   const cart = readStorage<{ itemId: number }[]>(STORAGE_KEYS.craftingCart, []);
   for (const character of state.settings.characters) {
-    changed = listEveryPlanSlot(character) || changed;
+    changed = moveSharedPlanToSpec(character) || changed;
     const snapshot = state.snapshots[character.slug];
     const questList = (character.questList || []) as { itemId: number }[];
-    if (character.plan || !snapshot) {
+    if (character.plans || !snapshot) {
       continue;
     }
     const itemIds = questList.map(function itemOf(entry) {
