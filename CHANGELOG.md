@@ -2,6 +2,11 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.39.0 — 2026-11-27
+
+- A "Dungeons" list in the leveling path: add any of the 28 WoW Forever dungeons, on your path or not. Its boss drops count from the level its quests need (or Icy Veins' range without Questie), and its quests too when "Include its quests" is ticked.
+- A zone's "Include …" checkbox now adds or removes its dungeons in that same list, so the two always match. Dungeons you'd already ticked move into the list.
+
 ## v0.38.0 — 2026-11-27
 
 - Removed zones leave their levels empty in your path until you choose what to do, even after removing several zones or reloading. Each empty stretch asks where to level instead, and the path no longer says it reaches level 60 while levels are empty.

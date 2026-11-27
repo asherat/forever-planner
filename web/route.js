@@ -30,7 +30,94 @@ function characterRoute(character) {
   if (!character.route) {
     character.route = { startLevel: null, legs: [] };
   }
+  if (!character.route.dungeons) {
+    character.route.dungeons = [];
+    moveIncludedDungeonsToList(character.route);
+  }
   return character.route;
+}
+
+function moveIncludedDungeonsToList(route) {
+  for (const leg of route.legs) {
+    if (leg.dungeons) {
+      for (const dungeonName of dungeonNames(guideZone(leg.zone))) {
+        addDungeon(route, dungeonName);
+      }
+    }
+    delete leg.dungeons;
+  }
+}
+
+function dungeonByName(dungeonName) {
+  for (const dungeon of window.FOREVER_DUNGEONS) {
+    if (dungeon.name === dungeonName) {
+      return dungeon;
+    }
+  }
+  return null;
+}
+
+function dungeonForArea(areaName) {
+  for (const dungeon of window.FOREVER_DUNGEONS) {
+    if (dungeon.areas.indexOf(areaName) !== -1) {
+      return dungeon;
+    }
+  }
+  return null;
+}
+
+function chosenDungeon(route, dungeonName) {
+  for (const chosen of route.dungeons) {
+    if (chosen.name === dungeonName) {
+      return chosen;
+    }
+  }
+  return null;
+}
+
+function addDungeon(route, dungeonName) {
+  if (chosenDungeon(route, dungeonName) === null) {
+    route.dungeons.push({ name: dungeonName, quests: true });
+  }
+}
+
+function removeDungeon(route, dungeonName) {
+  route.dungeons = route.dungeons.filter(function isOtherDungeon(chosen) {
+    return chosen.name !== dungeonName;
+  });
+}
+
+function dungeonStartLevel(dungeon, snapshot) {
+  let level = 0;
+  for (const questId of dungeon.questIds) {
+    const quest = questieQuest(questId);
+    if (quest !== null && quest.requiredLevel > level && isQuestForCharacter(questId, snapshot)) {
+      level = quest.requiredLevel;
+    }
+  }
+  if (level === 0) {
+    return dungeon.minLevel;
+  }
+  return level;
+}
+
+function zoneDungeonsChosen(route, zone) {
+  for (const dungeonName of dungeonNames(zone)) {
+    if (chosenDungeon(route, dungeonName) === null) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function setZoneDungeons(route, zone, included) {
+  for (const dungeonName of dungeonNames(zone)) {
+    if (included) {
+      addDungeon(route, dungeonName);
+    } else {
+      removeDungeon(route, dungeonName);
+    }
+  }
 }
 
 function routeLegs(character, snapshot) {
@@ -42,7 +129,7 @@ function routeLegs(character, snapshot) {
     if (toLevel <= level) {
       toLevel = level + 1;
     }
-    legs.push({ zone: leg.zone, fromLevel: level, toLevel: toLevel, dungeons: Boolean(leg.dungeons), removedZones: leg.removedZones || [] });
+    legs.push({ zone: leg.zone, fromLevel: level, toLevel: toLevel, removedZones: leg.removedZones || [] });
     level = toLevel;
   }
   return legs;
@@ -90,22 +177,24 @@ function addLeg(character, snapshot, zoneName, toLevel) {
   if (route.legs.length === 0) {
     route.startLevel = snapshot.level;
   }
-  route.legs.push({ zone: zoneName, toLevel: toLevel, dungeons: false });
+  route.legs.push({ zone: zoneName, toLevel: toLevel });
 }
 
-function legForZone(character, snapshot, zoneName) {
+function legForSource(character, snapshot, source) {
   for (const leg of routeLegs(character, snapshot)) {
-    if (leg.zone === zoneName) {
+    if (leg.zone === source.zone) {
       return leg;
     }
-    if (leg.dungeons) {
-      const zone = guideZone(leg.zone);
-      if (zone !== null && zoneHasDungeon(zone, zoneName)) {
-        return leg;
-      }
-    }
   }
-  return null;
+  const dungeon = dungeonForArea(source.zone);
+  if (dungeon === null) {
+    return null;
+  }
+  const chosen = chosenDungeon(characterRoute(character), dungeon.name);
+  if (chosen === null || (source.type === "quest" && !chosen.quests)) {
+    return null;
+  }
+  return { zone: dungeon.name, fromLevel: dungeonStartLevel(dungeon, snapshot), toLevel: MAX_CHARACTER_LEVEL, dungeon: true };
 }
 
 function isRouteActive(character) {
@@ -152,6 +241,9 @@ function zoneHasDungeon(zone, dungeonName) {
 
 function dungeonNames(zone) {
   const names = [];
+  if (zone === null) {
+    return names;
+  }
   for (const dungeon of zone.dungeons || []) {
     names.push(dungeon.name);
   }
@@ -159,10 +251,11 @@ function dungeonNames(zone) {
 }
 
 function dungeonLabel(dungeon) {
-  if (dungeon.minLevel && dungeon.maxLevel) {
-    return dungeon.name + " (" + dungeon.minLevel + "–" + dungeon.maxLevel + ")";
+  const known = dungeonByName(dungeon.name);
+  if (known === null) {
+    return dungeon.name;
   }
-  return dungeon.name;
+  return known.name + " (" + known.minLevel + "–" + known.maxLevel + ")";
 }
 
 function setZoneMapTarget(element, zone) {
@@ -202,7 +295,7 @@ function renderZoneChoice(zone, label) {
   return button;
 }
 
-function renderLeg(leg, index, snapshot) {
+function renderLeg(leg, index, snapshot, route) {
   const zone = guideZone(leg.zone);
   let tier = "C";
   if (zone !== null) {
@@ -252,8 +345,8 @@ function renderLeg(leg, index, snapshot) {
     const dungeonLine = createElement("label", "checkbox-line route-dungeons");
     const checkbox = createElement("input");
     checkbox.type = "checkbox";
-    checkbox.checked = leg.dungeons;
-    checkbox.dataset.legDungeons = String(index);
+    checkbox.checked = zoneDungeonsChosen(route, zone);
+    checkbox.dataset.zoneDungeons = leg.zone;
     dungeonLine.appendChild(checkbox);
     dungeonLine.append(" Include " + dungeonNames(zone).join(", "));
     item.appendChild(dungeonLine);
@@ -297,6 +390,75 @@ function renderGapResolver(character, snapshot, container) {
 function renderRoutePanel(character, snapshot) {
   const container = document.getElementById("route-content");
   container.replaceChildren();
+  renderPathEditor(character, snapshot, container);
+  container.appendChild(renderDungeonList(character, snapshot));
+}
+
+function dungeonZoneOnPath(character, snapshot, dungeonName) {
+  for (const leg of routeLegs(character, snapshot)) {
+    if (leg.zone !== null && dungeonNames(guideZone(leg.zone)).indexOf(dungeonName) !== -1) {
+      return leg.zone;
+    }
+  }
+  return null;
+}
+
+function renderChosenDungeon(character, snapshot, chosen) {
+  const dungeon = dungeonByName(chosen.name);
+  const item = createElement("li", "route-dungeon");
+  const header = createElement("div", "route-leg-header");
+  header.appendChild(createElement("span", "route-leg-zone", chosen.name));
+  const removeButton = createElement("button", "link route-remove", "Remove");
+  removeButton.type = "button";
+  removeButton.dataset.removeDungeon = chosen.name;
+  header.appendChild(removeButton);
+  item.appendChild(header);
+  let detail = "From level " + dungeonStartLevel(dungeon, snapshot);
+  const pathZone = dungeonZoneOnPath(character, snapshot, chosen.name);
+  if (pathZone !== null) {
+    detail += " · on your path: " + pathZone;
+  }
+  item.appendChild(createElement("div", "route-leg-levels", detail));
+  const questLine = createElement("label", "checkbox-line");
+  const checkbox = createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.checked = chosen.quests;
+  checkbox.dataset.dungeonQuests = chosen.name;
+  questLine.appendChild(checkbox);
+  questLine.append(" Include its quests");
+  item.appendChild(questLine);
+  return item;
+}
+
+function renderDungeonList(character, snapshot) {
+  const route = characterRoute(character);
+  const section = createElement("div", "route-dungeon-section");
+  section.appendChild(createElement("h3", "route-question", "Dungeons"));
+  if (route.dungeons.length > 0) {
+    const list = createElement("ul", "route-legs");
+    for (const chosen of route.dungeons) {
+      if (dungeonByName(chosen.name) !== null) {
+        list.appendChild(renderChosenDungeon(character, snapshot, chosen));
+      }
+    }
+    section.appendChild(list);
+  }
+  const select = createElement("select", "route-add-dungeon");
+  select.dataset.addDungeon = "true";
+  select.setAttribute("aria-label", "Add a dungeon");
+  select.appendChild(createElement("option", null, "Add a dungeon…"));
+  for (const dungeon of window.FOREVER_DUNGEONS) {
+    if (chosenDungeon(route, dungeon.name) === null) {
+      const option = createElement("option", null, dungeon.name + " (" + dungeon.minLevel + "–" + dungeon.maxLevel + ")");
+      option.value = dungeon.name;
+      select.appendChild(option);
+    }
+  }
+  section.appendChild(select);
+  return section;
+}
+
+function renderPathEditor(character, snapshot, container) {
   const legs = routeLegs(character, snapshot);
   if (legs.length > 0) {
     const list = createElement("ol", "route-legs");
@@ -304,7 +466,7 @@ function renderRoutePanel(character, snapshot) {
       if (legs[index].zone === null) {
         list.appendChild(renderEmptyLevels(legs[index], index, legs[index + 1].zone, snapshot));
       } else {
-        list.appendChild(renderLeg(legs[index], index, snapshot));
+        list.appendChild(renderLeg(legs[index], index, snapshot, characterRoute(character)));
       }
     }
     container.appendChild(list);
@@ -413,7 +575,7 @@ function removeLeg(character, index) {
 
 function fillEmptyLevels(character, index, zoneName) {
   const route = characterRoute(character);
-  route.legs[index] = { zone: zoneName, toLevel: route.legs[index].toLevel, dungeons: false };
+  route.legs[index] = { zone: zoneName, toLevel: route.legs[index].toLevel };
 }
 
 function startNextZoneEarlier(character, index) {
@@ -474,6 +636,8 @@ function handleRouteClick(event) {
     fillEmptyLevels(character, Number(target.dataset.emptyIndex), target.dataset.fillEmpty);
   } else if (target.dataset.startEarlier !== undefined) {
     startNextZoneEarlier(character, Number(target.dataset.startEarlier));
+  } else if (target.dataset.removeDungeon !== undefined) {
+    removeDungeon(characterRoute(character), target.dataset.removeDungeon);
   } else {
     return;
   }
@@ -490,8 +654,12 @@ function handleRouteChange(event) {
   const snapshot = state.snapshots[character.slug];
   if (target.dataset.legEnd !== undefined) {
     updateLegEnd(character, snapshot, Number(target.dataset.legEnd), target.value);
-  } else if (target.dataset.legDungeons !== undefined) {
-    characterRoute(character).legs[Number(target.dataset.legDungeons)].dungeons = target.checked;
+  } else if (target.dataset.zoneDungeons !== undefined) {
+    setZoneDungeons(characterRoute(character), guideZone(target.dataset.zoneDungeons), target.checked);
+  } else if (target.dataset.addDungeon !== undefined && target.value) {
+    addDungeon(characterRoute(character), target.value);
+  } else if (target.dataset.dungeonQuests !== undefined) {
+    chosenDungeon(characterRoute(character), target.dataset.dungeonQuests).quests = target.checked;
   } else {
     return;
   }

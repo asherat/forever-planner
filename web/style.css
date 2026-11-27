@@ -1135,6 +1135,30 @@ legend {
   gap: 4px;
 }
 
+.route-dungeon-section {
+  display: grid;
+  gap: 6px;
+  margin-top: 16px;
+}
+
+.route-dungeon {
+  border-left: 4px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 8px;
+  background: var(--surface-raised);
+  display: grid;
+  gap: 4px;
+}
+
+.route-add-dungeon {
+  padding: 6px 8px;
+  font: inherit;
+  color: var(--fg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
 .route-leg-current {
   box-shadow: 0 0 0 1px var(--tier);
 }
