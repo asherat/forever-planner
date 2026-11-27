@@ -1,6 +1,6 @@
 import "./legacy.ts";
 import type { CraftingEntry, Plan, PlanMode, Recipe } from "./crafting-plan.ts";
-import { MAX_RECIPE_DEPTH, buyOffer, clearMarketCache, collectNodes, createStockPool, isCheaperToCraft, marketCost, planEntries } from "./crafting-plan.ts";
+import { MAX_RECIPE_DEPTH, buyOffer, cheapestRecipeFor, clearMarketCache, collectNodes, createStockPool, isCheaperToCraft, marketCost, planEntries } from "./crafting-plan.ts";
 
 export type RecipeLevels = [number, number, number, number];
 export type RecipeColor = "orange" | "yellow" | "green" | "grey";
@@ -122,10 +122,25 @@ export function professionRecipes(profession: string): Recipe[] {
   });
 }
 
-function craftCost(recipe: Recipe): number | null {
+export type CraftCheck = (recipe: Recipe) => boolean;
+
+function isBoughtInstead(itemId: number, canCraft: CraftCheck): boolean {
+  const recipe = cheapestRecipeFor(itemId);
+  return isCheaperToCraft(itemId) && recipe !== null && !canCraft(recipe) && buyOffer(itemId) !== null;
+}
+
+function materialCost(itemId: number, canCraft: CraftCheck): number | null {
+  const offer = buyOffer(itemId);
+  if (offer !== null && isBoughtInstead(itemId, canCraft)) {
+    return offer.price;
+  }
+  return marketCost(itemId);
+}
+
+function craftCost(recipe: Recipe, canCraft: CraftCheck): number | null {
   let total = 0;
   for (const reagent of recipe.reagents) {
-    const unit = marketCost(reagent[0]);
+    const unit = materialCost(reagent[0], canCraft);
     if (unit === null) {
       return null;
     }
@@ -145,11 +160,11 @@ function learnCost(recipe: Recipe): number | null {
   return offer.price;
 }
 
-function candidatesFor(profession: string, knownRecipeIds: number[]): Candidate[] {
+function candidatesFor(profession: string, knownRecipeIds: number[], canCraft: CraftCheck): Candidate[] {
   const candidates: Candidate[] = [];
   for (const recipe of professionRecipes(profession)) {
     const isKnown = knownRecipeIds.indexOf(recipe.id) !== -1;
-    const unitCost = craftCost(recipe);
+    const unitCost = craftCost(recipe, canCraft);
     let learning: number | null = 0;
     if (!isKnown) {
       learning = learnCost(recipe);
@@ -214,11 +229,15 @@ export function sumMaterials(steps: GuideStep[], pricing: MaterialPricing): Guid
   return Array.from(materials.values()).sort(compareByCost);
 }
 
-function marketUnitCost(itemId: number): number {
-  return marketCost(itemId) || 0;
+function marketPricing(canCraft: CraftCheck): MaterialPricing {
+  function unitCost(itemId: number): number {
+    return materialCost(itemId, canCraft) || 0;
+  }
+  function isCrafted(itemId: number): boolean {
+    return isCheaperToCraft(itemId) && !isBoughtInstead(itemId, canCraft);
+  }
+  return { unitCost: unitCost, isCrafted: isCrafted };
 }
-
-const MARKET_PRICING: MaterialPricing = { unitCost: marketUnitCost, isCrafted: isCheaperToCraft };
 
 function finishStep(step: GuideStep, expectedCrafts: number): GuideStep {
   step.crafts = Math.ceil(expectedCrafts - 0.0001);
@@ -230,9 +249,9 @@ function compareByCost(first: GuideMaterial, second: GuideMaterial): number {
   return second.cost - first.cost;
 }
 
-export function buildGuide(profession: string, from: number, to: number, knownRecipeIds: number[]): Guide {
+export function buildGuide(profession: string, from: number, to: number, knownRecipeIds: number[], canCraft: CraftCheck): Guide {
   clearMarketCache();
-  const candidates = candidatesFor(profession, knownRecipeIds);
+  const candidates = candidatesFor(profession, knownRecipeIds, canCraft);
   const learned = new Set<number>();
   const guide: Guide = { profession: profession, from: from, to: to, steps: [], lessons: [], materials: [], total: 0, stuckAt: null };
   let step: GuideStep | null = null;
@@ -268,8 +287,35 @@ export function buildGuide(profession: string, from: number, to: number, knownRe
   for (const lesson of guide.lessons) {
     guide.total += lesson.cost;
   }
-  guide.materials = sumMaterials(guide.steps, MARKET_PRICING);
+  guide.materials = sumMaterials(guide.steps, marketPricing(canCraft));
   return guide;
+}
+
+export const COMPARED_SKILLS = [150, 225, 300];
+
+function costUpTo(guide: Guide, skill: number): number {
+  let total = 0;
+  for (const step of guide.steps) {
+    if (step.to <= skill) {
+      total += step.cost;
+    }
+  }
+  for (const lesson of guide.lessons) {
+    if (lesson.learnAt < skill) {
+      total += lesson.cost;
+    }
+  }
+  return total;
+}
+
+export function levelingCosts(profession: string, canCraft: CraftCheck): (number | null)[] {
+  const guide = buildGuide(profession, 1, COMPARED_SKILLS[COMPARED_SKILLS.length - 1], [], canCraft);
+  return COMPARED_SKILLS.map(function costTo(skill) {
+    if (guide.stuckAt !== null && guide.stuckAt < skill) {
+      return null;
+    }
+    return costUpTo(guide, skill);
+  });
 }
 
 function stepEntries(step: GuideStep): CraftingEntry[] {
@@ -285,7 +331,7 @@ function planSteps(steps: GuideStep[], overrides: Record<string, PlanMode>): Pla
   });
 }
 
-function itemsToBuyInstead(planned: Plan[][], canCraft: (recipe: Recipe) => boolean, overrides: Record<string, PlanMode>): number[] {
+function itemsToBuyInstead(planned: Plan[][], canCraft: CraftCheck, overrides: Record<string, PlanMode>): number[] {
   const itemIds: number[] = [];
   for (const plans of planned) {
     for (const plan of plans) {
@@ -299,7 +345,7 @@ function itemsToBuyInstead(planned: Plan[][], canCraft: (recipe: Recipe) => bool
   return itemIds;
 }
 
-export function planStepMaterials(steps: GuideStep[], canCraft: (recipe: Recipe) => boolean): Plan[][] {
+export function planStepMaterials(steps: GuideStep[], canCraft: CraftCheck): Plan[][] {
   clearMarketCache();
   const overrides: Record<string, PlanMode> = {};
   let planned = planSteps(steps, overrides);

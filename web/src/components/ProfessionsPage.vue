@@ -3,10 +3,11 @@ import { computed } from "vue";
 import "../legacy.ts";
 import { connectFolder, dataStatusText } from "../ui/folder-controls.ts";
 import { saveSettings, selectedCharacter, state } from "../state.ts";
-import { MAX_SKILL, characterSkill, chooseProfession, costStillToBuy, discardGuide, guideForm, guideSummary, makeGuide, professionChoices, savedGuide, shoppingRows, skillLine, stageRows, startGuidePage, toggleBought, toggleStageBought, toggleStep } from "../ui/profession-page.ts";
+import { MAX_SKILL, characterSkill, chooseProfession, compareProfessions, comparisonRows, costStillToBuy, discardGuide, guideForm, guideSummary, makeGuide, professionChoices, savedGuide, shoppingRows, skillLine, stageRows, startGuidePage, toggleBought, toggleStageBought, toggleStep } from "../ui/profession-page.ts";
 import type { StageRow } from "../ui/profession-page.ts";
 import CraftingItemLabel from "./CraftingItemLabel.vue";
 import MoneyAmount from "./MoneyAmount.vue";
+import ProfessionComparison from "./ProfessionComparison.vue";
 import ProfessionGuideStage from "./ProfessionGuideStage.vue";
 
 const status = computed(function dataStatus() {
@@ -48,6 +49,14 @@ const makeLabel = computed(function makeButtonLabel() {
     return "Make a new plan";
   }
   return "Make a plan";
+});
+
+const comparedRows = computed(function comparedRowsView() {
+  return comparisonRows(selectedCharacter());
+});
+
+const hasComparison = computed(function anyComparison() {
+  return comparedRows.value.length > 0;
 });
 
 const stages = computed(function stagesView() {
@@ -104,6 +113,10 @@ function stageToggled(stage: StageRow): void {
   }
 }
 
+function comparedChosen(profession: string): void {
+  chooseProfession(profession);
+}
+
 function discard(): void {
   discardGuide(guideForm.profession);
 }
@@ -133,8 +146,11 @@ function discard(): void {
     <label>From skill <input v-model.number="guideForm.from" type="number" min="1" :max="MAX_SKILL - 1"></label>
     <label>To skill <input v-model.number="guideForm.to" type="number" min="2" :max="MAX_SKILL"></label>
     <button type="button" class="primary" :disabled="hasNoPrices" @click="makeGuide">{{ makeLabel }}</button>
+    <button type="button" :disabled="hasNoPrices" @click="compareProfessions">Compare professions</button>
     <p class="muted guide-form-note">{{ skillText }}</p>
   </section>
+
+  <ProfessionComparison v-if="hasComparison" :rows="comparedRows" @choose="comparedChosen" />
 
   <section v-if="summary" class="crafting-layout">
     <div class="crafting-list-column">

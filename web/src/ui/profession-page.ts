@@ -1,7 +1,7 @@
 import { reactive } from "vue";
 import "../legacy.ts";
-import { SKILL_RANKS, buildGuide, planStepMaterials, professionRecipes, skillRankAt, stepName } from "../profession-guide.ts";
-import type { GuideLesson, GuideStep, SkillRank } from "../profession-guide.ts";
+import { COMPARED_SKILLS, SKILL_RANKS, buildGuide, levelingCosts, planStepMaterials, professionRecipes, skillRankAt, stepName } from "../profession-guide.ts";
+import type { CraftCheck, GuideLesson, GuideStep, SkillRank } from "../profession-guide.ts";
 import { aggregatePlans, collectNodes, craftingItem } from "../crafting-plan.ts";
 import type { Plan, Recipe, ShoppingLine, TakingLine } from "../crafting-plan.ts";
 import { takingPlaces } from "./inventory-text.ts";
@@ -12,6 +12,9 @@ import type { RecipeSourceView } from "./recipe-sources.ts";
 
 export const PROFESSIONS = ["Alchemy", "Blacksmithing", "Cooking", "Enchanting", "Engineering", "First Aid", "Leatherworking", "Tailoring"];
 export const MAX_SKILL = 300;
+const SECONDARY_PROFESSIONS = ["Cooking", "First Aid", "Fishing"];
+const PRIMARY_PROFESSION_LIMIT = 2;
+const INCOMPLETE_PROFESSIONS: Record<string, string> = { Enchanting: "Rods and oils only: enchants aren't in the data yet" };
 
 export const guideForm = reactive({ profession: "", from: 1, to: MAX_SKILL });
 
@@ -92,12 +95,7 @@ function moveBoughtItemsToStages(): void {
 
 export function startGuidePage(): void {
   moveBoughtItemsToStages();
-  const professions = characterProfessions(selectedCharacter());
-  if (professions.length > 0) {
-    chooseProfession(professions[0]);
-    return;
-  }
-  chooseProfession(PROFESSIONS[0]);
+  chooseProfession(professionChoices(selectedCharacter())[0].name);
 }
 
 export function makeGuide(): void {
@@ -107,7 +105,7 @@ export function makeGuide(): void {
   }
   const from = Math.max(1, Math.min(MAX_SKILL - 1, Math.floor(guideForm.from)));
   const to = Math.max(from + 1, Math.min(MAX_SKILL, Math.floor(guideForm.to)));
-  const guide = buildGuide(guideForm.profession, from, to, knownRecipeIds(character, guideForm.profession));
+  const guide = buildGuide(guideForm.profession, from, to, knownRecipeIds(character, guideForm.profession), canCraftFor(character, guideForm.profession));
   if (!character.professionGuides) {
     character.professionGuides = {};
   }
@@ -164,16 +162,96 @@ export interface ProfessionChoice {
   label: string;
 }
 
+function isSecondary(name: string): boolean {
+  return SECONDARY_PROFESSIONS.indexOf(name) !== -1;
+}
+
+function primaryCount(character: Character | null): number {
+  const snapshot = snapshotOf(character);
+  if (snapshot === null) {
+    return 0;
+  }
+  return snapshot.professions.filter(function isPrimary(entry) {
+    return !isSecondary(entry.name);
+  }).length;
+}
+
+function plainChoice(name: string): ProfessionChoice {
+  return { name: name, label: name };
+}
+
 export function professionChoices(character: Character | null): ProfessionChoice[] {
   const own = characterProfessions(character);
   const others = PROFESSIONS.filter(function isNotOwn(name) {
     return own.indexOf(name) === -1;
   });
+  if (primaryCount(character) >= PRIMARY_PROFESSION_LIMIT) {
+    return own.concat(others.filter(isSecondary)).map(plainChoice);
+  }
   return own.map(function ownOption(name) {
     return { name: name, label: name + " (yours)" };
-  }).concat(others.map(function otherOption(name) {
-    return { name: name, label: name };
-  }));
+  }).concat(others.map(plainChoice));
+}
+
+export interface ComparisonCell {
+  key: number;
+  copper: number;
+  hasCost: boolean;
+}
+
+export interface ComparisonRow {
+  key: string;
+  name: string;
+  note: string;
+  cells: ComparisonCell[];
+}
+
+export const comparison = reactive({ characterSlug: "", rows: [] as ComparisonRow[] });
+
+export const COMPARED_RANGES = COMPARED_SKILLS.map(function rangeOf(skill) {
+  return "1 → " + skill;
+});
+
+function comparisonRow(character: Character | null, profession: string): ComparisonRow {
+  const costs = levelingCosts(profession, canCraftFor(character, profession));
+  return {
+    key: profession,
+    name: profession,
+    note: INCOMPLETE_PROFESSIONS[profession] || "",
+    cells: costs.map(function cellOf(cost, index) {
+      return { key: COMPARED_SKILLS[index], copper: cost || 0, hasCost: cost !== null };
+    })
+  };
+}
+
+function fullCost(row: ComparisonRow): number {
+  const last = row.cells[row.cells.length - 1];
+  if (!last.hasCost) {
+    return Infinity;
+  }
+  return last.copper;
+}
+
+function compareRowsByCost(first: ComparisonRow, second: ComparisonRow): number {
+  return fullCost(first) - fullCost(second);
+}
+
+export function compareProfessions(): void {
+  const character = selectedCharacter();
+  if (character === null) {
+    return;
+  }
+  comparison.rows = professionChoices(character).map(function rowOf(choice) {
+    return comparisonRow(character, choice.name);
+  }).sort(compareRowsByCost);
+  comparison.characterSlug = character.slug;
+}
+
+export function comparisonRows(character: Character | null): ComparisonRow[] {
+  if (character === null || comparison.characterSlug !== character.slug) {
+    return [];
+  }
+  return comparison.rows;
 }
 
 export function skillLine(profession: string, skill: number | null): string {
@@ -210,7 +288,7 @@ function craftFirstText(plans: Plan[]): string {
   return "Craft first: " + parts.join(", ");
 }
 
-function canCraftFor(character: Character | null, profession: string): (recipe: Recipe) => boolean {
+function canCraftFor(character: Character | null, profession: string): CraftCheck {
   const snapshot = snapshotOf(character);
   return function canCraft(recipe: Recipe): boolean {
     return recipe.profession === profession || professionOf(snapshot, recipe.profession) !== null;
