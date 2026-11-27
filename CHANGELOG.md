@@ -2,6 +2,10 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.62.0 — 2026-11-27
+
+- Behind the scenes: the whole gear page is now one Vue page (character header and portrait included); the old page code only ranks the gear. It looks and works the same.
+
 ## v0.61.0 — 2026-11-27
 
 - Behind the scenes: the top bar (character choice, Refresh, Settings) now runs on Vue. It looks and works the same.

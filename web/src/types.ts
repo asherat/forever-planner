@@ -67,6 +67,10 @@ export interface Snapshot {
   completedQuestIds?: number[];
   professions: { name: string; recipeIds?: number[] }[];
   reputations: Record<string, number>;
+  raceName?: string;
+  faction?: string;
+  lastLogout?: number;
+  render?: string | null;
   [field: string]: unknown;
 }
 
