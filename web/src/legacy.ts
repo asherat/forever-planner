@@ -1,5 +1,5 @@
 import type { TSM } from "./tsm.ts";
-import type { Character, GameRules, GuideDungeon, GuideZone, Item, QuestieData, ReputationRequirement, Snapshot } from "./types.ts";
+import type { Character, GameRules, GuideDungeon, GuideZone, Item, ItemSource, QuestieData, ReputationRequirement, RouteLeg, Snapshot } from "./types.ts";
 import type { TsmPrices } from "./tsm.ts";
 
 declare global {
@@ -28,6 +28,8 @@ declare global {
   function preferredOffer(vendorOffer: { price: number } | null, auctionOffer: { price: number } | null): { price: number } | null;
   function guideZone(zoneName: string | undefined): GuideZone | null;
   function dungeonForArea(areaName: string | undefined): GuideDungeon | null;
+  function legsForSource(character: Character, snapshot: Snapshot, source: ItemSource): RouteLeg[];
+  function isRouteActive(character: Character): boolean;
 }
 
 export function exposeToLegacy(module: Record<string, unknown>): void {

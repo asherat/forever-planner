@@ -185,3 +185,37 @@ export interface GuideZone {
   note: string;
   dungeons?: { name: string }[];
 }
+
+export interface RouteLeg {
+  zone: string | null;
+  fromLevel: number;
+  toLevel: number;
+  dungeon?: boolean;
+  removedZones?: string[];
+}
+
+export interface Candidate {
+  item: Item;
+  availableLevel: number;
+  routeLeg: RouteLeg | null;
+  gain: number;
+}
+
+export interface UpgradeOptions {
+  slotDefinition: SlotDefinition;
+  best: Candidate;
+  quicker: Candidate | null;
+  priority: number;
+}
+
+export interface PairedUpgradeOptions {
+  group: true;
+  slotDefinition: SlotDefinition;
+  parts: UpgradeOptions[];
+  priority: number;
+}
+
+export interface BlockList {
+  names: Set<string>;
+  questIds: Set<number>;
+}

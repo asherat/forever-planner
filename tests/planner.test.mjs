@@ -147,3 +147,20 @@ test("imported settings get a sane lookahead and gold limit", () => {
   assert.deepEqual(Array.from(settings.characters[0].skippedDungeons), []);
   assert.equal(context.clampedLookahead("-3"), 3);
 });
+
+test("the quicker option prefers an easy source you can use now", () => {
+  const { context, snapshot } = loadPlanner();
+  const dropBest = { item: sampleItem({ id: 60, name: "Boss Helm" }), availableLevel: 43, routeLeg: null, gain: 30 };
+  const questHelm = { item: sampleItem({ id: 61, name: "Quest Helm", sources: [{ type: "quest", questId: 700, quest: "Helm Quest", zone: "Tanaris" }] }), availableLevel: 43, routeLeg: null, gain: 10 };
+  assert.equal(context.quickerOption(dropBest, [dropBest, questHelm], snapshot).item.name, "Quest Helm");
+  assert.equal(context.quickerOption(questHelm, [questHelm, dropBest], snapshot), null);
+});
+
+test("one quest reward can't fill both ring slots", () => {
+  const bigRing = sampleItem({ id: 70, name: "Big Ring", slot: "FINGER", itemSubclass: "Miscellaneous", stats: { AGILITY: 10 }, sources: [{ type: "quest", questId: 900, quest: "Ring Quest", zone: "Tanaris" }] });
+  const smallRing = sampleItem({ id: 71, name: "Small Ring", slot: "FINGER", itemSubclass: "Miscellaneous", stats: { AGILITY: 5 }, sources: [{ type: "quest", questId: 901, quest: "Other Quest", zone: "Tanaris" }] });
+  const { context, snapshot } = loadPlanner([bigRing, smallRing]);
+  const group = context.pairedUpgradeOptions(context.slotDefinitionByKey("FINGER_1"), snapshot, context.selectedCharacter());
+  const bests = group.parts.map(function bestName(part) { return part.best.item.name; });
+  assert.deepEqual(bests, ["Big Ring", "Small Ring"]);
+});
