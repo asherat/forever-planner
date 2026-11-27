@@ -2,6 +2,10 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.71.0 — 2026-11-27
+
+- Hover maps now show every zone fully explored, as on a discovered map in game: roads, towns and terrain instead of the blank undiscovered parchment.
+
 ## v0.70.1 — 2026-11-27
 
 - Housekeeping: removed a stray link file that v0.70.0 added to the repository by mistake.
