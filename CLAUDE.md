@@ -31,7 +31,7 @@ A static site built with Vite from `web/` and served by GitHub Pages. There is n
 
 | File | Role |
 |---|---|
-| `web/index.html`, `web/public/app.js` | Gear page rendering and events: paper doll, upgrade cards, crafting list, quest list, settings dialog |
+| `web/index.html`, `web/public/app.js` | Gear page rendering and events: paper doll, play controls, crafting list, settings dialog |
 | `web/src/scoring.ts` | Specs and weights, item scores, random-suffix variants, proficiencies, slot baselines (typed, no DOM) |
 | `web/src/types.ts` | Shared types: items, sources, snapshot, character, slots, game rules |
 | `web/src/sources.ts` | Where an item comes from: sources, quest/reputation rules, trash/container/skipped-dungeon rules, prices, gold limit (typed, no DOM; `resetSourceCaches` for tests) |
@@ -46,7 +46,7 @@ A static site built with Vite from `web/` and served by GitHub Pages. There is n
 | `web/src/questie.ts` | CBOR decoder and Questie lookups from the installed `QuestieDB_Forever.toc` (sources, quest info, chains, starters, dungeon entrances). Questie packs a record whose keys are exactly 1..n as a plain list; `asKeyedTable` reads it as fields 1..n (the old reader got those names, levels and zones wrong) |
 | `web/src/tsm.ts`, `web/public/wow-folder.js` | TSM price and inventory parsers (typed module), folder handle and file access |
 | `web/src/lua.ts` | Reader for Lua table text (TSM saved variables; Questie data next) |
-| `web/src/components/*.vue`, `web/src/ui/*.ts` | Vue components and the UI state behind them (step 4). Done: Undo line, "Not interested" list, quest list (`QuestList`, `QuestEntry`, `QuestPlace`; logic in `ui/quest-list.ts`), leveling path panel (`RoutePanel` with `RouteLeg`, `EmptyLevels`, `GapResolver`, `ZoneChoice`, `TierBadge`; hover maps come from `ui/map-target.ts`, which produces the same `data-map-*` attributes the classic map popover listens for), `ItemIcon`, `WowheadLink` |
+| `web/src/components/*.vue`, `web/src/ui/*.ts` | Vue components and the UI state behind them (step 4). Done: Undo line, "Not interested" list, quest list (`QuestList`, `QuestEntry`, `QuestPlace`; logic in `ui/quest-list.ts`), leveling path panel (`RoutePanel` with `RouteLeg`, `EmptyLevels`, `GapResolver`, `ZoneChoice`, `TierBadge`; hover maps come from `ui/map-target.ts`, which produces the same `data-map-*` attributes the classic map popover listens for), upgrade cards (`PriorityList` → `PriorityEntry` → `UpgradeCard` with `SourceLine`, `ComparisonTooltip`, `MoneyAmount`; logic in `ui/upgrade-card.ts`; `render()` hands them `state.upgradeOptions`), `ItemIcon`, `WowheadLink`. Props that are the same cached objects don't make Vue recompute, so a component whose computeds read non-reactive state (`state.tooltipRequirements`, TSM, Questie) must read `renderTick.value` in each of those computeds |
 | `web/src/main.ts`, `web/src/crafting.ts`, `web/src/legacy.ts` | Page entries. They hand typed modules to the classic scripts (`window.TSM` …) and then call the classic `start()` / `startCrafting()`; module scripts run after the classic ones, so starting there guarantees everything exists. `legacy.ts` types the window globals and the classic globals typed modules still use (`state`, `itemById`, …), and `exposeToLegacy` puts a module's exports on `window` for the classic scripts; shrink it as files migrate |
 | `web/public/data/*.js` | Generated game data. Don't edit by hand |
 | `web/public/maps/*.jpg` | Generated hover maps, one per `uiMapId` |
