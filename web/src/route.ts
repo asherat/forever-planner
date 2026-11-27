@@ -1,3 +1,4 @@
+import { reactive } from "vue";
 import "./legacy.ts";
 import type { Character, GuideDungeon, GuideZone, ItemSource, RouteLeg, SavedLeg, SavedRoute, Snapshot } from "./types.ts";
 
@@ -10,10 +11,10 @@ export interface PendingGap {
   startLevel: number;
 }
 
-export const routeEditor: { pendingGap: PendingGap | null; showAllZones: boolean } = {
+export const routeEditor: { pendingGap: PendingGap | null; showAllZones: boolean } = reactive({
   pendingGap: null,
   showAllZones: false
-};
+});
 
 export function guideZone(zoneName: string | null | undefined): GuideZone | null {
   for (const zone of window.ZONE_GUIDE.zones) {

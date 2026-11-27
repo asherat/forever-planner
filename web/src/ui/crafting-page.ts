@@ -5,7 +5,6 @@ import type { CraftingEntry, Plan, PlanNode, Recipe, ShoppingLine, TakingLine } 
 import type { ItemSource } from "../types.ts";
 import { mapTargetAttributes } from "./map-target.ts";
 import type { MapAttributes } from "./map-target.ts";
-import { refreshVue } from "./render-tick.ts";
 import { inventoryStatusText, questieStatusText, readWowFolder, tsmStatusText } from "../folder-data.ts";
 import { placeForSource } from "../map-popover.ts";
 import { WOWHEAD_URL } from "../prices.ts";
@@ -441,11 +440,6 @@ function craftableItemByName(name: string): number | null {
   return null;
 }
 
-function changed(): void {
-  saveCraftingList();
-  refreshVue();
-}
-
 function addEntry(itemId: number, quantity: number): void {
   for (const entry of crafting.list.entries) {
     if (entry.itemId === itemId) {
@@ -464,33 +458,33 @@ export function addByName(name: string, quantityText: string): boolean {
   }
   addEntry(itemId, Math.max(1, Number(quantityText) || 1));
   setStatus("Added " + craftingItem(itemId).name + ".", "success");
-  changed();
+  saveCraftingList();
   return true;
 }
 
 export function chooseMode(itemId: number, mode: string): void {
   crafting.list.overrides[itemId] = mode;
-  changed();
+  saveCraftingList();
 }
 
 export function removeEntry(index: number): void {
   crafting.list.entries.splice(index, 1);
-  changed();
+  saveCraftingList();
 }
 
 export function changeQuantity(index: number, value: string): void {
   crafting.list.entries[index].quantity = Math.max(1, Number(value) || 1);
-  changed();
+  saveCraftingList();
 }
 
 export function chooseBartering(value: string): void {
   crafting.list.barteringRank = Number(value) || 0;
-  changed();
+  saveCraftingList();
 }
 
 export function useInventory(isUsed: boolean): void {
   crafting.list.useInventory = isUsed;
-  changed();
+  saveCraftingList();
 }
 
 export function includeCharacter(name: string, isIncluded: boolean): void {
@@ -501,7 +495,7 @@ export function includeCharacter(name: string, isIncluded: boolean): void {
     remaining.push(name);
   }
   crafting.list.excludedCharacters = remaining;
-  changed();
+  saveCraftingList();
 }
 
 export async function refreshCraftingData(): Promise<void> {
@@ -510,7 +504,6 @@ export async function refreshCraftingData(): Promise<void> {
     setStatus("Reading your WoW folder…", "info");
     await readWowFolder(true);
     setStatus("Prices and bags updated.", "success");
-    refreshVue();
   } catch (error) {
     setStatus((error as Error).message, "error");
   } finally {
@@ -573,7 +566,3 @@ export function addFromLocationHash(): void {
   setStatus("Loaded " + entries.length + " items from your crafting list.", "success");
 }
 
-export function handleHashChange(): void {
-  addFromLocationHash();
-  refreshVue();
-}

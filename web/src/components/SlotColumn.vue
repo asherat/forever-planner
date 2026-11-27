@@ -2,7 +2,6 @@
 import { computed } from "vue";
 import "../legacy.ts";
 import type { Character, SlotDefinition, Snapshot, UpgradeOptions } from "../types.ts";
-import { renderTick } from "../ui/render-tick.ts";
 import PaperDollSlot from "./PaperDollSlot.vue";
 import { selectedCharacter, state } from "../state.ts";
 
@@ -14,7 +13,6 @@ function slotOptions(slotDefinition: SlotDefinition): UpgradeOptions | null {
 }
 
 const view = computed(function columnView(): { character: Character; snapshot: Snapshot; slots: { slotDefinition: SlotDefinition; options: UpgradeOptions | null }[] } | null {
-  renderTick.value;
   const character = selectedCharacter();
   if (character === null || !state.snapshots[character.slug]) {
     return null;

@@ -3,12 +3,10 @@ import { computed } from "vue";
 import "../legacy.ts";
 import { itemById } from "../sources.ts";
 import { addCraftedUpgrades, cartEntries, changeQuantity, clearCart, craftAllHref, missingCraftedUpgrades, removeFromCart } from "../ui/crafting-cart.ts";
-import { renderTick } from "../ui/render-tick.ts";
 import ItemIcon from "./ItemIcon.vue";
 import WowheadLink from "./WowheadLink.vue";
 
 const rows = computed(function cartRows() {
-  renderTick.value;
   return cartEntries().map(function rowOf(entry, index) {
     return { key: index + ":" + entry.itemId, index: index, item: itemById(entry.itemId), fallbackName: "Item " + entry.itemId, quantity: String(entry.quantity), inputId: "cart-quantity-" + index };
   });
@@ -23,7 +21,6 @@ const hasEntries = computed(function cartHasEntries() {
 });
 
 const missingCount = computed(function craftedMissing() {
-  renderTick.value;
   return missingCraftedUpgrades().length;
 });
 
@@ -36,7 +33,6 @@ const addLabel = computed(function addCraftedLabel() {
 });
 
 const href = computed(function craftAllAddress() {
-  renderTick.value;
   return craftAllHref();
 });
 

@@ -3,7 +3,6 @@ import { computed } from "vue";
 import "../legacy.ts";
 import { itemById } from "../sources.ts";
 import { restoreDungeon, restoreItem } from "../ui/not-interested.ts";
-import { renderTick } from "../ui/render-tick.ts";
 import type { Item } from "../types.ts";
 import ItemIcon from "./ItemIcon.vue";
 import WowheadLink from "./WowheadLink.vue";
@@ -39,7 +38,6 @@ function itemEntry(itemId: number): HiddenEntry {
 }
 
 const entries = computed(function hiddenEntries() {
-  renderTick.value;
   const character = selectedCharacter();
   if (character === null) {
     return [];

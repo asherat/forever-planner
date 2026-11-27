@@ -1,10 +1,8 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { renderTick } from "../ui/render-tick.ts";
 import { chooseScope, currentScopeKey, isReading, refreshCraftingData, scopeOptions } from "../ui/crafting-page.ts";
 
 const scopes = computed(function scopesView() {
-  renderTick.value;
   return { options: scopeOptions(), selected: currentScopeKey() };
 });
 

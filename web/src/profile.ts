@@ -1,3 +1,4 @@
+import { markRaw } from "vue";
 import { fetchFromBattleNet, mediaAsset } from "./battle-net.ts";
 import { detectTalentSpecs } from "./scoring.ts";
 import { itemById } from "./sources.ts";
@@ -210,7 +211,7 @@ export async function refreshCharacter(character: Character): Promise<void> {
     rulesetName = profile.ruleset.name;
   }
   const media = results[2] as { assets?: { key: string; value: string }[] } | null;
-  state.snapshots[character.slug] = {
+  state.snapshots[character.slug] = markRaw({
     fetchedAt: new Date().toISOString(),
     lastLogout: profile.last_login_timestamp,
     level: profile.level,
@@ -226,7 +227,7 @@ export async function refreshCharacter(character: Character): Promise<void> {
     talentSpecs: detectTalentSpecs(profile.character_class.name, results[3] as TalentSpecializations | null),
     reputations: compactReputations(results[4] as { reputations?: { faction: { id: number }; standing: { tier: number } }[] } | null),
     completedQuestIds: compactCompletedQuests(results[5] as { quests?: { id: number }[] } | null)
-  };
+  });
   saveSnapshots();
   setStatus("Updated from your last logout (" + new Date(profile.last_login_timestamp).toLocaleString() + ").", "success");
 }

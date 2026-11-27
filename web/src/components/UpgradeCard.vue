@@ -5,7 +5,6 @@ import { activeSpec, specPreset } from "../scoring.ts";
 import { firstCraftSource, firstQuestSource, itemDungeons, itemReputationRequirement, meetsReputation, reputationRequirementText, sourcesForCharacter } from "../sources.ts";
 import type { Candidate, Character, SlotDefinition, Snapshot } from "../types.ts";
 import { hideItem, skipDungeon } from "../ui/not-interested.ts";
-import { renderTick } from "../ui/render-tick.ts";
 import { addToCart } from "../ui/crafting-cart.ts";
 import { addToQuestList, isInQuestList } from "../ui/quest-list.ts";
 import { auctionOnlyText, comparisonTooltip, gainText, optionSubtitle, priceParts, routeBadge } from "../ui/upgrade-card.ts";
@@ -24,17 +23,14 @@ const item = computed(function candidateItem() {
 });
 
 const subtitle = computed(function cardSubtitle() {
-  renderTick.value;
   return optionSubtitle(props.candidate, props.snapshot);
 });
 
 const tooltip = computed(function cardTooltip() {
-  renderTick.value;
   return comparisonTooltip(props.slotDefinition, props.snapshot, props.character, props.candidate);
 });
 
 const gain = computed(function cardGain() {
-  renderTick.value;
   return gainText(props.candidate, props.character);
 });
 
@@ -46,12 +42,10 @@ const suffixNote = computed(function randomStatsNote() {
 });
 
 const badge = computed(function pathBadge() {
-  renderTick.value;
   return routeBadge(props.candidate);
 });
 
 const reputationNote = computed(function reputationText() {
-  renderTick.value;
   if (itemReputationRequirement(item.value, props.snapshot) === null || meetsReputation(item.value, props.snapshot)) {
     return "";
   }
@@ -59,12 +53,10 @@ const reputationNote = computed(function reputationText() {
 });
 
 const sources = computed(function itemSources() {
-  renderTick.value;
   return sourcesForCharacter(item.value, props.snapshot);
 });
 
 const auctionOnly = computed(function onlyOnAuctionHouse() {
-  renderTick.value;
   return auctionOnlyText(item.value, props.snapshot);
 });
 
@@ -84,7 +76,6 @@ const moreSources = computed(function hiddenSources() {
 });
 
 const craftSource = computed(function craftOf() {
-  renderTick.value;
   return firstCraftSource(sources.value);
 });
 
@@ -93,12 +84,10 @@ function pricePart(part: ReturnType<typeof priceParts>[number], index: number) {
 }
 
 const prices = computed(function priceLine() {
-  renderTick.value;
   return priceParts(item.value, craftSource.value, props.snapshot, props.candidate.gain, specPreset(activeSpec(props.character)).unit).map(pricePart);
 });
 
 const questSource = computed(function questToAdd() {
-  renderTick.value;
   const source = firstQuestSource(sources.value);
   if (source === null || source.questId === undefined || isInQuestList(props.character, source.questId)) {
     return null;
@@ -107,7 +96,6 @@ const questSource = computed(function questToAdd() {
 });
 
 const dungeons = computed(function cardDungeons() {
-  renderTick.value;
   return Array.from(itemDungeons(item.value, props.snapshot));
 });
 
@@ -136,7 +124,6 @@ function skipperFor(dungeonName: string) {
 }
 
 const skippers = computed(function dungeonSkippers() {
-  renderTick.value;
   return dungeons.value.map(skipperFor);
 });
 </script>

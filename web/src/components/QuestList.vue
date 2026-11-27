@@ -3,12 +3,10 @@ import { computed } from "vue";
 import "../legacy.ts";
 import type { Character, Snapshot } from "../types.ts";
 import { addQuestUpgrades, characterQuestList, clearQuestList, questUpgradesMissing } from "../ui/quest-list.ts";
-import { renderTick } from "../ui/render-tick.ts";
 import QuestEntry from "./QuestEntry.vue";
 import { selectedCharacter, state } from "../state.ts";
 
 const panel = computed(function currentCharacter(): { character: Character; snapshot: Snapshot } | null {
-  renderTick.value;
   const character = selectedCharacter();
   if (character === null || !state.snapshots[character.slug]) {
     return null;

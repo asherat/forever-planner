@@ -1,7 +1,6 @@
 import "../legacy.ts";
 import { equippedItemIds, itemName } from "../sources.ts";
 import type { Snapshot } from "../types.ts";
-import { refreshVue } from "./render-tick.ts";
 import { STORAGE_KEYS, state, writeStorage } from "../state.ts";
 
 export interface CartEntry {
@@ -15,7 +14,6 @@ export function cartEntries(): CartEntry[] {
 
 function saveCart(): void {
   writeStorage(STORAGE_KEYS.craftingCart, state.craftingCart);
-  refreshVue();
 }
 
 export function isInCart(itemId: number): boolean {

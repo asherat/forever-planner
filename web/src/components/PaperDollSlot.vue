@@ -3,7 +3,6 @@ import { computed } from "vue";
 import "../legacy.ts";
 import type { Character, SlotDefinition, Snapshot, UpgradeOptions } from "../types.ts";
 import { comparisonTooltip, itemTooltip } from "../ui/upgrade-card.ts";
-import { renderTick } from "../ui/render-tick.ts";
 import ComparisonTooltip from "./ComparisonTooltip.vue";
 import ItemIcon from "./ItemIcon.vue";
 import { wowheadUrl } from "../prices.ts";
@@ -32,7 +31,6 @@ const emptyLabel = computed(function emptySlotLabel() {
 });
 
 const upgrade = computed(function upgradeView() {
-  renderTick.value;
   if (props.options === null) {
     return null;
   }

@@ -3,7 +3,6 @@ import { computed } from "vue";
 import "../legacy.ts";
 import { isEmptyLeg, MAX_CHARACTER_LEVEL, nextZoneSuggestions, routeEditor, routeEndLevel, routeLegs } from "../route.ts";
 import type { Character, GuideZone, RouteLeg, Snapshot } from "../types.ts";
-import { renderTick } from "../ui/render-tick.ts";
 import { toggleAllZones } from "../ui/route-actions.ts";
 import EmptyLevels from "./EmptyLevels.vue";
 import GapResolver from "./GapResolver.vue";
@@ -28,7 +27,6 @@ interface LegRow {
 }
 
 const panel = computed(function currentCharacter(): PanelState | null {
-  renderTick.value;
   const character = selectedCharacter();
   if (character === null || !state.snapshots[character.slug]) {
     return null;
@@ -56,7 +54,6 @@ const rows = computed(function legRows() {
 });
 
 const pendingGap = computed(function gap() {
-  renderTick.value;
   return routeEditor.pendingGap;
 });
 
@@ -104,7 +101,6 @@ const suggestions = computed(function zoneSuggestions(): { ready: GuideZone[]; l
 });
 
 const showAll = computed(function allZonesShown() {
-  renderTick.value;
   return routeEditor.showAllZones;
 });
 

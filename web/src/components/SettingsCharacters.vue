@@ -1,17 +1,14 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import "../legacy.ts";
-import { renderTick } from "../ui/render-tick.ts";
 import { addCharacterFromForm, addCharacterNamed, characterRows, foundCharacters, removeCharacter, settingsForm } from "../ui/settings.ts";
 import type { FoundCharacter } from "../ui/settings.ts";
 
 const rows = computed(function rowsView() {
-  renderTick.value;
   return characterRows();
 });
 
 const found = computed(function foundView() {
-  renderTick.value;
   return foundCharacters();
 });
 
