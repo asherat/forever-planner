@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { resetPlanner, run } from "./helpers/realm.mjs";
 import { crafting, defaultCraftingList, indexRecipes } from "../web/src/crafting-plan.ts";
 import { buildGuide, levelingCosts, recipeColor, skillRankAt, skillUpChance } from "../web/src/profession-guide.ts";
+import { exportText } from "../web/src/ui/shopping-export.ts";
 import { compareProfessions, comparisonRows, costStillToBuy, professionChoices, shoppingRows, stageRows, startGuidePage } from "../web/src/ui/profession-page.ts";
 
 const LINEN = 2589;
@@ -390,4 +391,17 @@ test("leaves out recipes with a cooldown", () => {
   });
   const guide = buildGuide("Tailoring", 1, 4, { knownRecipeIds: [], canCraft: ANYONE, ownedTools: [] });
   assert.deepEqual(stepsOf(guide), [[2, 1, 4, 3]]);
+});
+
+test("a rank's buy list can be copied for TSM, Auctionator or as text, without what's ticked", () => {
+  const character = setUp(LINEN_FROM_70_TO_80);
+  const guide = buildGuide("Tailoring", 70, 80, { knownRecipeIds: [], canCraft: ANYONE, ownedTools: [] });
+  const stages = stageRows({ createdAt: 0, guide: guide, doneSteps: [], boughtMaterials: ["Apprentice:" + LINEN] }, null, character);
+  assert.equal(stages[0].hasToBuy, false);
+  assert.equal(stages[1].exportName, "Tailoring Journeyman");
+  assert.deepEqual(stages[1].toBuy, [{ itemId: LINEN, quantity: 5, fromVendor: false }]);
+  const lines = stages[1].toBuy.concat([{ itemId: WOOL, quantity: 2, fromVendor: false }, { itemId: BOLT, quantity: 1, fromVendor: true }]);
+  assert.equal(exportText("tsm", "Tailoring Journeyman", lines), "i:2589,i:2592");
+  assert.equal(exportText("auctionator", "Tailoring Journeyman", lines), "Tailoring Journeyman^\"Linen Cloth\"^\"Wool Cloth\"");
+  assert.equal(exportText("text", "Tailoring Journeyman", lines), "5x Linen Cloth\n2x Wool Cloth\n1x Bolt of Linen Cloth");
 });
