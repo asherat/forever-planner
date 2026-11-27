@@ -2,6 +2,12 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.31.0 — 2026-11-27
+
+- Every class and spec has its own stat weights, taken from the WoW Forever simulator instead of a few shared presets. Upgrades show their gain in attack power, spell power, healing or stamina.
+- Weapon damage counts per slot: hunters value their bow, dual-wielders value the off hand less than the main hand, and tanks value armor.
+- Questing values hit and expertise at half (normal mobs need much less hit than dungeon bosses). Questing on a PvP realm still makes sure stamina counts.
+
 ## v0.30.0 — 2026-11-27
 
 - Feral druids: weapon DPS now counts. In Forever, Cat and Bear form attacks use your weapon's damage (unlike Classic), so a high-DPS weapon can beat one with more stats. Weapon speed still doesn't matter.
