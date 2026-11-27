@@ -1809,6 +1809,44 @@ legend {
   margin: 0;
 }
 
+.guide-comparison {
+  min-width: 0;
+}
+
+.guide-comparison h2 {
+  margin-top: 0;
+}
+
+.guide-comparison-note {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: normal;
+}
+
+.guide-comparison-scroll {
+  position: relative;
+  overflow-x: auto;
+}
+
+.guide-comparison table {
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.guide-comparison th,
+.guide-comparison td {
+  padding: 6px 14px 6px 0;
+  text-align: right;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border);
+}
+
+.guide-comparison th:first-child {
+  text-align: left;
+  white-space: normal;
+  min-width: 7em;
+}
+
 .guide-stage {
   display: grid;
   gap: 10px;

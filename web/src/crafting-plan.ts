@@ -283,6 +283,14 @@ export function isCheaperToCraft(itemId: number): boolean {
   return market !== null && market.mode === "craft";
 }
 
+export function cheapestRecipeFor(itemId: number): Recipe | null {
+  const cheapest = cheapestRecipe(itemId, 0, []);
+  if (cheapest === null) {
+    return null;
+  }
+  return cheapest.recipe;
+}
+
 export function clearMarketCache(): void {
   crafting.marketCache.clear();
 }

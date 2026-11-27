@@ -2,8 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { resetPlanner, run } from "./helpers/realm.mjs";
 import { crafting, defaultCraftingList, indexRecipes } from "../web/src/crafting-plan.ts";
-import { buildGuide, recipeColor, skillRankAt, skillUpChance } from "../web/src/profession-guide.ts";
-import { costStillToBuy, shoppingRows, stageRows, startGuidePage } from "../web/src/ui/profession-page.ts";
+import { buildGuide, levelingCosts, recipeColor, skillRankAt, skillUpChance } from "../web/src/profession-guide.ts";
+import { costStillToBuy, professionChoices, shoppingRows, stageRows, startGuidePage } from "../web/src/ui/profession-page.ts";
 
 const LINEN = 2589;
 const WOOL = 2592;
@@ -28,6 +28,10 @@ function setUp(options) {
   state.inventory = options.inventory || null;
   crafting.list = defaultCraftingList();
   return character;
+}
+
+function ANYONE() {
+  return true;
 }
 
 function auction(copper) {
@@ -55,7 +59,7 @@ test("levels with the cheapest recipe per skill point and counts the expected cr
     levels: { 1: [1, 10, 15, 20], 2: [10, 20, 25, 30] },
     prices: { [LINEN]: auction(10), [WOOL]: auction(30) }
   });
-  const guide = buildGuide("Tailoring", 1, 20, []);
+  const guide = buildGuide("Tailoring", 1, 20, [], ANYONE);
   assert.equal(guide.stuckAt, null);
   assert.deepEqual(guide.steps.map(function span(step) { return [step.recipeId, step.from, step.to, step.color]; }), [[1, 1, 17, "orange"], [2, 17, 20, "orange"]]);
   assert.equal(guide.steps[0].crafts, 20);
@@ -73,7 +77,7 @@ test("does not use a recipe before it can be learned", () => {
     levels: { 1: [1, 30, 40, 50], 2: [20, 40, 45, 50] },
     prices: { [LINEN]: auction(100), [WOOL]: auction(1) }
   });
-  const guide = buildGuide("Tailoring", 1, 30, []);
+  const guide = buildGuide("Tailoring", 1, 30, [], ANYONE);
   assert.deepEqual(guide.steps.map(function span(step) { return [step.recipeId, step.from, step.to]; }), [[1, 1, 20], [2, 20, 30]]);
 });
 
@@ -86,7 +90,7 @@ test("buys a pattern only when it pays off, and lists it once", () => {
     levels: { 1: [1, 40, 45, 50], 2: [1, 40, 45, 50] },
     prices: { [LINEN]: auction(100), [WOOL]: auction(10), [PATTERN]: auction(500) }
   });
-  const guide = buildGuide("Tailoring", 1, 40, []);
+  const guide = buildGuide("Tailoring", 1, 40, [], ANYONE);
   assert.deepEqual(guide.steps.map(function recipeOf(step) { return step.recipeId; }), [2]);
   assert.deepEqual(guide.lessons.map(function lessonOf(lesson) { return [lesson.recipeId, lesson.teachingItemId, lesson.cost]; }), [[2, PATTERN, 500]]);
   assert.equal(guide.total, 39 * 10 + 500);
@@ -98,7 +102,7 @@ test("a known recipe needs no pattern and no learning level", () => {
     levels: { 2: [30, 40, 45, 50] },
     prices: { [WOOL]: auction(10) }
   });
-  const guide = buildGuide("Tailoring", 10, 20, [2]);
+  const guide = buildGuide("Tailoring", 10, 20, [2], ANYONE);
   assert.equal(guide.lessons.length, 0);
   assert.equal(guide.steps[0].crafts, 10);
 });
@@ -109,7 +113,7 @@ test("stops where no recipe gives skill", () => {
     levels: { 1: [1, 10, 15, 20] },
     prices: { [LINEN]: auction(10) }
   });
-  const guide = buildGuide("Tailoring", 1, 40, []);
+  const guide = buildGuide("Tailoring", 1, 40, [], ANYONE);
   assert.equal(guide.stuckAt, 20);
 });
 
@@ -139,7 +143,7 @@ const LINEN_FROM_70_TO_80 = {
 
 test("starts a new step where a trainer rank ends", () => {
   setUp(LINEN_FROM_70_TO_80);
-  const guide = buildGuide("Tailoring", 70, 80, []);
+  const guide = buildGuide("Tailoring", 70, 80, [], ANYONE);
   assert.deepEqual(guide.steps.map(function span(step) { return [step.recipeId, step.from, step.to, step.crafts]; }), [[1, 70, 75, 5], [1, 75, 80, 5]]);
   assert.equal(skillRankAt(74).name, "Apprentice");
   assert.equal(skillRankAt(75).name, "Journeyman");
@@ -148,7 +152,7 @@ test("starts a new step where a trainer rank ends", () => {
 
 test("splits a plan into rank stages, each with its own shopping list and a running total", () => {
   const character = setUp(LINEN_FROM_70_TO_80);
-  const guide = buildGuide("Tailoring", 70, 80, []);
+  const guide = buildGuide("Tailoring", 70, 80, [], ANYONE);
   const saved = { createdAt: 0, guide: guide, doneSteps: [], boughtMaterials: ["Apprentice:" + LINEN] };
   const stages = stageRows(saved, null, character);
   assert.deepEqual(stages.map(function titleOf(stage) { return stage.title; }), ["Apprentice 70 → 75", "Journeyman 75 → 80"]);
@@ -163,7 +167,7 @@ test("splits a plan into rank stages, each with its own shopping list and a runn
 
 test("moves materials ticked before stages existed into the stages that use them", () => {
   const character = setUp(LINEN_FROM_70_TO_80);
-  const guide = buildGuide("Tailoring", 70, 80, []);
+  const guide = buildGuide("Tailoring", 70, 80, [], ANYONE);
   character.professionGuides = { Tailoring: { createdAt: 0, guide: guide, doneSteps: [], boughtItemIds: [LINEN, WOOL] } };
   startGuidePage();
   assert.deepEqual(character.professionGuides.Tailoring.boughtMaterials, ["Apprentice:" + LINEN, "Journeyman:" + LINEN]);
@@ -176,7 +180,7 @@ function alt(bags) {
 
 test("uses what your characters have before buying, in stage order", () => {
   const character = setUp(Object.assign({ inventory: alt({ [LINEN]: 7 }) }, LINEN_FROM_70_TO_80));
-  const guide = buildGuide("Tailoring", 70, 80, []);
+  const guide = buildGuide("Tailoring", 70, 80, [], ANYONE);
   const stages = stageRows({ createdAt: 0, guide: guide, doneSteps: [], boughtMaterials: [] }, null, character);
   assert.equal(stages[0].hasMaterials, false);
   assert.deepEqual(stages[0].taking.map(function row(entry) { return [entry.quantity, entry.places]; }), [["5×", "Alt: 5 in bags"]]);
@@ -197,7 +201,7 @@ const SHIRTS_FROM_BOLTS = {
 test("crafts a cheaper material first and buys its materials instead", () => {
   const character = setUp(SHIRTS_FROM_BOLTS);
   run("state.snapshots['test-hero'].professions = [{ name: 'Mining', skillPoints: 50, recipeIds: [] }]");
-  const guide = buildGuide("Tailoring", 1, 5, []);
+  const guide = buildGuide("Tailoring", 1, 5, [], ANYONE);
   const stages = stageRows({ createdAt: 0, guide: guide, doneSteps: [], boughtMaterials: [] }, null, character);
   assert.equal(stages[0].steps[0].craftFirst, "Craft first: 4× Bolt of Linen Cloth");
   assert.deepEqual(stages[0].materials.map(function row(entry) { return [entry.itemId, entry.quantity]; }), [[LINEN, "8×"]]);
@@ -205,8 +209,32 @@ test("crafts a cheaper material first and buys its materials instead", () => {
 
 test("buys a material made by a profession the character doesn't have", () => {
   const character = setUp(SHIRTS_FROM_BOLTS);
-  const guide = buildGuide("Tailoring", 1, 5, []);
+  const guide = buildGuide("Tailoring", 1, 5, [], function onlyTailoring(recipe) { return recipe.profession === "Tailoring"; });
+  assert.equal(guide.steps[0].unitCost, 100);
   const stages = stageRows({ createdAt: 0, guide: guide, doneSteps: [], boughtMaterials: [] }, null, character);
   assert.equal(stages[0].steps[0].craftFirst, "");
   assert.deepEqual(stages[0].materials.map(function row(entry) { return [entry.itemId, entry.quantity, entry.cost]; }), [[BOLT, "4×", 400]]);
+});
+
+test("adds up what a profession costs up to each trainer rank, and none past where it gets stuck", () => {
+  setUp({
+    recipes: [{ id: 1, profession: "Tailoring", itemId: 100, quantity: 1, reagents: [[LINEN, 1]] }],
+    levels: { 1: [1, 250, 260, 270] },
+    prices: { [LINEN]: auction(10) }
+  });
+  assert.deepEqual(levelingCosts("Tailoring", ANYONE), [1490, 2240, null]);
+});
+
+function namesOf(character) {
+  return professionChoices(character).map(function labelOf(choice) { return choice.label; });
+}
+
+test("lists only a character's own crafts and the secondary professions once it has two primaries", () => {
+  const character = setUp(LINEN_FROM_70_TO_80);
+  assert.equal(namesOf(character)[0], "Alchemy");
+  run("state.snapshots['test-hero'].professions = [{ name: 'Leatherworking', skillPoints: 50 }, { name: 'Cooking', skillPoints: 10 }]");
+  assert.deepEqual(namesOf(character).slice(0, 3), ["Leatherworking (yours)", "Cooking (yours)", "Alchemy"]);
+  assert.equal(namesOf(character).length, 8);
+  run("state.snapshots['test-hero'].professions.push({ name: 'Skinning', skillPoints: 50 })");
+  assert.deepEqual(namesOf(character), ["Leatherworking", "Cooking", "First Aid"]);
 });

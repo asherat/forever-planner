@@ -2,6 +2,12 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.86.0 — 2026-11-27
+
+- Professions: "Compare professions" shows what each profession costs to level to 150, 225 and 300, cheapest first. Pick one from the table to plan it.
+- A character with two primary professions only sees its own (plus Cooking and First Aid) in the list; with one, its own stays on top marked "(yours)".
+- Plans no longer pick recipes that only look cheap because of a material your character can't make (like Essence of Fire without Alchemy): those materials are priced at what they cost to buy.
+
 ## v0.85.0 — 2026-11-27
 
 - Professions: materials your characters already have (bags, bank, mail, from TSM) are used first, stage by stage, so the buy lists only show what's left to buy; each stage lists what to take from whom. "Still to buy" uses today's prices.
