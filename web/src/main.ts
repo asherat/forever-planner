@@ -1,10 +1,15 @@
+import { createApp } from "vue";
+import NotInterested from "./components/NotInterested.vue";
+import UndoNotice from "./components/UndoNotice.vue";
 import { exposeToLegacy } from "./legacy.ts";
+import { QUESTIE } from "./questie.ts";
+import * as route from "./route.ts";
 import * as scoring from "./scoring.ts";
 import * as sources from "./sources.ts";
-import * as upgrades from "./upgrades.ts";
-import * as route from "./route.ts";
-import { QUESTIE } from "./questie.ts";
 import { TSM } from "./tsm.ts";
+import * as notInterested from "./ui/not-interested.ts";
+import { refreshVue } from "./ui/render-tick.ts";
+import * as upgrades from "./upgrades.ts";
 
 window.TSM = TSM;
 window.QUESTIE = QUESTIE;
@@ -12,4 +17,8 @@ exposeToLegacy(scoring);
 exposeToLegacy(sources);
 exposeToLegacy(upgrades);
 exposeToLegacy(route);
+exposeToLegacy(notInterested);
+exposeToLegacy({ refreshVue: refreshVue });
 window.start();
+createApp(UndoNotice).mount("#undo-notice");
+createApp(NotInterested).mount("#not-interested");
