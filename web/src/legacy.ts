@@ -2,6 +2,7 @@ import type { QUESTIE } from "./questie.ts";
 import type { TSM } from "./tsm.ts";
 import type { Character, GameRules, GuideDungeon, Item, QuestieData, ReputationRequirement, Settings, Snapshot, ZoneGuide } from "./types.ts";
 import type { TsmPrices } from "./tsm.ts";
+import type { Recipe } from "./crafting-plan.ts";
 
 declare global {
   interface Window {
@@ -9,7 +10,8 @@ declare global {
     QUESTIE: typeof QUESTIE;
     GAME_RULES: GameRules;
     FOREVER_ITEMS: Item[];
-    FOREVER_CRAFTING_ITEMS: Record<string, { vendorPrice?: number }>;
+    FOREVER_CRAFTING_ITEMS: Record<string, { name: string; quality: string; icon: number | null; vendorPrice?: number; bindOnPickup?: boolean }>;
+    FOREVER_RECIPES: Recipe[];
     FOREVER_DUNGEONS: GuideDungeon[];
     ZONE_GUIDE: ZoneGuide;
     WOW_FOLDER: {
@@ -63,7 +65,8 @@ declare global {
   function qualityClass(quality: string): string;
   function iconUrlForItem(item: Item): string;
   function wowheadUrl(item: Item): string;
-  function preferredOffer(vendorOffer: { price: number } | null, auctionOffer: { price: number } | null): { price: number } | null;
+  function preferredOffer<Offer extends { price: number }>(vendorOffer: Offer | null, auctionOffer: Offer | null): Offer | null;
+  function readStorage<Value>(key: string, fallback: Value): Value;
 }
 
 export function exposeToLegacy(module: Record<string, unknown>): void {
