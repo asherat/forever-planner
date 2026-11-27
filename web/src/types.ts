@@ -78,7 +78,21 @@ export interface Character {
   gearFor?: string;
   feralForm?: string;
   maxGoldPerUpgrade?: number | null;
+  route?: SavedRoute;
   [field: string]: unknown;
+}
+
+export interface SavedLeg {
+  zone: string | null;
+  toLevel: number;
+  removedZones?: string[];
+  dungeons?: boolean;
+}
+
+export interface SavedRoute {
+  startLevel: number | null;
+  legs: SavedLeg[];
+  dungeons?: unknown;
 }
 
 export interface SlotDefinition {
@@ -218,4 +232,10 @@ export interface PairedUpgradeOptions {
 export interface BlockList {
   names: Set<string>;
   questIds: Set<number>;
+}
+
+export interface ZoneGuide {
+  credit: string;
+  tierOrder: string[];
+  zones: GuideZone[];
 }

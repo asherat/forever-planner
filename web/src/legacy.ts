@@ -1,5 +1,5 @@
 import type { TSM } from "./tsm.ts";
-import type { Character, GameRules, GuideDungeon, GuideZone, Item, ItemSource, QuestieData, ReputationRequirement, RouteLeg, Snapshot } from "./types.ts";
+import type { Character, GameRules, GuideDungeon, Item, QuestieData, ReputationRequirement, Snapshot, ZoneGuide } from "./types.ts";
 import type { TsmPrices } from "./tsm.ts";
 
 declare global {
@@ -8,6 +8,8 @@ declare global {
     GAME_RULES: GameRules;
     FOREVER_ITEMS: Item[];
     FOREVER_CRAFTING_ITEMS: Record<string, { vendorPrice?: number }>;
+    FOREVER_DUNGEONS: GuideDungeon[];
+    ZONE_GUIDE: ZoneGuide;
     start: () => void;
     startCrafting: () => void;
   }
@@ -26,10 +28,6 @@ declare global {
   function vendorDiscountRate(): number;
   function isVendorSoldFor(itemId: number, factionLetter: string): boolean;
   function preferredOffer(vendorOffer: { price: number } | null, auctionOffer: { price: number } | null): { price: number } | null;
-  function guideZone(zoneName: string | undefined): GuideZone | null;
-  function dungeonForArea(areaName: string | undefined): GuideDungeon | null;
-  function legsForSource(character: Character, snapshot: Snapshot, source: ItemSource): RouteLeg[];
-  function isRouteActive(character: Character): boolean;
 }
 
 export function exposeToLegacy(module: Record<string, unknown>): void {
