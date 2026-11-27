@@ -38,10 +38,10 @@ interface Placement {
   source: ItemSource | null;
 }
 
-const CRAFT_ORDER = 0;
+const BUY_ORDER = 0;
+const CRAFT_ORDER = 1;
 const ROUTE_ORDER = 1000;
 const ELSEWHERE_ORDER = 2000;
-const BUY_ORDER = 3000;
 const OTHER_ORDER = 4000;
 const DUNGEON_AFTER_ZONE = 0.5;
 
