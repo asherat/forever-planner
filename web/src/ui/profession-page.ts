@@ -20,7 +20,7 @@ export const MAX_SKILL = 300;
 const SECONDARY_PROFESSIONS = ["Cooking", "First Aid", "Fishing"];
 const PRIMARY_PROFESSION_LIMIT = 2;
 
-export const guideForm = reactive({ profession: "", from: 1, to: MAX_SKILL });
+export const guideForm = reactive({ profession: "", from: 1, to: MAX_SKILL, usesCooldowns: false });
 
 export function characterSkill(character: Character | null, profession: string): number | null {
   const entry = professionOf(snapshotOf(character), profession);
@@ -135,7 +135,7 @@ export function makeGuide(): void {
   }
   const from = Math.max(1, Math.min(MAX_SKILL - 1, Math.floor(guideForm.from)));
   const to = Math.max(from + 1, Math.min(MAX_SKILL, Math.floor(guideForm.to)));
-  const guide = buildGuide(guideForm.profession, from, to, { knownRecipeIds: knownRecipeIds(character, guideForm.profession), canCraft: canCraftFor(character, guideForm.profession), ownedTools: ownedToolCategories() });
+  const guide = buildGuide(guideForm.profession, from, to, { knownRecipeIds: knownRecipeIds(character, guideForm.profession), canCraft: canCraftFor(character, guideForm.profession), ownedTools: ownedToolCategories(), usesCooldowns: guideForm.usesCooldowns });
   if (!character.professionGuides) {
     character.professionGuides = {};
   }
@@ -242,7 +242,7 @@ export const COMPARED_RANGES = COMPARED_SKILLS.map(function rangeOf(skill) {
 });
 
 function comparisonRow(character: Character | null, profession: string): ComparisonRow {
-  const costs = levelingCosts(profession, canCraftFor(character, profession));
+  const costs = levelingCosts(profession, canCraftFor(character, profession), guideForm.usesCooldowns);
   return {
     key: profession,
     name: profession,
@@ -307,6 +307,7 @@ export interface StepRow {
   craftFirst: string;
   keep: string;
   uses: string;
+  cooldown: string;
   recipe: Tooltip;
   tools: string;
 }
@@ -319,6 +320,46 @@ function toolsText(profession: string, step: GuideStep): string {
   return "Needs: " + recipe.tools.map(function nameOf(categoryId) {
     return toolCategory(categoryId).name;
   }).join(", ");
+}
+
+const COOLDOWN_UNITS: [number, string][] = [[86400, "day"], [3600, "hour"], [60, "minute"]];
+
+function durationText(seconds: number): string {
+  for (const unit of COOLDOWN_UNITS) {
+    if (seconds >= unit[0]) {
+      const amount = Math.round(seconds / unit[0]);
+      if (amount === 1) {
+        return "1 " + unit[1];
+      }
+      return amount + " " + unit[1] + "s";
+    }
+  }
+  return seconds + " seconds";
+}
+
+function cooldownText(profession: string, step: GuideStep, plans: Plan[]): string {
+  let crafts = 0;
+  let waiting = 0;
+  let longest = 0;
+  const recipe = recipeById(profession, step.recipeId);
+  if (recipe !== null && recipe.cooldown) {
+    crafts += step.crafts;
+    waiting += recipe.cooldown * step.crafts;
+    longest = recipe.cooldown;
+  }
+  for (const plan of plans) {
+    for (const node of collectNodes(plan.root, [])) {
+      if (node.recipe !== null && node.recipe.cooldown && node.craftCount > 0) {
+        crafts += node.craftCount;
+        waiting += node.recipe.cooldown * node.craftCount;
+        longest = Math.max(longest, node.recipe.cooldown);
+      }
+    }
+  }
+  if (crafts === 0) {
+    return "";
+  }
+  return "Cooldowns: " + crafts + " crafts here have one, about " + durationText(waiting - longest) + " of waiting in all";
 }
 
 function recipeTooltip(profession: string, step: GuideStep): Tooltip {
@@ -412,17 +453,18 @@ function addKeptProducts(rowsLeft: StepRow[], consumer: StepRow, plans: Plan[]):
 
 function plannedStepRows(saved: SavedGuide, skill: number | null, character: Character | null): { rows: StepRow[]; plans: Map<number, Plan[]> } {
   const rows: StepRow[] = saved.guide.steps.map(function rowOf(step, index) {
-    return { key: index + ":" + step.recipeId, index: index, step: step, done: isStepDone(saved, step, index, skill), craftFirst: "", keep: "", uses: "", recipe: recipeTooltip(saved.guide.profession, step), tools: toolsText(saved.guide.profession, step) };
+    return { key: index + ":" + step.recipeId, index: index, step: step, done: isStepDone(saved, step, index, skill), craftFirst: "", keep: "", uses: "", cooldown: cooldownText(saved.guide.profession, step, []), recipe: recipeTooltip(saved.guide.profession, step), tools: toolsText(saved.guide.profession, step) };
   });
   const rowsLeft = rows.filter(function isLeft(row) {
     return !row.done;
   });
   const planned = planStepMaterials(rowsLeft.map(function stepOf(row) {
     return row.step;
-  }), stepCraftCheck(saved.guide.profession, knownRecipeIds(character, saved.guide.profession), canCraftFor(character, saved.guide.profession)));
+  }), stepCraftCheck(saved.guide.profession, knownRecipeIds(character, saved.guide.profession), canCraftFor(character, saved.guide.profession), Boolean(saved.guide.usesCooldowns)));
   const plans = new Map<number, Plan[]>();
   rowsLeft.forEach(function attach(row, position) {
     row.craftFirst = craftFirstText(planned[position], saved.guide.profession);
+    row.cooldown = cooldownText(saved.guide.profession, row.step, planned[position]);
     addKeptProducts(rowsLeft, row, planned[position]);
     plans.set(row.index, planned[position]);
   });

@@ -9,7 +9,7 @@ import ComparisonTooltip from "./ComparisonTooltip.vue";
 import CraftingItemLabel from "./CraftingItemLabel.vue";
 import MoneyAmount from "./MoneyAmount.vue";
 
-const props = defineProps<{ step: GuideStep; done: boolean; craftFirst: string; keep: string; uses: string; recipe: Tooltip; tools: string }>();
+const props = defineProps<{ step: GuideStep; done: boolean; craftFirst: string; keep: string; uses: string; cooldown: string; recipe: Tooltip; tools: string }>();
 const emit = defineEmits<{ toggle: [] }>();
 
 const knownItemId = computed(function knownItem() {
@@ -76,6 +76,7 @@ function toggled(): void {
       </div>
       <p class="muted guide-step-reagents">{{ reagents }}</p>
       <p v-if="tools" class="muted guide-step-reagents">{{ tools }}</p>
+      <p v-if="cooldown" class="guide-step-reagents verdict-bad">{{ cooldown }}</p>
       <p v-if="uses" class="muted guide-step-reagents">{{ uses }}</p>
       <p v-if="craftFirst" class="guide-step-craft-first">{{ craftFirst }}</p>
       <p v-if="keep" class="guide-step-craft-first">{{ keep }}</p>

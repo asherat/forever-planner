@@ -2037,3 +2037,13 @@ legend {
     position: static;
   }
 }
+
+.guide-form .guide-form-option {
+  display: flex;
+  flex-basis: 100%;
+  order: 1;
+}
+
+.guide-form-note {
+  order: 2;
+}
