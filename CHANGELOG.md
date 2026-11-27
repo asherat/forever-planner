@@ -2,6 +2,10 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.64.1 — 2026-11-27
+
+- Fixed: on a phone, the crafting tool was wider than the screen and scrolled sideways. The plans now fit; the Have / Vendor / AH / Craft buttons wrap when there isn't room.
+
 ## v0.64.0 — 2026-11-27
 
 - Behind the scenes: the crafting tool page now runs on Vue. It looks and works the same.
