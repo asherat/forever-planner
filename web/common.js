@@ -26,6 +26,7 @@ const state = {
   accessTokenExpiresAt: 0,
   tsm: null,
   questie: null,
+  undo: null,
   inventory: null,
   wowFolderConnected: false,
   folderErrors: {}
