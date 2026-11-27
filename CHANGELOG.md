@@ -2,6 +2,12 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.79.0 — 2026-11-27
+
+- Vendor buys in your gear plan are listed under the vendor's zone, next to everything else you'll do there; "Buy on the auction house" is just the auction house now.
+- The paper doll marks slots where you picked something with a ✓ and shows the pick; hover it for the comparison.
+- Housekeeping: the build no longer prints a configuration warning.
+
 ## v0.78.1 — 2026-11-27
 
 - Your gear plan starts with what to buy, then what to craft, since you can do both right away.

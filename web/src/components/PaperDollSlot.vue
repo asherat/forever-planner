@@ -2,6 +2,7 @@
 import { computed } from "vue";
 import "../legacy.ts";
 import type { Character, SlotDefinition, Snapshot, UpgradeOptions } from "../types.ts";
+import { characterPlan, pickedItem, slotPicks } from "../ui/gear-plan.ts";
 import { comparisonTooltip, itemTooltip } from "../ui/upgrade-card.ts";
 import ComparisonTooltip from "./ComparisonTooltip.vue";
 import ItemIcon from "./ItemIcon.vue";
@@ -30,6 +31,26 @@ const emptyLabel = computed(function emptySlotLabel() {
   return props.slotDefinition.label + ": empty";
 });
 
+const picked = computed(function pickedView() {
+  const picks = slotPicks(characterPlan(props.character), props.slotDefinition.key);
+  if (picks.length === 0) {
+    return null;
+  }
+  const item = pickedItem(picks[0]);
+  if (item === null) {
+    return null;
+  }
+  let label = props.slotDefinition.label + " picked: " + item.name;
+  if (picks.length > 1) {
+    label += " and " + (picks.length - 1) + " more";
+  }
+  return {
+    item: item,
+    tooltip: comparisonTooltip(props.slotDefinition, props.snapshot, props.character, { item: item, availableLevel: 0, routeLeg: null, gain: 0 }),
+    label: label
+  };
+});
+
 const upgrade = computed(function upgradeView() {
   if (props.options === null) {
     return null;
@@ -48,6 +69,7 @@ const upgrade = computed(function upgradeView() {
   <div :class="slotClasses">
     <a v-if="equipped" class="slot-equipped" :href="equipped.url" target="_blank" rel="noopener" :aria-label="equipped.label"><ItemIcon :item="equipped.item" size="icon-large" /><ComparisonTooltip :tooltip="equipped.tooltip" extra-class="" /></a>
     <a v-else class="slot-equipped" :aria-label="emptyLabel" role="img" tabindex="0"><span class="item-icon icon-large icon-empty"></span><span class="tooltip"><span>{{ slotDefinition.label }}</span><span>Empty</span></span></a>
-    <a v-if="upgrade" class="slot-upgrade" :href="upgrade.href" :aria-label="upgrade.label"><ItemIcon :item="upgrade.item" size="icon-small" /><span class="upgrade-marker">▲</span><ComparisonTooltip :tooltip="upgrade.tooltip" extra-class="tooltip-comparison" /></a>
+    <a v-if="picked" class="slot-upgrade slot-picked" href="#gear-plan-panel" :aria-label="picked.label"><ItemIcon :item="picked.item" size="icon-small" /><span class="upgrade-marker picked-marker">✓</span><ComparisonTooltip :tooltip="picked.tooltip" extra-class="tooltip-comparison" /></a>
+    <a v-else-if="upgrade" class="slot-upgrade" :href="upgrade.href" :aria-label="upgrade.label"><ItemIcon :item="upgrade.item" size="icon-small" /><span class="upgrade-marker">▲</span><ComparisonTooltip :tooltip="upgrade.tooltip" extra-class="tooltip-comparison" /></a>
   </div>
 </template>
