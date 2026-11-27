@@ -2,8 +2,8 @@
 import { computed } from "vue";
 import "../legacy.ts";
 import { connectFolder, dataStatusText } from "../ui/folder-controls.ts";
-import { saveSettings, selectedCharacter, state } from "../state.ts";
-import { MAX_SKILL, characterSkill, chooseProfession, compareProfessions, comparisonRows, costStillToBuy, discardGuide, guideForm, guideSummary, makeGuide, professionChoices, savedGuide, shoppingRows, skillLine, stageRows, startGuidePage, toggleBought, toggleStageBought, toggleStep } from "../ui/profession-page.ts";
+import { selectedCharacter, state } from "../state.ts";
+import { MAX_SKILL, characterSkill, chooseCharacter, chooseProfession, compareProfessions, comparisonRows, costStillToBuy, discardGuide, guideForm, guideSummary, makeGuide, professionChoices, savedGuide, shoppingRows, skillLine, stageRows, toggleBought, toggleStageBought, toggleStep } from "../ui/profession-page.ts";
 import type { StageRow } from "../ui/profession-page.ts";
 import CraftingItemLabel from "./CraftingItemLabel.vue";
 import MoneyAmount from "./MoneyAmount.vue";
@@ -86,9 +86,7 @@ const materialsCost = computed(function costLeft() {
 });
 
 function characterChosen(event: Event): void {
-  state.settings.selectedCharacterSlug = (event.target as HTMLSelectElement).value;
-  saveSettings();
-  startGuidePage();
+  chooseCharacter((event.target as HTMLSelectElement).value);
 }
 
 function professionChosen(event: Event): void {
