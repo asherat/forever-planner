@@ -1,4 +1,5 @@
 import { markRaw } from "vue";
+import { shortDateTime } from "./dates.ts";
 import { fetchFromBattleNet, mediaAsset } from "./battle-net.ts";
 import { detectTalentSpecs } from "./scoring.ts";
 import { itemById } from "./sources.ts";
@@ -229,5 +230,5 @@ export async function refreshCharacter(character: Character): Promise<void> {
     completedQuestIds: compactCompletedQuests(results[5] as { quests?: { id: number }[] } | null)
   });
   saveSnapshots();
-  setStatus("Updated from your last logout (" + new Date(profile.last_login_timestamp).toLocaleString() + ").", "success");
+  setStatus("Updated from your last logout (" + shortDateTime(profile.last_login_timestamp) + ").", "success");
 }

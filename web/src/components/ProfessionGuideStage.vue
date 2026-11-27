@@ -58,9 +58,12 @@ function allToggled(): void {
       <section v-if="stage.hasLessons" class="panel">
         <h3>Learn</h3>
         <ul class="summary-list">
+          <li v-if="stage.trainerLessons" class="summary-row">
+            <span><span class="muted">{{ "At the trainer: " }}</span>{{ stage.trainerLessons }}</span>
+            <RecipeSourceLines v-if="stage.lessonTrainers" :source="stage.lessonTrainers" />
+          </li>
           <li v-for="lesson in stage.lessons" :key="lesson.key" class="summary-row">
-            <strong>{{ lesson.name }}</strong>
-            <span class="summary-value muted">{{ lesson.where }}<template v-if="lesson.hasCost">{{ ", about " }}<MoneyAmount :copper="lesson.cost" /></template></span>
+            <span><strong>{{ lesson.name }}</strong><span class="muted">{{ " · " + lesson.where }}<template v-if="lesson.hasCost">{{ " · about " }}<MoneyAmount :copper="lesson.cost" /></template></span></span>
             <RecipeSourceLines :source="lesson.source" />
           </li>
         </ul>

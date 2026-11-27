@@ -29,6 +29,10 @@ const verdict = computed(function verdictView() {
   };
 });
 
+const isCrafted = computed(function craftsIt() {
+  return props.plan.root.recipe !== null;
+});
+
 const requirements = computed(function requirementsView() {
   return planRequirements(props.plan);
 });
@@ -63,7 +67,7 @@ function quantityChanged(event: Event): void {
       <span v-if="moves.showsMoves" class="crafting-move"><button type="button" :disabled="moves.upDisabled" aria-label="Move up" @click="moveUp">↑</button><button type="button" :disabled="moves.downDisabled" aria-label="Move down" @click="moveDown">↓</button></span>
       <button class="link" type="button" @click="removeEntry(index)">Remove</button>
     </div>
-    <p class="crafting-verdict">{{ "Your plan costs " }}<MoneyOrUnknown :copper="plan.root.cost" :missing="plan.root.missingPrice" /><template v-if="verdict.isForSale">{{ " · ready-made " }}<MoneyAmount :copper="verdict.readyMade" /></template><template v-else>{{ ". Not for sale ready-made right now." }}</template><template v-if="verdict.hasSaving">{{ " · " }}<strong class="verdict-good">{{ "Crafting saves " }}<MoneyAmount :copper="verdict.saving" /></strong></template><template v-if="verdict.hasLoss">{{ " · " }}<strong class="verdict-bad">{{ "Buying it is cheaper by " }}<MoneyAmount :copper="verdict.loss" /></strong></template></p>
+    <p v-if="isCrafted" class="crafting-verdict">{{ "Your plan costs " }}<MoneyOrUnknown :copper="plan.root.cost" :missing="plan.root.missingPrice" /><template v-if="verdict.isForSale">{{ " · ready-made " }}<MoneyAmount :copper="verdict.readyMade" /></template><template v-else>{{ ". Not for sale ready-made right now." }}</template><template v-if="verdict.hasSaving">{{ " · " }}<strong class="verdict-good">{{ "Crafting saves " }}<MoneyAmount :copper="verdict.saving" /></strong></template><template v-if="verdict.hasLoss">{{ " · " }}<strong class="verdict-bad">{{ "Buying it is cheaper by " }}<MoneyAmount :copper="verdict.loss" /></strong></template></p>
     <ul class="requirements">
       <li v-for="requirement in requirements.recipes" :key="requirement.key" class="requirement">{{ requirement.profession }}<CraftingItemLabel :item-id="requirement.itemId" /><span v-if="requirement.knownBy" class="requirement-met">{{ " known by " + requirement.knownBy }}</span><template v-else><span class="requirement-missing">{{ " none of your characters knows it yet" }}</span><div v-if="requirement.source" class="recipe-source"><template v-if="requirement.source.text">{{ requirement.source.text }}</template><div v-for="line in requirement.source.lines" :key="line.key" :class="line.classes" tabindex="0" v-bind="line.mapAttributes">{{ line.prefix }}<a v-if="line.npcUrl" class="wowhead-link" :href="line.npcUrl" target="_blank" rel="noopener">{{ line.npcName }}</a>{{ line.suffix }}{{ line.coordinates }}</div></div></template></li>
       <li v-for="requirement in requirements.bindOnPickup" :key="requirement.key" class="requirement"><CraftingItemLabel :item-id="requirement.itemId" /><span class="requirement-missing">{{ requirement.text }}</span></li>

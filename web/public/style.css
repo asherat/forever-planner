@@ -20,6 +20,12 @@
   --font-body: "Segoe UI", system-ui, -apple-system, sans-serif;
   --font-display: Georgia, "Times New Roman", serif;
   --radius: 6px;
+  --text-xs: 0.75rem;
+  --text-sm: 0.85rem;
+  --text-md: 0.9375rem;
+  --text-h3: 1.05rem;
+  --text-h2: 1.3rem;
+  --text-h1: 1.6rem;
   --tier-orange: #c46a12;
   --tier-yellow: #a8890b;
   --tier-green: #2f8a2f;
@@ -92,9 +98,9 @@ h1, h2, h3 {
   text-wrap: balance;
 }
 
-h1 { font-size: 1.6rem; }
-h2 { font-size: 1.3rem; margin-bottom: 4px; }
-h3 { font-size: 1.05rem; }
+h1 { font-size: var(--text-h1); }
+h2 { font-size: var(--text-h2); margin-bottom: 4px; }
+h3 { font-size: var(--text-h3); }
 
 a {
   color: inherit;
@@ -424,7 +430,7 @@ button:disabled {
   border: 1px solid var(--border);
   background: var(--surface-raised);
   color: var(--fg);
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
   text-align: left;
   pointer-events: none;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
@@ -457,7 +463,7 @@ button:disabled {
 
 .tooltip-subtitle {
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
 }
 
 .tooltip-irrelevant {
@@ -478,12 +484,12 @@ button:disabled {
 
 .tooltip-effect {
   color: var(--gain-positive);
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
 }
 
 .tooltip-enchant {
   color: var(--quality-uncommon);
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
 }
 
 
@@ -510,7 +516,7 @@ button:disabled {
 }
 
 .gain {
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
   background: var(--surface-raised);
   border-radius: 999px;
@@ -559,7 +565,7 @@ button:disabled {
 
 .priority-current {
   font-family: var(--font-body);
-  font-size: 0.9rem;
+  font-size: var(--text-md);
   font-weight: 400;
 }
 
@@ -582,7 +588,7 @@ button:disabled {
 }
 
 .option-label {
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--muted);
@@ -606,29 +612,29 @@ button:disabled {
 }
 
 .option-title .muted {
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
 }
 
 .option-price {
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
   color: var(--accent);
 }
 
 .option-requirement {
   color: var(--error);
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
 }
 
 .option-note {
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
 }
 
 .sources {
   margin: 0;
   padding-left: 18px;
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
 }
 
 dialog {
@@ -740,7 +746,7 @@ legend {
 
 .choice-group legend {
   padding: 0;
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   color: var(--muted);
   font-weight: 400;
 }
@@ -907,12 +913,12 @@ legend {
 
 .crafting-group-title {
   margin: 4px 0 0;
-  font-size: 1rem;
+  font-size: var(--text-md);
   color: var(--accent);
 }
 
 .crafting-share {
-  font-size: 0.9rem;
+  font-size: var(--text-md);
 }
 
 .crafting-move {
@@ -987,7 +993,7 @@ legend {
 }
 
 .tree-explanation {
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   margin-left: 34px;
 }
 
@@ -1002,7 +1008,7 @@ legend {
   border: none;
   border-radius: 0;
   padding: 3px 10px;
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
 }
 
 .mode-button + .mode-button {
@@ -1042,7 +1048,7 @@ legend {
   padding: 0;
   display: grid;
   gap: 6px;
-  font-size: 0.9rem;
+  font-size: var(--text-md);
 }
 
 .summary-row {
@@ -1051,7 +1057,7 @@ legend {
 }
 
 .summary-value {
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
 }
 
 .checkbox-line {
@@ -1108,7 +1114,7 @@ legend {
   padding-left: 18px;
   display: grid;
   gap: 4px;
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
 }
 
 .requirement {
@@ -1139,7 +1145,7 @@ legend {
 }
 
 .route-credit {
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   margin: 0;
 }
 
@@ -1155,7 +1161,7 @@ legend {
   padding: 0 4px;
   border-radius: 4px;
   font-weight: 700;
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   color: var(--bg);
   background: var(--tier);
 }
@@ -1198,7 +1204,7 @@ legend {
 }
 
 .route-leg-levels {
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1212,11 +1218,11 @@ legend {
 
 .route-warning {
   color: var(--gain-negative);
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
 }
 
 .route-question {
-  font-size: 0.95rem;
+  font-size: var(--text-md);
   margin: 4px 0 0;
 }
 
@@ -1246,11 +1252,11 @@ legend {
 .zone-range {
   font-weight: 400;
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
 }
 
 .zone-note {
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   color: var(--muted);
 }
 
@@ -1264,7 +1270,7 @@ legend {
 
 .route-gap p {
   margin: 0;
-  font-size: 0.9rem;
+  font-size: var(--text-md);
 }
 
 .route-gap-option {
@@ -1278,7 +1284,7 @@ legend {
 }
 
 .route-badge {
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   color: var(--tier);
   font-weight: 600;
 }
@@ -1299,7 +1305,7 @@ legend {
 .inventory-account {
   margin: 6px 0 0;
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
 }
 
 .option-actions {
@@ -1319,7 +1325,7 @@ legend {
 
 .pick-button {
   padding: 2px 12px;
-  font-size: 0.9rem;
+  font-size: var(--text-md);
 }
 
 .pick-button[aria-pressed="true"] {
@@ -1352,7 +1358,7 @@ legend {
 }
 
 .version-tag {
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
@@ -1380,7 +1386,7 @@ legend {
 }
 
 .planner-sidebar h2 {
-  font-size: 1.1rem;
+  font-size: var(--text-h3);
 }
 
 @media (max-width: 1080px) {
@@ -1405,7 +1411,7 @@ legend {
 .priority-part-heading {
   margin: 0;
   font-family: var(--font-body);
-  font-size: 0.95rem;
+  font-size: var(--text-md);
   font-weight: 600;
   color: var(--muted);
 }
@@ -1415,7 +1421,7 @@ legend {
 }
 
 .zone-dungeons {
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   color: var(--fg);
 }
 
@@ -1424,7 +1430,7 @@ legend {
   align-items: center;
   gap: 8px;
   margin-top: 6px;
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--muted);
@@ -1537,7 +1543,7 @@ legend {
 }
 
 .character-list .character-row .muted {
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1558,7 +1564,7 @@ legend {
 }
 
 .found-characters button {
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
   padding: 4px 10px;
 }
 
@@ -1572,7 +1578,7 @@ legend {
   padding: 0;
   display: grid;
   gap: 6px;
-  font-size: 0.9rem;
+  font-size: var(--text-md);
   color: var(--muted);
 }
 
@@ -1611,7 +1617,7 @@ legend {
 
   .settings-tabs [role="tab"] {
     padding: 8px 5px;
-    font-size: 0.85rem;
+    font-size: var(--text-sm);
   }
 
   .mode-buttons {
@@ -1632,7 +1638,7 @@ legend {
 
 .gear-plan-panel p {
   margin: 0;
-  font-size: 0.9rem;
+  font-size: var(--text-md);
 }
 
 .plan-group {
@@ -1646,12 +1652,12 @@ legend {
 
 .plan-group .button-link {
   justify-self: start;
-  font-size: 0.95rem;
+  font-size: var(--text-md);
 }
 
 .plan-group-title {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: var(--text-md);
   color: var(--accent);
 }
 
@@ -1668,7 +1674,7 @@ legend {
   gap: 3px;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--border);
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
 }
 
 .plan-entry:last-child {
@@ -1681,7 +1687,7 @@ legend {
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
-  font-size: 0.95rem;
+  font-size: var(--text-md);
 }
 
 .plan-entry-name {
@@ -1691,7 +1697,7 @@ legend {
 
 .plan-entry-name .muted {
   font-weight: 400;
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
 }
 
 .plan-entry .sources {
@@ -1734,7 +1740,7 @@ legend {
 
 .map-caption {
   margin-top: 6px;
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   color: var(--muted);
 }
 
@@ -1797,7 +1803,7 @@ legend {
 .guide-form label {
   display: grid;
   gap: 4px;
-  font-size: 0.9rem;
+  font-size: var(--text-md);
 }
 
 .guide-form input[type="number"] {
@@ -1937,12 +1943,12 @@ legend {
 
 .guide-step-reagents {
   margin: 2px 0 0;
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
 }
 
 .guide-step-craft-first {
   margin: 2px 0 0;
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
   font-weight: 600;
 }
 
@@ -1987,4 +1993,36 @@ legend {
   .guide-step {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+.crafting-summary h2 {
+  font-size: var(--text-h3);
+}
+
+.page-heading {
+  display: grid;
+  gap: 4px;
+}
+
+.page-heading p {
+  margin: 0;
+}
+
+.page-data-status {
+  font-size: var(--text-sm);
+}
+
+.page-help summary,
+.summary-details summary {
+  cursor: pointer;
+  color: var(--accent);
+}
+
+.page-help p {
+  margin: 4px 0 0;
+  max-width: 70ch;
+}
+
+.summary-details summary {
+  font-weight: 600;
 }

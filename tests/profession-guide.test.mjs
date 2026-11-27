@@ -258,8 +258,9 @@ test("says which trainer teaches a recipe and shows its recipe for one craft", (
   run("state.questie = null");
   const guide = buildGuide("Tailoring", 160, 170, { knownRecipeIds: [], canCraft: ANYONE, ownedTools: [] });
   const stages = stageRows({ createdAt: 0, guide: guide, doneSteps: [], boughtMaterials: [] }, null, character);
-  assert.equal(stages[0].lessons[0].where, "From a trainer at skill 160");
-  assert.equal(stages[0].lessons[0].source.text, "An Expert Tailor");
+  assert.equal(stages[0].trainerLessons, "Recipe 1 (160)");
+  assert.equal(stages[0].lessons.length, 0);
+  assert.equal(stages[0].lessonTrainers.text, "An Expert Tailor");
   assert.deepEqual(stages[0].steps[0].recipe.lines, [{ className: "", text: "3× Linen Cloth" }]);
   assert.equal(stages[0].steps[0].recipe.subtitle, "One craft makes 2 and takes:");
 });

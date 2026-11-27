@@ -2,6 +2,17 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.90.0 — 2026-11-27
+
+- Less text everywhere. Professions: recipes from the trainer are one line per rank ("At the trainer: Thick Leather (175), …") instead of repeating the trainer under each recipe, pattern sources no longer repeat the pattern's name, sources with no known place are dropped, and the explanation of how the plan works is behind a "How the plan works" toggle.
+- The full "still to buy" list is folded away under the totals; the per-rank buy lists stay.
+- Crafting and Professions lose their big intro panel. "Connect WoW folder" is the top bar's button until a folder is connected, then it's "Refresh".
+- Crafting: something you just buy no longer says its price four times, empty side panels are hidden, and the two option panels are one.
+- Gear cards no longer repeat your spec on every card; the header already says it.
+- One type scale across the site (six sizes instead of thirteen), and side panel headings are the same size on every page.
+- Dates are short ("27 Nov, 21:29") and follow your browser's language.
+- "Compare professions" only shows when there is more than one profession to compare.
+
 ## v0.89.0 — 2026-11-27
 
 - Professions: crafting a recipe's own components now counts as skill. Making 21 Coarse Blasting Powder for 7 Coarse Dynamite is 28 crafts, and the plan counts all of them, so routes are shorter and cheaper (Tailoring and Engineering most of all). Those lines read "Craft first, for skill too".

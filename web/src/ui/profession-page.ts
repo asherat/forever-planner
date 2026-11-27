@@ -10,6 +10,7 @@ import { professionOf, saveSettings, selectedCharacter, setStatus, snapshotOf, s
 import type { Character, SavedGuide } from "../types.ts";
 import { recipeSource, trainerSource } from "./recipe-sources.ts";
 import { qualityClass } from "../prices.ts";
+import { shortDateTime } from "../dates.ts";
 import type { Tooltip } from "./upgrade-card.ts";
 import type { RecipeSourceView } from "./recipe-sources.ts";
 
@@ -262,14 +263,22 @@ function compareRowsByCost(first: ComparisonRow, second: ComparisonRow): number 
   return fullCost(first) - fullCost(second);
 }
 
+function primaryChoices(character: Character | null): ProfessionChoice[] {
+  return professionChoices(character).filter(function isPrimary(choice) {
+    return !isSecondary(choice.name);
+  });
+}
+
+export function hasProfessionsToCompare(character: Character | null): boolean {
+  return primaryChoices(character).length > 1;
+}
+
 export function compareProfessions(): void {
   const character = selectedCharacter();
   if (character === null) {
     return;
   }
-  comparison.rows = professionChoices(character).filter(function isPrimary(choice) {
-    return !isSecondary(choice.name);
-  }).map(function rowOf(choice) {
+  comparison.rows = primaryChoices(character).map(function rowOf(choice) {
     return comparisonRow(character, choice.name);
   }).sort(compareRowsByCost);
   comparison.characterSlug = character.slug;
@@ -286,7 +295,7 @@ export function skillLine(profession: string, skill: number | null): string {
   if (skill === null) {
     return "";
   }
-  return "Your " + profession + " skill on Battle.net: " + skill + ". Steps up to it are ticked by themselves after a Refresh.";
+  return "Battle.net says " + profession + " " + skill + ". Steps up to it are ticked for you.";
 }
 
 export interface StepRow {
@@ -430,16 +439,17 @@ export interface LessonRow {
 
 function lessonRow(profession: string, lesson: GuideLesson): LessonRow {
   const recipe = recipeById(profession, lesson.recipeId);
-  let source: RecipeSourceView;
-  let where: string;
-  if (recipe !== null && recipe.teachingItemId) {
-    source = recipeSource(recipe);
-    where = "Pattern, usable at skill " + lesson.learnAt;
-  } else {
-    source = trainerSource(profession, skillRankAt(lesson.learnAt).name);
-    where = "From a trainer at skill " + lesson.learnAt;
+  let source: RecipeSourceView = { text: "", lines: [] };
+  if (recipe !== null) {
+    source = recipeSource(recipe, false);
   }
-  return { key: lesson.recipeId, name: stepName(lesson.recipeId, lesson.itemId), where: where, cost: lesson.cost, hasCost: lesson.cost > 0, source: source };
+  return { key: lesson.recipeId, name: stepName(lesson.recipeId, lesson.itemId), where: "from skill " + lesson.learnAt, cost: lesson.cost, hasCost: lesson.cost > 0, source: source };
+}
+
+function trainerLessonsText(lessons: GuideLesson[]): string {
+  return lessons.map(function nameAndSkill(lesson) {
+    return stepName(lesson.recipeId, lesson.itemId) + " (" + lesson.learnAt + ")";
+  }).join(", ");
 }
 
 export interface MaterialRow {
@@ -497,6 +507,8 @@ export interface StageRow {
   runningTotal: number;
   steps: StepRow[];
   lessons: LessonRow[];
+  trainerLessons: string;
+  lessonTrainers: RecipeSourceView | null;
   hasLessons: boolean;
   materials: MaterialRow[];
   hasMaterials: boolean;
@@ -515,7 +527,7 @@ function trainingLine(rank: SkillRank, planFrom: number): string {
   if (!needsTraining(rank, planFrom)) {
     return "";
   }
-  return "Before " + rank.from + ": train " + rank.name + ". You can from skill " + rank.trainFrom + " and character level " + rank.characterLevel + ".";
+  return "First train " + rank.name + " (from skill " + rank.trainFrom + ", level " + rank.characterLevel + ")";
 }
 
 function trainersFor(rank: SkillRank, guide: Guide): RecipeSourceView | null {
@@ -531,6 +543,14 @@ function addStepCost(total: number, row: StepRow): number {
 
 function addLessonCost(total: number, lesson: GuideLesson): number {
   return total + lesson.cost;
+}
+
+function isFromPattern(lesson: GuideLesson): boolean {
+  return lesson.teachingItemId !== null;
+}
+
+function isFromTrainer(lesson: GuideLesson): boolean {
+  return lesson.teachingItemId === null;
 }
 
 function tickAllLabel(allBought: boolean): string {
@@ -557,6 +577,12 @@ export function stageRows(saved: SavedGuide, skill: number | null, character: Ch
       continue;
     }
     const cost = stageSteps.reduce(addStepCost, 0) + stageLessons.reduce(addLessonCost, 0);
+    const fromTrainer = stageLessons.filter(isFromTrainer);
+    const trainers = trainersFor(rank, guide);
+    let lessonTrainers: RecipeSourceView | null = null;
+    if (trainers === null && fromTrainer.length > 0) {
+      lessonTrainers = trainerSource(guide.profession, rank.name);
+    }
     runningTotal += cost;
     const stagePlans: Plan[] = [];
     for (const row of stageSteps) {
@@ -572,13 +598,15 @@ export function stageRows(saved: SavedGuide, skill: number | null, character: Ch
       key: rank.name,
       title: rank.name + " " + Math.max(rank.from, guide.from) + " → " + Math.min(rank.to, guide.to),
       training: trainingLine(rank, guide.from),
-      trainers: trainersFor(rank, guide),
+      trainers: trainers,
       cost: cost,
       runningTotal: runningTotal,
       steps: stageSteps,
-      lessons: stageLessons.map(function rowOf(lesson) {
+      lessons: stageLessons.filter(isFromPattern).map(function rowOf(lesson) {
         return lessonRow(guide.profession, lesson);
       }),
+      trainerLessons: trainerLessonsText(fromTrainer),
+      lessonTrainers: lessonTrainers,
       hasLessons: stageLessons.length > 0,
       materials: materials,
       hasMaterials: materials.length > 0,
@@ -668,7 +696,7 @@ export function guideSummary(saved: SavedGuide, stages: StageRow[]): GuideSummar
   }
   return {
     title: guide.profession + " " + guide.from + " → " + guide.to,
-    made: "Planned on " + new Date(saved.createdAt).toLocaleString() + " with that day's prices. Make a new plan to use today's.",
+    made: "Prices from " + shortDateTime(saved.createdAt),
     progress: stages.reduce(countDoneSteps, 0) + " of " + guide.steps.length + " steps done",
     total: guide.total,
     stuck: stuck

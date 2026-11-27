@@ -1,4 +1,5 @@
 import "./legacy.ts";
+import { shortDateTime } from "./dates.ts";
 import type { Inventory, InventoryCharacter } from "./crafting-plan.ts";
 import type { QuestieDetails } from "./questie.ts";
 import { state } from "./state.ts";
@@ -150,7 +151,7 @@ export function inventoryStatusText(): string {
   if (state.inventory === null) {
     return "Inventory: not found. TSM saves it when a character logs out." + folderErrorText("inventory");
   }
-  return "Inventory: " + Object.keys(state.inventory.characters).length + " characters, saved " + new Date(state.inventory.modifiedAt).toLocaleString() + ".";
+  return "Inventory: " + Object.keys(state.inventory.characters).length + " characters, saved " + shortDateTime(state.inventory.modifiedAt) + ".";
 }
 
 export function tsmStatusText(): string {
@@ -161,5 +162,5 @@ export function tsmStatusText(): string {
   if (state.tsm.scope !== null) {
     scopeText = state.tsm.scope + " auction house and region prices";
   }
-  return "TSM prices: " + scopeText + ", from " + new Date(state.tsm.downloadedAt).toLocaleString() + ".";
+  return "TSM prices: " + scopeText + ", from " + shortDateTime(state.tsm.downloadedAt) + ".";
 }
