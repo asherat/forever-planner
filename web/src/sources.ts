@@ -247,8 +247,51 @@ export function sourcesForCharacter(item: Item, snapshot: Snapshot): ItemSource[
   return sources;
 }
 
-function collectSourcesForCharacter(item: Item, snapshot: Snapshot): ItemSource[] {
+const OWNED_PLACES: ("bags" | "bank" | "mail")[] = ["bags", "bank", "mail"];
+const OWNED_PLACE_NAMES: Record<string, string> = { bags: "bags", bank: "bank", mail: "mailbox" };
+
+function inventoryInScope(snapshot: Snapshot) {
+  if (state.inventory === null) {
+    return [];
+  }
+  const characters = state.inventory.characters;
+  return Object.keys(characters).map(function characterOf(name) {
+    return characters[name];
+  }).filter(function isSameRealmAndFaction(character) {
+    return character.ruleset === snapshot.ruleset && character.faction === snapshot.faction;
+  });
+}
+
+export function ownedCount(itemId: number, snapshot: Snapshot): number {
+  let count = 0;
+  for (const character of inventoryInScope(snapshot)) {
+    for (const place of OWNED_PLACES) {
+      count += character[place][itemId] || 0;
+    }
+  }
+  return count;
+}
+
+function ownedSources(item: Item, snapshot: Snapshot): ItemSource[] {
+  const selected = selectedCharacter();
+  const ownName = (selected && selected.displayName) || "";
   const sources: ItemSource[] = [];
+  for (const character of inventoryInScope(snapshot)) {
+    const isOwn = character.name === ownName;
+    if (!isOwn && item.binding === "ON_ACQUIRE") {
+      continue;
+    }
+    for (const place of OWNED_PLACES) {
+      if (character[place][item.id]) {
+        sources.push({ type: "owned", holder: character.name, place: OWNED_PLACE_NAMES[place], isOwn: isOwn });
+      }
+    }
+  }
+  return sources;
+}
+
+function collectSourcesForCharacter(item: Item, snapshot: Snapshot): ItemSource[] {
+  const sources: ItemSource[] = ownedSources(item, snapshot);
   const detail = questieDetail(item);
   const questLevels = new Map<number, QuestieQuest>();
   const otherFactionQuestIds = new Set<number>();
@@ -450,7 +493,7 @@ function knowsRecipe(snapshot: Snapshot, source: CraftSource): boolean {
 }
 
 export function isEasySource(source: ItemSource, snapshot: Snapshot): boolean {
-  if (source.type === "quest") {
+  if (source.type === "quest" || source.type === "owned") {
     return true;
   }
   if (source.type === "vendor") {
@@ -576,16 +619,25 @@ function materialUnitPrice(itemId: number, snapshot: Snapshot): number | null {
   return offer.price;
 }
 
-export function averageMaterialCost(source: CraftSource, snapshot: Snapshot): { total: number; missing: number } {
+export function averageMaterialCost(source: CraftSource, snapshot: Snapshot): { total: number; missing: number; usesOwned: boolean } {
   let total = 0;
   let missing = 0;
+  let usesOwned = false;
   for (const reagent of source.reagents) {
+    const owned = ownedCount(reagent.id, snapshot);
+    const needed = Math.max(0, reagent.quantity - owned);
+    if (owned > 0) {
+      usesOwned = true;
+    }
+    if (needed === 0) {
+      continue;
+    }
     const price = materialUnitPrice(reagent.id, snapshot);
     if (price === null) {
       missing += 1;
     } else {
-      total += price * reagent.quantity;
+      total += price * needed;
     }
   }
-  return { total: total, missing: missing };
+  return { total: total, missing: missing, usesOwned: usesOwned };
 }
