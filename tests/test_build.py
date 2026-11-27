@@ -82,6 +82,26 @@ class QuestTest(unittest.TestCase):
         self.assertIsNone(build.item_faction(sample_item(), crafted, {}))
 
 
+
+WAGO_COOLDOWN_TABLES = {
+    "SkillLineAbility": [{"ID": "9000", "Spell": "18560"}, {"ID": "9001", "Spell": "2963"}],
+    "SpellCooldowns": [
+        {"SpellID": "18560", "RecoveryTime": "0", "CategoryRecoveryTime": "345600000"},
+        {"SpellID": "2963", "RecoveryTime": "1500", "CategoryRecoveryTime": ""},
+    ],
+}
+
+
+class RecipeCooldownsTest(unittest.TestCase):
+    @mock.patch.object(build, "wago_table", side_effect=WAGO_COOLDOWN_TABLES.get)
+    def test_marks_recipes_that_can_only_be_made_once_in_a_while(self, wago_table):
+        recipes = [{"id": 9000}, {"id": 9001}, {"id": 9002}]
+        build.add_recipe_cooldowns(recipes)
+        self.assertEqual(recipes[0]["cooldown"], 345600)
+        self.assertNotIn("cooldown", recipes[1])
+        self.assertNotIn("cooldown", recipes[2])
+
+
 if __name__ == "__main__":
     unittest.main()
 

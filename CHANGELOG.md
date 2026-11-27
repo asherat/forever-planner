@@ -2,6 +2,17 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.89.0 — 2026-11-27
+
+- Professions: crafting a recipe's own components now counts as skill. Making 21 Coarse Blasting Powder for 7 Coarse Dynamite is 28 crafts, and the plan counts all of them, so routes are shorter and cheaper (Tailoring and Engineering most of all). Those lines read "Craft first, for skill too".
+- What one step makes is used by later steps instead of being bought or made again. The step that makes it says "Keep 4 for Advanced Target Dummy (191 → 194)", and the step that uses it says so too.
+- The plan may craft a component itself even when the auction house is a little cheaper, when the extra skill points make up for it.
+- Component recipes are listed under Learn, with their pattern price. A component you can't learn yet at that skill is bought instead of "crafted first".
+- Recipes with a cooldown (Mooncloth, transmutes) are no longer used for leveling; before, a plan could ask for 100 Mooncloth.
+- A plan's costs, buy lists and recipe choices now come from the same prices, including what your other characters can craft at every depth.
+- Steps show the colour they start and end at ("Orange → Yellow").
+- Items Battle.net has no name for take the name of the recipe that makes them, and an unfinished test recipe is gone.
+
 ## v0.88.2 — 2026-11-27
 
 - Professions: choosing another character re-reads prices for that character's realm type and faction.

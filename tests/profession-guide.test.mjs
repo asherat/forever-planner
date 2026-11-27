@@ -312,3 +312,81 @@ test("compares only primary professions, since secondary ones give no legacy poi
   compareProfessions();
   assert.deepEqual(comparisonRows(character).map(function nameOf(row) { return row.name; }), ["Leatherworking"]);
 });
+
+const SHIRTS_FROM_OWN_BOLTS = {
+  recipes: [
+    { id: 1, profession: "Tailoring", itemId: 100, quantity: 1, reagents: [[BOLT, 1]] },
+    { id: 5, profession: "Tailoring", itemId: BOLT, quantity: 1, reagents: [[LINEN, 2]] }
+  ],
+  levels: { 1: [1, 100, 120, 140], 5: [1, 100, 120, 140] },
+  prices: { [LINEN]: auction(10) }
+};
+
+function stepsOf(guide) {
+  return guide.steps.map(function summary(step) { return [step.recipeId, step.from, step.to, step.crafts]; });
+}
+
+test("counts the skill from crafting a recipe's own components", () => {
+  const character = setUp(SHIRTS_FROM_OWN_BOLTS);
+  const guide = buildGuide("Tailoring", 1, 11, { knownRecipeIds: [], canCraft: ANYONE, ownedTools: [] });
+  assert.deepEqual(stepsOf(guide), [[1, 1, 11, 5]]);
+  assert.equal(guide.total, 5 * 20);
+  assert.deepEqual(guide.lessons.map(function lessonOf(lesson) { return lesson.recipeId; }), [1, 5]);
+  const stages = stageRows({ createdAt: 0, guide: guide, doneSteps: [], boughtMaterials: [] }, null, character);
+  assert.equal(stages[0].steps[0].craftFirst, "Craft first, for skill too: 5× Bolt of Linen Cloth");
+  assert.deepEqual(stages[0].materials.map(function row(entry) { return [entry.itemId, entry.quantity]; }), [[LINEN, "10×"]]);
+});
+
+test("crafts a component it could buy cheaper when the extra skill makes up for it", () => {
+  setUp(Object.assign({}, SHIRTS_FROM_OWN_BOLTS, { prices: { [LINEN]: auction(10), [BOLT]: auction(15) } }));
+  const guide = buildGuide("Tailoring", 1, 11, { knownRecipeIds: [], canCraft: ANYONE, ownedTools: [] });
+  assert.deepEqual(stepsOf(guide), [[1, 1, 11, 5]]);
+  assert.deepEqual(guide.steps[0].craftedForPoints, [BOLT]);
+});
+
+test("buys a component whose recipe is learned later than the recipe that needs it", () => {
+  const character = setUp({
+    recipes: SHIRTS_FROM_OWN_BOLTS.recipes,
+    levels: { 1: [1, 100, 120, 140], 5: [50, 100, 120, 140] },
+    prices: { [LINEN]: auction(10), [BOLT]: auction(100) }
+  });
+  const guide = buildGuide("Tailoring", 1, 5, { knownRecipeIds: [], canCraft: ANYONE, ownedTools: [] });
+  assert.deepEqual(stepsOf(guide), [[1, 1, 5, 4]]);
+  assert.equal(guide.total, 400);
+  assert.deepEqual(guide.lessons.map(function lessonOf(lesson) { return lesson.recipeId; }), [1]);
+  const stages = stageRows({ createdAt: 0, guide: guide, doneSteps: [], boughtMaterials: [] }, null, character);
+  assert.equal(stages[0].steps[0].craftFirst, "");
+  assert.deepEqual(stages[0].materials.map(function row(entry) { return [entry.itemId, entry.quantity]; }), [[BOLT, "4×"]]);
+});
+
+test("uses what an earlier step made, and says on that step to keep it", () => {
+  const character = setUp({
+    recipes: [
+      { id: 5, profession: "Tailoring", itemId: BOLT, quantity: 1, reagents: [[LINEN, 2]] },
+      { id: 1, profession: "Tailoring", itemId: 100, quantity: 1, reagents: [[BOLT, 2], [WOOL, 1]] }
+    ],
+    levels: { 5: [1, 100, 120, 140], 1: [5, 100, 120, 140] },
+    prices: { [LINEN]: auction(10), [WOOL]: auction(5) }
+  });
+  const guide = buildGuide("Tailoring", 1, 7, { knownRecipeIds: [], canCraft: ANYONE, ownedTools: [] });
+  assert.deepEqual(stepsOf(guide), [[5, 1, 5, 4], [1, 5, 7, 2]]);
+  assert.equal(guide.total, 4 * 20 + 2 * 5);
+  const stages = stageRows({ createdAt: 0, guide: guide, doneSteps: [], boughtMaterials: [] }, null, character);
+  assert.equal(stages[0].steps[0].keep, "Keep 4 for Recipe 1 (5 → 7)");
+  assert.equal(stages[0].steps[1].uses, "Uses 4× Bolt of Linen Cloth you made earlier");
+  assert.equal(stages[0].hasTaking, false);
+  assert.deepEqual(stages[0].materials.map(function row(entry) { return [entry.itemId, entry.quantity]; }), [[LINEN, "8×"], [WOOL, "2×"]]);
+});
+
+test("leaves out recipes with a cooldown", () => {
+  setUp({
+    recipes: [
+      { id: 1, profession: "Tailoring", itemId: 100, quantity: 1, reagents: [[LINEN, 1]], cooldown: 3600 },
+      { id: 2, profession: "Tailoring", itemId: 101, quantity: 1, reagents: [[WOOL, 1]] }
+    ],
+    levels: { 1: [1, 100, 120, 140], 2: [1, 100, 120, 140] },
+    prices: { [LINEN]: auction(1), [WOOL]: auction(50) }
+  });
+  const guide = buildGuide("Tailoring", 1, 4, { knownRecipeIds: [], canCraft: ANYONE, ownedTools: [] });
+  assert.deepEqual(stepsOf(guide), [[2, 1, 4, 3]]);
+});

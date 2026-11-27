@@ -1,6 +1,6 @@
 import { reactive } from "vue";
 import "../legacy.ts";
-import { COMPARED_SKILLS, SKILL_RANKS, buildGuide, levelingCosts, planStepMaterials, professionRecipes, skillRankAt, stepName, toolCategory } from "../profession-guide.ts";
+import { COMPARED_SKILLS, MADE_EARLIER, SKILL_RANKS, buildGuide, levelingCosts, planStepMaterials, professionRecipes, skillRankAt, stepCraftCheck, stepName, toolCategory } from "../profession-guide.ts";
 import type { CraftCheck, Guide, GuideLesson, GuideStep, SkillRank } from "../profession-guide.ts";
 import { INVENTORY_PLACES, aggregatePlans, collectNodes, craftingItem, includedInventoryCharacters } from "../crafting-plan.ts";
 import type { Plan, Recipe, ShoppingLine, TakingLine } from "../crafting-plan.ts";
@@ -295,6 +295,8 @@ export interface StepRow {
   step: GuideStep;
   done: boolean;
   craftFirst: string;
+  keep: string;
+  uses: string;
   recipe: Tooltip;
   tools: string;
 }
@@ -332,12 +334,14 @@ function recipeTooltip(profession: string, step: GuideStep): Tooltip {
   };
 }
 
-function craftFirstText(plans: Plan[]): string {
+function craftFirstText(plans: Plan[], profession: string): string {
   const counts = new Map<number, number>();
+  let givesSkill = false;
   for (const plan of plans) {
     for (const node of collectNodes(plan.root, []).reverse()) {
       if (node.recipe !== null && node.craftCount > 0) {
         counts.set(node.itemId, (counts.get(node.itemId) || 0) + node.craftCount);
+        givesSkill = givesSkill || (node.recipe.profession === profession && window.FOREVER_TOOLS.items[plan.entry.itemId] === undefined);
       }
     }
   }
@@ -347,6 +351,9 @@ function craftFirstText(plans: Plan[]): string {
   });
   if (parts.length === 0) {
     return "";
+  }
+  if (givesSkill) {
+    return "Craft first, for skill too: " + parts.join(", ");
   }
   return "Craft first: " + parts.join(", ");
 }
@@ -358,19 +365,55 @@ function canCraftFor(character: Character | null, profession: string): CraftChec
   };
 }
 
+function stepRange(step: GuideStep): string {
+  return step.from + " → " + step.to;
+}
+
+function addKeptProducts(rowsLeft: StepRow[], consumer: StepRow, plans: Plan[]): void {
+  const used = new Map<number, number>();
+  const kept = new Map<StepRow, number>();
+  for (const plan of plans) {
+    for (const node of collectNodes(plan.root, [])) {
+      for (const taken of node.taken) {
+        if (taken.character === MADE_EARLIER) {
+          const producer = rowsLeft[Number(taken.place)];
+          used.set(node.itemId, (used.get(node.itemId) || 0) + taken.count);
+          kept.set(producer, (kept.get(producer) || 0) + taken.count);
+        }
+      }
+    }
+  }
+  const uses: string[] = [];
+  used.forEach(function partOf(count, itemId) {
+    uses.push(count + "× " + craftingItem(itemId).name);
+  });
+  if (uses.length > 0) {
+    consumer.uses = "Uses " + uses.join(", ") + " you made earlier";
+  }
+  kept.forEach(function noteOn(count, producer) {
+    const note = count + " for " + stepName(consumer.step.recipeId, consumer.step.itemId) + " (" + stepRange(consumer.step) + ")";
+    if (producer.keep === "") {
+      producer.keep = "Keep " + note;
+    } else {
+      producer.keep += ", " + note;
+    }
+  });
+}
+
 function plannedStepRows(saved: SavedGuide, skill: number | null, character: Character | null): { rows: StepRow[]; plans: Map<number, Plan[]> } {
-  const rows = saved.guide.steps.map(function rowOf(step, index) {
-    return { key: index + ":" + step.recipeId, index: index, step: step, done: isStepDone(saved, step, index, skill), craftFirst: "", recipe: recipeTooltip(saved.guide.profession, step), tools: toolsText(saved.guide.profession, step) };
+  const rows: StepRow[] = saved.guide.steps.map(function rowOf(step, index) {
+    return { key: index + ":" + step.recipeId, index: index, step: step, done: isStepDone(saved, step, index, skill), craftFirst: "", keep: "", uses: "", recipe: recipeTooltip(saved.guide.profession, step), tools: toolsText(saved.guide.profession, step) };
   });
   const rowsLeft = rows.filter(function isLeft(row) {
     return !row.done;
   });
   const planned = planStepMaterials(rowsLeft.map(function stepOf(row) {
     return row.step;
-  }), canCraftFor(character, saved.guide.profession));
+  }), stepCraftCheck(saved.guide.profession, knownRecipeIds(character, saved.guide.profession), canCraftFor(character, saved.guide.profession)));
   const plans = new Map<number, Plan[]>();
   rowsLeft.forEach(function attach(row, position) {
-    row.craftFirst = craftFirstText(planned[position]);
+    row.craftFirst = craftFirstText(planned[position], saved.guide.profession);
+    addKeptProducts(rowsLeft, row, planned[position]);
     plans.set(row.index, planned[position]);
   });
   return { rows: rows, plans: plans };
@@ -424,6 +467,10 @@ export interface TakingRow {
 
 function takingRow(line: TakingLine): TakingRow {
   return { key: line.character + "|" + line.itemId, itemId: line.itemId, quantity: line.count + "×", places: takingPlaces(line) };
+}
+
+function isFromACharacter(line: TakingLine): boolean {
+  return line.character !== MADE_EARLIER;
 }
 
 function compareByCost(first: MaterialRow, second: MaterialRow): number {
@@ -519,7 +566,7 @@ export function stageRows(saved: SavedGuide, skill: number | null, character: Ch
     const materials = totals.shopping.map(function rowOf(line) {
       return materialRow(saved, rank, line);
     }).sort(compareByCost);
-    const taking = totals.taking.map(takingRow);
+    const taking = totals.taking.filter(isFromACharacter).map(takingRow);
     const allBought = materials.length > 0 && materials.every(isBoughtRow);
     stages.push({
       key: rank.name,
