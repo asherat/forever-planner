@@ -1,6 +1,6 @@
 const MAX_CHARACTER_LEVEL = 60;
 const LATER_ZONE_WINDOW = 5;
-const DUNGEON_LEVELS_BELOW_YOU = 10;
+const DUNGEON_LEVELS_BELOW_YOU = 5;
 const SUGGESTED_READY_ZONES = 4;
 const SUGGESTED_LATER_ZONES = 2;
 const TIER_COLORS = { S: "tier-orange", A: "tier-yellow", B: "tier-green", C: "tier-grey", D: "tier-grey" };
@@ -442,12 +442,28 @@ function renderDungeonList(character, snapshot) {
   select.dataset.addDungeon = "true";
   select.setAttribute("aria-label", "Add a dungeon");
   select.appendChild(createElement("option", null, "Add a dungeon…"));
+  const upgradeCounts = dungeonUpgradeCounts(character, snapshot);
   for (const dungeon of window.FOREVER_DUNGEONS) {
-    if (chosenDungeon(route, dungeon.name) === null && isDungeonWorthRunning(dungeon, snapshot)) {
-      const option = createElement("option", null, dungeon.name + " (" + dungeon.minLevel + "+)");
-      option.value = dungeon.name;
-      select.appendChild(option);
+    if (chosenDungeon(route, dungeon.name) !== null) {
+      continue;
     }
+    let label = dungeon.name + " (" + dungeon.minLevel + "+)";
+    if (upgradeCounts !== null) {
+      const upgrades = upgradeCounts[dungeon.name];
+      if (!upgrades) {
+        continue;
+      }
+      label += " · " + upgrades.count + " upgrade";
+      if (upgrades.count > 1) {
+        label += "s";
+      }
+      label += ", best +" + upgrades.bestGain;
+    } else if (!isDungeonWorthRunning(dungeon, snapshot)) {
+      continue;
+    }
+    const option = createElement("option", null, label);
+    option.value = dungeon.name;
+    select.appendChild(option);
   }
   section.appendChild(select);
   return section;
