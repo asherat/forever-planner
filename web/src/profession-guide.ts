@@ -5,9 +5,21 @@ import { MAX_RECIPE_DEPTH, buyOffer, cheapestRecipeFor, clearMarketCache, collec
 export type RecipeLevels = [number, number, number, number];
 export type RecipeColor = "orange" | "yellow" | "green" | "grey";
 
+export interface ToolCategory {
+  name: string;
+  type: number;
+  mask: number;
+  itemId: number | null;
+}
+
+export interface Tools {
+  categories: Record<string, ToolCategory>;
+  items: Record<string, number>;
+}
+
 export interface GuideStep {
   recipeId: number;
-  itemId: number;
+  itemId: number | null;
   from: number;
   to: number;
   crafts: number;
@@ -15,11 +27,19 @@ export interface GuideStep {
   cost: number;
   color: RecipeColor;
   reagents: [number, number][];
+  tools?: number[];
+  toolCost?: number;
+}
+
+export interface GuideOptions {
+  knownRecipeIds: number[];
+  canCraft: CraftCheck;
+  ownedTools: number[];
 }
 
 export interface GuideLesson {
   recipeId: number;
-  itemId: number;
+  itemId: number | null;
   learnAt: number;
   teachingItemId: number | null;
   cost: number;
@@ -72,10 +92,9 @@ export function recipeLevels(recipeId: number): RecipeLevels | null {
   return window.FOREVER_RECIPE_LEVELS[recipeId] || null;
 }
 
-export function stepName(recipeId: number, itemId: number): string {
-  const item = window.FOREVER_CRAFTING_ITEMS[itemId];
-  if (item) {
-    return item.name;
+export function stepName(recipeId: number, itemId: number | null): string {
+  if (itemId !== null && window.FOREVER_CRAFTING_ITEMS[itemId]) {
+    return window.FOREVER_CRAFTING_ITEMS[itemId].name;
   }
   return window.FOREVER_RECIPE_NAMES[recipeId] || "Recipe " + recipeId;
 }
@@ -177,33 +196,73 @@ function candidatesFor(profession: string, knownRecipeIds: number[], canCraft: C
   return candidates;
 }
 
-function costPerPoint(candidate: Candidate, skill: number, learned: Set<number>): number | null {
+export function toolCategory(categoryId: number): ToolCategory {
+  return window.FOREVER_TOOLS.categories[categoryId];
+}
+
+function toolCovers(have: number, need: number): boolean {
+  const owned = toolCategory(have);
+  const wanted = toolCategory(need);
+  return owned.type === wanted.type && (owned.mask & wanted.mask) === wanted.mask;
+}
+
+function missingTools(recipe: Recipe, obtained: number[]): number[] {
+  return (recipe.tools || []).filter(function isMissing(need) {
+    return !obtained.some(function covers(have) {
+      return toolCovers(have, need);
+    });
+  });
+}
+
+function toolCost(categoryId: number): number | null {
+  const itemId = toolCategory(categoryId).itemId;
+  if (itemId === null) {
+    return null;
+  }
+  return marketCost(itemId);
+}
+
+function missingToolsCost(recipe: Recipe, obtained: number[]): number | null {
+  let total = 0;
+  for (const need of missingTools(recipe, obtained)) {
+    const price = toolCost(need);
+    if (price === null) {
+      return null;
+    }
+    total += price;
+  }
+  return total;
+}
+
+function costPerPoint(candidate: Candidate, skill: number, learned: Set<number>, obtained: number[]): number | null {
   if (!candidate.isKnown && !learned.has(candidate.recipe.id) && candidate.levels[0] > skill) {
     return null;
   }
   const chance = skillUpChance(candidate.levels, skill);
-  if (chance <= 0) {
+  const tools = missingToolsCost(candidate.recipe, obtained);
+  if (chance <= 0 || tools === null) {
     return null;
   }
-  let cost = candidate.unitCost / chance;
+  const pointsAhead = Math.max(1, candidate.levels[2] - skill);
+  let cost = candidate.unitCost / chance + tools / pointsAhead;
   if (!candidate.isKnown && !learned.has(candidate.recipe.id)) {
-    cost += candidate.learnCost / Math.max(1, candidate.levels[2] - skill);
+    cost += candidate.learnCost / pointsAhead;
   }
   return cost;
 }
 
-function bestCandidate(candidates: Candidate[], skill: number, learned: Set<number>, current: Candidate | null): Candidate | null {
+function bestCandidate(candidates: Candidate[], skill: number, learned: Set<number>, obtained: number[], current: Candidate | null): Candidate | null {
   let best: Candidate | null = null;
   let bestCost = Infinity;
   for (const candidate of candidates) {
-    const cost = costPerPoint(candidate, skill, learned);
+    const cost = costPerPoint(candidate, skill, learned, obtained);
     if (cost !== null && cost < bestCost) {
       best = candidate;
       bestCost = cost;
     }
   }
   if (current !== null && best !== current) {
-    const currentCost = costPerPoint(current, skill, learned);
+    const currentCost = costPerPoint(current, skill, learned, obtained);
     if (currentCost !== null && currentCost * (1 - SWITCH_SAVING) <= bestCost) {
       return current;
     }
@@ -241,24 +300,39 @@ function marketPricing(canCraft: CraftCheck): MaterialPricing {
 
 function finishStep(step: GuideStep, expectedCrafts: number): GuideStep {
   step.crafts = Math.ceil(expectedCrafts - 0.0001);
-  step.cost = step.crafts * step.unitCost;
+  step.cost = step.crafts * step.unitCost + (step.toolCost || 0);
   return step;
+}
+
+function lessonFor(candidate: Candidate, skill: number): GuideLesson {
+  return { recipeId: candidate.recipe.id, itemId: candidate.recipe.itemId, learnAt: Math.max(skill, candidate.levels[0]), teachingItemId: candidate.recipe.teachingItemId || null, cost: candidate.learnCost };
+}
+
+function toolRecipe(candidates: Candidate[], categoryId: number): Candidate | null {
+  const itemId = toolCategory(categoryId).itemId;
+  for (const candidate of candidates) {
+    if (candidate.recipe.itemId === itemId) {
+      return candidate;
+    }
+  }
+  return null;
 }
 
 function compareByCost(first: GuideMaterial, second: GuideMaterial): number {
   return second.cost - first.cost;
 }
 
-export function buildGuide(profession: string, from: number, to: number, knownRecipeIds: number[], canCraft: CraftCheck): Guide {
+export function buildGuide(profession: string, from: number, to: number, options: GuideOptions): Guide {
   clearMarketCache();
-  const candidates = candidatesFor(profession, knownRecipeIds, canCraft);
+  const candidates = candidatesFor(profession, options.knownRecipeIds, options.canCraft);
   const learned = new Set<number>();
+  const obtained = options.ownedTools.slice();
   const guide: Guide = { profession: profession, from: from, to: to, steps: [], lessons: [], materials: [], total: 0, stuckAt: null };
   let step: GuideStep | null = null;
   let current: Candidate | null = null;
   let expectedCrafts = 0;
   for (let skill = from; skill < to; skill += 1) {
-    const candidate = bestCandidate(candidates, skill, learned, current);
+    const candidate = bestCandidate(candidates, skill, learned, obtained, current);
     current = candidate;
     if (candidate === null) {
       guide.stuckAt = skill;
@@ -266,14 +340,27 @@ export function buildGuide(profession: string, from: number, to: number, knownRe
     }
     if (!candidate.isKnown && !learned.has(candidate.recipe.id)) {
       learned.add(candidate.recipe.id);
-      guide.lessons.push({ recipeId: candidate.recipe.id, itemId: candidate.recipe.itemId, learnAt: Math.max(skill, candidate.levels[0]), teachingItemId: candidate.recipe.teachingItemId || null, cost: candidate.learnCost });
+      guide.lessons.push(lessonFor(candidate, skill));
     }
-    if (step === null || startsNewStep(step, candidate.recipe.id, skill)) {
+    const newTools = missingTools(candidate.recipe, obtained);
+    if (step === null || startsNewStep(step, candidate.recipe.id, skill) || newTools.length > 0) {
       if (step !== null) {
         guide.steps.push(finishStep(step, expectedCrafts));
       }
       step = { recipeId: candidate.recipe.id, itemId: candidate.recipe.itemId, from: skill, to: skill, crafts: 0, unitCost: candidate.unitCost, cost: 0, color: recipeColor(candidate.levels, skill), reagents: candidate.recipe.reagents };
       expectedCrafts = 0;
+    }
+    if (newTools.length > 0) {
+      step.tools = newTools;
+      step.toolCost = missingToolsCost(candidate.recipe, obtained) || 0;
+      for (const categoryId of newTools) {
+        obtained.push(categoryId);
+        const recipeForTool = toolRecipe(candidates, categoryId);
+        if (recipeForTool !== null && !recipeForTool.isKnown && !learned.has(recipeForTool.recipe.id)) {
+          learned.add(recipeForTool.recipe.id);
+          guide.lessons.push(lessonFor(recipeForTool, skill));
+        }
+      }
     }
     expectedCrafts += 1 / skillUpChance(candidate.levels, skill);
     step.to = skill + 1;
@@ -287,7 +374,7 @@ export function buildGuide(profession: string, from: number, to: number, knownRe
   for (const lesson of guide.lessons) {
     guide.total += lesson.cost;
   }
-  guide.materials = sumMaterials(guide.steps, marketPricing(canCraft));
+  guide.materials = sumMaterials(guide.steps, marketPricing(options.canCraft));
   return guide;
 }
 
@@ -309,7 +396,7 @@ function costUpTo(guide: Guide, skill: number): number {
 }
 
 export function levelingCosts(profession: string, canCraft: CraftCheck): (number | null)[] {
-  const guide = buildGuide(profession, 1, COMPARED_SKILLS[COMPARED_SKILLS.length - 1], [], canCraft);
+  const guide = buildGuide(profession, 1, COMPARED_SKILLS[COMPARED_SKILLS.length - 1], { knownRecipeIds: [], canCraft: canCraft, ownedTools: [] });
   return COMPARED_SKILLS.map(function costTo(skill) {
     if (guide.stuckAt !== null && guide.stuckAt < skill) {
       return null;
@@ -319,9 +406,16 @@ export function levelingCosts(profession: string, canCraft: CraftCheck): (number
 }
 
 function stepEntries(step: GuideStep): CraftingEntry[] {
-  return step.reagents.map(function entryOf(reagent) {
+  const entries = step.reagents.map(function entryOf(reagent) {
     return { itemId: reagent[0], quantity: reagent[1] * step.crafts };
   });
+  for (const categoryId of step.tools || []) {
+    const itemId = toolCategory(categoryId).itemId;
+    if (itemId !== null) {
+      entries.push({ itemId: itemId, quantity: 1 });
+    }
+  }
+  return entries;
 }
 
 function planSteps(steps: GuideStep[], overrides: Record<string, PlanMode>): Plan[][] {

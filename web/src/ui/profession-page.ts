@@ -1,8 +1,8 @@
 import { reactive } from "vue";
 import "../legacy.ts";
-import { COMPARED_SKILLS, SKILL_RANKS, buildGuide, levelingCosts, planStepMaterials, professionRecipes, skillRankAt, stepName } from "../profession-guide.ts";
+import { COMPARED_SKILLS, SKILL_RANKS, buildGuide, levelingCosts, planStepMaterials, professionRecipes, skillRankAt, stepName, toolCategory } from "../profession-guide.ts";
 import type { CraftCheck, Guide, GuideLesson, GuideStep, SkillRank } from "../profession-guide.ts";
-import { aggregatePlans, collectNodes, craftingItem } from "../crafting-plan.ts";
+import { INVENTORY_PLACES, aggregatePlans, collectNodes, craftingItem, includedInventoryCharacters } from "../crafting-plan.ts";
 import type { Plan, Recipe, ShoppingLine, TakingLine } from "../crafting-plan.ts";
 import { takingPlaces } from "./inventory-text.ts";
 import { professionOf, saveSettings, selectedCharacter, snapshotOf, state } from "../state.ts";
@@ -16,7 +16,6 @@ export const PROFESSIONS = ["Alchemy", "Blacksmithing", "Cooking", "Enchanting",
 export const MAX_SKILL = 300;
 const SECONDARY_PROFESSIONS = ["Cooking", "First Aid", "Fishing"];
 const PRIMARY_PROFESSION_LIMIT = 2;
-const INCOMPLETE_PROFESSIONS: Record<string, string> = { Enchanting: "Rods and oils only: enchants aren't in the data yet" };
 
 export const guideForm = reactive({ profession: "", from: 1, to: MAX_SKILL });
 
@@ -100,6 +99,21 @@ export function startGuidePage(): void {
   chooseProfession(professionChoices(selectedCharacter())[0].name);
 }
 
+function ownedToolCategories(): number[] {
+  const categories: number[] = [];
+  for (const character of includedInventoryCharacters()) {
+    for (const place of INVENTORY_PLACES) {
+      for (const itemId of Object.keys(character[place])) {
+        const categoryId = window.FOREVER_TOOLS.items[itemId];
+        if (categoryId !== undefined && categories.indexOf(categoryId) === -1) {
+          categories.push(categoryId);
+        }
+      }
+    }
+  }
+  return categories;
+}
+
 export function makeGuide(): void {
   const character = selectedCharacter();
   if (character === null) {
@@ -107,7 +121,7 @@ export function makeGuide(): void {
   }
   const from = Math.max(1, Math.min(MAX_SKILL - 1, Math.floor(guideForm.from)));
   const to = Math.max(from + 1, Math.min(MAX_SKILL, Math.floor(guideForm.to)));
-  const guide = buildGuide(guideForm.profession, from, to, knownRecipeIds(character, guideForm.profession), canCraftFor(character, guideForm.profession));
+  const guide = buildGuide(guideForm.profession, from, to, { knownRecipeIds: knownRecipeIds(character, guideForm.profession), canCraft: canCraftFor(character, guideForm.profession), ownedTools: ownedToolCategories() });
   if (!character.professionGuides) {
     character.professionGuides = {};
   }
@@ -204,7 +218,6 @@ export interface ComparisonCell {
 export interface ComparisonRow {
   key: string;
   name: string;
-  note: string;
   cells: ComparisonCell[];
 }
 
@@ -219,7 +232,6 @@ function comparisonRow(character: Character | null, profession: string): Compari
   return {
     key: profession,
     name: profession,
-    note: INCOMPLETE_PROFESSIONS[profession] || "",
     cells: costs.map(function cellOf(cost, index) {
       return { key: COMPARED_SKILLS[index], copper: cost || 0, hasCost: cost !== null };
     })
@@ -270,6 +282,17 @@ export interface StepRow {
   done: boolean;
   craftFirst: string;
   recipe: Tooltip;
+  tools: string;
+}
+
+function toolsText(profession: string, step: GuideStep): string {
+  const recipe = recipeById(profession, step.recipeId);
+  if (recipe === null || !recipe.tools) {
+    return "";
+  }
+  return "Needs: " + recipe.tools.map(function nameOf(categoryId) {
+    return toolCategory(categoryId).name;
+  }).join(", ");
 }
 
 function recipeTooltip(profession: string, step: GuideStep): Tooltip {
@@ -278,10 +301,17 @@ function recipeTooltip(profession: string, step: GuideStep): Tooltip {
   if (recipe !== null) {
     makes = recipe.quantity;
   }
+  let subtitle = "One craft makes " + makes + " and takes:";
+  let titleClass = "";
+  if (step.itemId === null) {
+    subtitle = "One enchant takes:";
+  } else {
+    titleClass = qualityClass(craftingItem(step.itemId).quality);
+  }
   return {
     title: stepName(step.recipeId, step.itemId),
-    titleClass: qualityClass(craftingItem(step.itemId).quality),
-    subtitle: "One craft makes " + makes + " and takes:",
+    titleClass: titleClass,
+    subtitle: subtitle,
     lines: step.reagents.map(function lineOf(reagent) {
       return { className: "", text: reagent[1] + "× " + craftingItem(reagent[0]).name };
     })
@@ -316,7 +346,7 @@ function canCraftFor(character: Character | null, profession: string): CraftChec
 
 function plannedStepRows(saved: SavedGuide, skill: number | null, character: Character | null): { rows: StepRow[]; plans: Map<number, Plan[]> } {
   const rows = saved.guide.steps.map(function rowOf(step, index) {
-    return { key: index + ":" + step.recipeId, index: index, step: step, done: isStepDone(saved, step, index, skill), craftFirst: "", recipe: recipeTooltip(saved.guide.profession, step) };
+    return { key: index + ":" + step.recipeId, index: index, step: step, done: isStepDone(saved, step, index, skill), craftFirst: "", recipe: recipeTooltip(saved.guide.profession, step), tools: toolsText(saved.guide.profession, step) };
   });
   const rowsLeft = rows.filter(function isLeft(row) {
     return !row.done;

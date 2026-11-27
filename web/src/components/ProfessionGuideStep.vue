@@ -9,11 +9,14 @@ import ComparisonTooltip from "./ComparisonTooltip.vue";
 import CraftingItemLabel from "./CraftingItemLabel.vue";
 import MoneyAmount from "./MoneyAmount.vue";
 
-const props = defineProps<{ step: GuideStep; done: boolean; craftFirst: string; recipe: Tooltip }>();
+const props = defineProps<{ step: GuideStep; done: boolean; craftFirst: string; recipe: Tooltip; tools: string }>();
 const emit = defineEmits<{ toggle: [] }>();
 
-const isKnownItem = computed(function knownItem() {
-  return Boolean(window.FOREVER_CRAFTING_ITEMS[props.step.itemId]);
+const knownItemId = computed(function knownItem() {
+  if (props.step.itemId === null || !window.FOREVER_CRAFTING_ITEMS[props.step.itemId]) {
+    return null;
+  }
+  return props.step.itemId;
 });
 
 const name = computed(function craftedName() {
@@ -58,13 +61,14 @@ function toggled(): void {
         <span :class="colorClasses">{{ step.color }}</span>
         <span>{{ crafts }}</span>
         <span class="recipe-hover">
-          <CraftingItemLabel v-if="isKnownItem" :item-id="step.itemId" />
+          <CraftingItemLabel v-if="knownItemId" :item-id="knownItemId" />
           <strong v-else tabindex="0">{{ name }}</strong>
           <ComparisonTooltip :tooltip="recipe" extra-class="tooltip-recipe" />
         </span>
         <span class="guide-step-cost"><MoneyAmount :copper="step.cost" /></span>
       </div>
       <p class="muted guide-step-reagents">{{ reagents }}</p>
+      <p v-if="tools" class="muted guide-step-reagents">{{ tools }}</p>
       <p v-if="craftFirst" class="guide-step-craft-first">{{ craftFirst }}</p>
     </div>
   </li>

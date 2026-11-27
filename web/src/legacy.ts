@@ -3,6 +3,7 @@ import type { TSM } from "./tsm.ts";
 import type { GameRules, GuideDungeon, Item, ZoneGuide } from "./types.ts";
 import type { Recipe } from "./crafting-plan.ts";
 import type { MapZone } from "./map-popover.ts";
+import type { Tools } from "./profession-guide.ts";
 
 declare global {
   interface Window {
@@ -14,6 +15,7 @@ declare global {
     FOREVER_RECIPES: Recipe[];
     FOREVER_RECIPE_LEVELS: Record<string, [number, number, number, number]>;
     FOREVER_RECIPE_NAMES: Record<string, string>;
+    FOREVER_TOOLS: Tools;
     FOREVER_DUNGEONS: GuideDungeon[];
     ZONE_GUIDE: ZoneGuide;
     FOREVER_MAPS: { zones: Record<string, MapZone>; continents: Record<string, { uiMapId: number }> };

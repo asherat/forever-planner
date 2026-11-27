@@ -302,17 +302,17 @@ export function inventoryRows(): InventoryRow[] | null {
 
 export function searchNames(): string[] {
   const seen = new Set<string>();
-  for (const recipe of window.FOREVER_RECIPES) {
-    seen.add(craftingItem(recipe.itemId).name);
+  for (const itemId of crafting.recipesByItem.keys()) {
+    seen.add(craftingItem(itemId).name);
   }
   return Array.from(seen);
 }
 
 function craftableItemByName(name: string): number | null {
   const wanted = name.trim().toLowerCase();
-  for (const recipe of window.FOREVER_RECIPES) {
-    if (craftingItem(recipe.itemId).name.toLowerCase() === wanted) {
-      return recipe.itemId;
+  for (const itemId of crafting.recipesByItem.keys()) {
+    if (craftingItem(itemId).name.toLowerCase() === wanted) {
+      return itemId;
     }
   }
   return null;
