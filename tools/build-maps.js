@@ -14,6 +14,8 @@ const JPEG_QUALITY = 72;
 const OUTPUT_WIDTH = 560;
 const BLP_COMPRESSION_DXT = 2;
 const DXT1_ALPHA_TYPE = 0;
+const DXT5_ALPHA_TYPE = 7;
+const OVERLAY_TILE_SIZE = 256;
 const REQUEST_PAUSE_MILLISECONDS = 300;
 const RATE_LIMIT_PAUSE_MILLISECONDS = 5000;
 const MAX_ATTEMPTS = 6;
@@ -82,11 +84,41 @@ function expandColor(value) {
   return [((value >> 11) & 31) * 255 / 31, ((value >> 5) & 63) * 255 / 63, (value & 31) * 255 / 31];
 }
 
-function decodeDxt1(data, width, height) {
+function dxt5Alphas(data, offset) {
+  const first = data[offset];
+  const second = data[offset + 1];
+  const alphas = [first, second];
+  if (first > second) {
+    for (let step = 1; step < 7; step += 1) {
+      alphas.push(((7 - step) * first + step * second) / 7);
+    }
+  } else {
+    for (let step = 1; step < 5; step += 1) {
+      alphas.push(((5 - step) * first + step * second) / 5);
+    }
+    alphas.push(0, 255);
+  }
+  let bits = 0n;
+  for (let index = 0; index < 6; index += 1) {
+    bits |= BigInt(data[offset + 2 + index]) << BigInt(8 * index);
+  }
+  const values = [];
+  for (let pixel = 0; pixel < 16; pixel += 1) {
+    values.push(alphas[Number((bits >> BigInt(3 * pixel)) & 7n)]);
+  }
+  return values;
+}
+
+function decodeDxt(data, width, height, hasAlphaBlock, hasOneBitAlpha) {
   const pixels = Buffer.alloc(width * height * 4);
   let offset = 0;
   for (let blockY = 0; blockY < height; blockY += 4) {
     for (let blockX = 0; blockX < width; blockX += 4) {
+      let alphas = null;
+      if (hasAlphaBlock) {
+        alphas = dxt5Alphas(data, offset);
+        offset += 8;
+      }
       const first = data.readUInt16LE(offset);
       const second = data.readUInt16LE(offset + 2);
       const bits = data.readUInt32LE(offset + 4);
@@ -94,7 +126,7 @@ function decodeDxt1(data, width, height) {
       const colorA = expandColor(first);
       const colorB = expandColor(second);
       const palette = [colorA, colorB];
-      if (first > second) {
+      if (first > second || hasAlphaBlock) {
         palette.push([(2 * colorA[0] + colorB[0]) / 3, (2 * colorA[1] + colorB[1]) / 3, (2 * colorA[2] + colorB[2]) / 3]);
         palette.push([(colorA[0] + 2 * colorB[0]) / 3, (colorA[1] + 2 * colorB[1]) / 3, (colorA[2] + 2 * colorB[2]) / 3]);
       } else {
@@ -107,12 +139,18 @@ function decodeDxt1(data, width, height) {
         if (x >= width || y >= height) {
           continue;
         }
-        const color = palette[(bits >>> (pixel * 2)) & 3];
+        const index = (bits >>> (pixel * 2)) & 3;
+        const color = palette[index];
         const target = (y * width + x) * 4;
         pixels[target] = color[0];
         pixels[target + 1] = color[1];
         pixels[target + 2] = color[2];
         pixels[target + 3] = 255;
+        if (alphas !== null) {
+          pixels[target + 3] = alphas[pixel];
+        } else if (hasOneBitAlpha && first <= second && index === 3) {
+          pixels[target + 3] = 0;
+        }
       }
     }
   }
@@ -124,14 +162,15 @@ function decodeBlp(file) {
     throw new Error("Not a BLP2 file");
   }
   const compression = file[8];
+  const alphaDepth = file[9];
   const alphaType = file[10];
   const width = file.readUInt32LE(12);
   const height = file.readUInt32LE(16);
-  if (compression !== BLP_COMPRESSION_DXT || alphaType !== DXT1_ALPHA_TYPE) {
+  if (compression !== BLP_COMPRESSION_DXT || (alphaType !== DXT1_ALPHA_TYPE && alphaType !== DXT5_ALPHA_TYPE)) {
     throw new Error("Unsupported BLP encoding " + compression + "/" + alphaType);
   }
   const mipOffset = file.readUInt32LE(20);
-  return { width: width, height: height, pixels: decodeDxt1(file.subarray(mipOffset), width, height) };
+  return { width: width, height: height, pixels: decodeDxt(file.subarray(mipOffset), width, height, alphaType === DXT5_ALPHA_TYPE, alphaType === DXT1_ALPHA_TYPE && alphaDepth > 0) };
 }
 
 function loadMapData() {
@@ -167,6 +206,36 @@ function downscale(pixels, width, height, outputWidth) {
   return { data: output, width: outputWidth, height: outputHeight };
 }
 
+function blendPixel(canvas, target, pixels, source) {
+  const alpha = pixels[source + 3] / 255;
+  for (let channel = 0; channel < 3; channel += 1) {
+    canvas[target + channel] = Math.round(pixels[source + channel] * alpha + canvas[target + channel] * (1 - alpha));
+  }
+}
+
+async function drawExploredOverlays(canvas, width, height, uiMapArtId, tables) {
+  const overlays = tables.overlays.filter(function isPlainOverlay(row) {
+    return row.UiMapArtID === uiMapArtId && row.PlayerConditionID === "0";
+  });
+  for (const overlay of overlays) {
+    const overlayRight = Number(overlay.OffsetX) + Number(overlay.TextureWidth);
+    const overlayBottom = Number(overlay.OffsetY) + Number(overlay.TextureHeight);
+    const tiles = tables.overlayTiles.filter(function isOverlayTile(row) {
+      return row.WorldMapOverlayID === overlay.ID && row.LayerIndex === "0";
+    });
+    for (const tile of tiles) {
+      const image = decodeBlp(await tileFile(tile.FileDataID));
+      const originX = Number(overlay.OffsetX) + Number(tile.ColIndex) * OVERLAY_TILE_SIZE;
+      const originY = Number(overlay.OffsetY) + Number(tile.RowIndex) * OVERLAY_TILE_SIZE;
+      for (let y = 0; y < image.height && originY + y < Math.min(height, overlayBottom); y += 1) {
+        for (let x = 0; x < image.width && originX + x < Math.min(width, overlayRight); x += 1) {
+          blendPixel(canvas, ((originY + y) * width + originX + x) * 4, image.pixels, (y * image.width + x) * 4);
+        }
+      }
+    }
+  }
+}
+
 async function buildMap(uiMapId, tables) {
   const art = tables.mapArt.find(function isPhaseZero(row) {
     return row.UiMapID === String(uiMapId) && row.PhaseID === "0";
@@ -198,6 +267,7 @@ async function buildMap(uiMapId, tables) {
       }
     }
   }
+  await drawExploredOverlays(canvas, width, height, art.UiMapArtID, tables);
   const encoded = jpeg.encode(downscale(canvas, width, height, OUTPUT_WIDTH), JPEG_QUALITY);
   fs.writeFileSync(path.join(OUTPUT_DIRECTORY, uiMapId + ".jpg"), encoded.data);
   return true;
@@ -209,7 +279,9 @@ async function main() {
     mapArt: await wagoTable("UiMapXMapArt", build),
     art: await wagoTable("UiMapArt", build),
     layers: await wagoTable("UiMapArtStyleLayer", build),
-    tiles: await wagoTable("UiMapArtTile", build)
+    tiles: await wagoTable("UiMapArtTile", build),
+    overlays: await wagoTable("WorldMapOverlay", build),
+    overlayTiles: await wagoTable("WorldMapOverlayTile", build)
   };
   const maps = loadMapData();
   const uiMapIds = [];
