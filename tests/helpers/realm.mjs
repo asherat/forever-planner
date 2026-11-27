@@ -2,7 +2,7 @@ import fs from "node:fs";
 import vm from "node:vm";
 
 const PUBLIC_DIRECTORY = new URL("../../web/public/", import.meta.url);
-const CLASSIC_SCRIPTS = ["game-rules.js", "data/dungeons.js", "zone-guide.js", "common.js", "route.js", "app.js"];
+const CLASSIC_SCRIPTS = ["game-rules.js", "data/dungeons.js", "zone-guide.js", "common.js", "route-panel.js", "app.js"];
 
 function createStorage() {
   const values = new Map();
@@ -30,6 +30,7 @@ globalThis.localStorage = createStorage();
 for (const fileName of CLASSIC_SCRIPTS) {
   vm.runInThisContext(fs.readFileSync(new URL(fileName, PUBLIC_DIRECTORY), "utf8"), { filename: fileName });
 }
+Object.assign(globalThis, await import("../../web/src/route.ts"));
 Object.assign(globalThis, await import("../../web/src/sources.ts"));
 Object.assign(globalThis, await import("../../web/src/scoring.ts"));
 Object.assign(globalThis, await import("../../web/src/upgrades.ts"));

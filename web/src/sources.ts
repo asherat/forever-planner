@@ -1,4 +1,5 @@
 import "./legacy.ts";
+import { dungeonForArea, guideZone } from "./route.ts";
 import type { CraftSource, Item, ItemSource, QuestieItemDetail, QuestieQuest, ReputationRequirement, Snapshot } from "./types.ts";
 
 export const CLASS_BITS: Record<string, number> = { Warrior: 1, Paladin: 2, Hunter: 4, Rogue: 8, Priest: 16, Shaman: 64, Mage: 128, Warlock: 256, Druid: 1024 };

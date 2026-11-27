@@ -17,7 +17,7 @@ Its users are an experienced player and a brand-new player, so **simplicity beat
 
 A static site built with Vite from `web/` and served by GitHub Pages. There is no server.
 
-- **Migration to TypeScript + Vue 3 is in progress** (chosen 2026-11-27). Plan: (1) Vite pipeline with the old code unchanged — done; (2) logic files become typed modules in `web/src/`, tests with them — `tsm.ts`, `lua.ts`, `scoring.ts`, `sources.ts` and `upgrades.ts` done; `route.js` (logic and its panel) is next; `questie.js` is not converted because step 3 replaces it; (3) a loader that fetches QuestieDB's Forever release from GitHub instead of reading the local install; (4) the UI moves into Vue components one piece at a time, then the crafting page. Each step is its own release.
+- **Migration to TypeScript + Vue 3 is in progress** (chosen 2026-11-27). Plan: (1) Vite pipeline with the old code unchanged — done; (2) logic files become typed modules in `web/src/`, tests with them — done: `tsm.ts`, `lua.ts`, `scoring.ts`, `sources.ts`, `upgrades.ts`, `route.ts` (its panel stays in `route-panel.js` until step 4); `questie.js` is not converted because step 3 replaces it; (3) a loader that fetches QuestieDB's Forever release from GitHub instead of reading the local install; (4) the UI moves into Vue components one piece at a time, then the crafting page. Each step is its own release.
 - Until a file is migrated it stays a plain classic `<script>` in `web/public/` that shares globals; Vite copies `web/public/` as-is (its "can't be bundled" warnings for those tags are expected). Load order is in `index.html` and `crafting.html`. New code goes in `web/src/` (TypeScript, Vue SFCs), entry `web/src/main.ts`.
 - **The browser calls the Battle.net API directly** with the user's own API client. The secret lives only in `localStorage`. Battle.net rejects `Origin: null`, so the site must be served over HTTP, never opened as `file://`.
 - **Local WoW files** are read through the File System Access API, from a picked `World of Warcraft` or `_forever_` folder whose handle is kept in IndexedDB. The files are read, never uploaded.
@@ -39,7 +39,8 @@ A static site built with Vite from `web/` and served by GitHub Pages. There is n
 | `vite.config.ts`, `tsconfig.json` | Build (`npm run build` → `dist/`) and type check (`npm run typecheck`) |
 | `web/crafting.html`, `web/public/crafting.js` | Crafting tool: recipe trees with own / vendor / AH / craft per material, totals, shopping list, recipe sources |
 | `web/public/common.js` | Shared state, storage keys, Battle.net fetch, WoW folder reading, prices and money, Wowhead links, map popovers |
-| `web/public/route.js` | Leveling path editor: zone suggestions, gap filling, route legs used by gear availability |
+| `web/src/route.ts` | Leveling path logic: zone suggestions, legs, gaps and empty levels, dungeons by area, route legs used by gear availability (typed, no DOM) |
+| `web/public/route-panel.js` | The leveling path panel (rendering and clicks); moves into Vue in step 4 |
 | `web/public/zone-guide.js` | Hand-maintained zone tiers, notes, level ranges, factions and dungeons |
 | `web/public/game-rules.js` | Slots, class proficiencies, spec presets and playstyles |
 | `web/public/questie.js` | CBOR decoder and Questie lookups (sources, quest info, chains, starters, dungeon entrances) |
