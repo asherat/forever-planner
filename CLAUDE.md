@@ -45,8 +45,10 @@ A static site built with Vite from `web/` and served by GitHub Pages. There is n
 | `web/src/upgrades.ts` | Ranking candidates per slot, route availability, quicker option, ring/trinket and weapon pairing (typed, no DOM). `observeRanking` lets `gear.ts` queue Wowhead tooltip checks for the top candidates without ranking knowing about it |
 | `web/src/legacy.ts` | Types for the data globals the plain data scripts put on `window` (`GAME_RULES`, `FOREVER_ITEMS`, …), and `exposeForDebugging`, which puts modules on `window` for devtools and the Playwright checks (nothing in the app reads them from there) |
 | `vite.config.mts`, `tsconfig.json` | Build (`npm run build` → `dist/`) and type check (`npm run typecheck`) |
-| `web/crafting.html`, `web/src/crafting.ts` | Crafting tool page. `crafting.ts` starts it and mounts `CraftingPage` (intro, search, the plan list `CraftingEntry` → recursive `PlanTreeNode`, and the `CraftingSummary` sidebar) and `CraftingTopControls` (ruleset/faction and Refresh); page logic is in `ui/crafting-page.ts`. It also gives the folder reader the crafting page's own `currentPriceScope` (from `crafting-plan.ts`), `questieItemIds` and `questieQuestIds` through `useFolderScope` |
-| `web/professions.html`, `web/src/professions.ts` | Professions page: mounts `ProfessionsPage` (form, steps `ProfessionGuideStep`, totals, materials left, recipes to learn) and `CraftingTopControls`; page logic and the saved plans are in `ui/profession-page.ts` |
+| `web/src/tool-page.ts` | Shared start of the two tool pages (crafting and professions): loads state and recipes, gives the folder reader the tool pages' `currentPriceScope` (from `crafting-plan.ts`), `questieItemIds` and `questieQuestIds` through `useFolderScope`, mounts the page and `FolderTopControls` (ruleset/faction and Refresh), and reads the WoW folder |
+| `web/crafting.html`, `web/src/crafting.ts` | Crafting tool page: `startToolPage` with `CraftingPage` (intro, search, the plan list `CraftingEntry` → recursive `PlanTreeNode`, and the `CraftingSummary` sidebar) and the `#items=` hash from "Craft all"; page logic is in `ui/crafting-page.ts` |
+| `web/professions.html`, `web/src/professions.ts` | Professions page: `startToolPage` with `ProfessionsPage` (form, steps `ProfessionGuideStep`, totals, materials left, recipes to learn); page logic, view rows and the saved plans are in `ui/profession-page.ts` |
+| `web/src/ui/folder-controls.ts`, `web/src/ui/recipe-sources.ts` | Shared by the tool pages: WoW folder status, connect and Refresh, the ruleset/faction choice; where a recipe is learned (trainer, or the pattern's vendor/drop with map link) |
 | `web/src/profession-guide.ts` | Profession leveling planner (typed, no DOM): skill-up chance per recipe color, cheapest learnable recipe per skill point, steps, lessons and materials. Tests in `tests/profession-guide.test.mjs` |
 | `web/src/crafting-plan.ts` | Crafting planner (typed, no DOM): offers (vendor / AH / bind-on-pickup), cheapest recipe with a depth and cycle guard, stock from your characters' bags, the plan tree per item with chosen modes, and the shopping / take / profession totals. Also the crafting page's `currentPriceScope`, which the folder reader uses for TSM prices. Tests in `tests/crafting.test.mjs` |
 | `web/src/state.ts` | Shared state and storage: `state`, storage keys, settings and snapshots load/save, the status line, character lookup |
@@ -113,6 +115,18 @@ Battle.net Forever namespaces are `static-forever-{region}`, `profile-forever-{r
 - **Hover maps are the game's own map art, fully explored, kept light** (about 55 KB per map, loaded only on hover). `tools/build-maps.js` draws the base art and then every explored-area overlay on top (`WorldMapOverlay`, skipping player-condition variants), so roads, towns and terrain show as on a discovered map. No POIs or flight points are added: the game has no map art with those. Drawn or SVG maps were rejected because they must look the same as in game.
 - **Wowhead links go on names whose single source is clear:** quests, vendors and drop mobs. Materials like Light Leather have too many sources to link.
 
+## Structure
+
+SOLID, translated to a functional TypeScript + Vue code base (no classes, no DI container):
+
+- **One job per module and per function.** Logic modules (`scoring`, `sources`, `upgrades`, `route`, `crafting-plan`, `profession-guide`) are typed and DOM-free. `ui/*.ts` turns their results into view rows and holds the page actions. Components only bind rows to markup, computeds call one `ui/` function each. A function that does several jobs gets split into named steps (`collectSourcesForCharacter` → quest context, item-data sources, Questie quests, Questie world sources).
+- **Dependencies point down.** Logic never imports from `ui/` or a page, and a page module never imports another page's module: shared pieces get their own module (`tool-page.ts`, `ui/folder-controls.ts`, `ui/recipe-sources.ts`, the character helpers in `state.ts`). When lower code must trigger something above it, it takes a callback (`observeRanking(queueTooltipChecks)`, `runTooltipChecks(render)`, `sumMaterials(steps, pricing)`). No import cycles.
+- **One answer to each question.** "Does this character have the profession / know the recipe / what's their skill" is `snapshotOf`, `professionOf`, `knowsRecipe` in `state.ts`; don't loop over `snapshot.professions` elsewhere.
+- **Closed sets of strings are union types** (`SourceType`, `PlanMode`, `RecipeColor`), so a typo is a compile error.
+- **Known debt:** logic modules still read the generated data from `window` (`FOREVER_RECIPES`, `GAME_RULES`, …) and the `state` singleton directly, so tests set globals (`resetPlanner`). Passing that data in would make the logic modules fully independent; do it when one of them is next reworked, not as a big bang.
+
+A refactor must not change anything a player sees: compare the built site against the built `develop` on the same inputs (every slot's picks and cards in questing, dungeons and with a gold limit, the gear plan and paper doll after picking, the crafting page, and profession plans) and get 0 differences.
+
 ## Code conventions
 
 - Plain named `function` declarations. No arrow functions, no ternaries, no anonymous callbacks; give callbacks names (`function isPhaseZero(row)`). No code comments.
@@ -127,7 +141,6 @@ Battle.net Forever namespaces are `static-forever-{region}`, `profile-forever-{r
 ## Tests and verification
 
 - `npm test` runs `node:test` on `tests/*.test.mjs`, which import the TypeScript modules directly (Node strips the types, so modules may only use erasable TypeScript syntax and must import with `.ts` extensions); `tests/helpers/cbor.js` builds Questie fixtures. `tests/helpers/realm.mjs` loads the data scripts and the modules once into the real global scope (a module can't be reloaded per test, so `resetPlanner` resets state, caches and `FOREVER_ITEMS` instead); `run("…")` evaluates in that scope.
-- After converting a file, compare the built site with the built `develop` on the same inputs (every slot's picks in questing, dungeons and with a gold limit); a pure conversion must give 0 differences.
 - `python3 -m unittest discover -s tests -p "test_*.py"` tests the data builder.
 - Both run in CI before every deploy.
 - For UI changes, run `npm run dev` (or `npm run build` and serve `dist/`) and check in a real browser. Playwright with a Battle.net client and a local Questie copy works well. Keep those scripts out of the repo.
