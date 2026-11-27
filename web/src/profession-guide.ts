@@ -43,6 +43,21 @@ export interface Guide {
   stuckAt: number | null;
 }
 
+export interface SkillRank {
+  name: string;
+  from: number;
+  to: number;
+  trainFrom: number;
+  characterLevel: number;
+}
+
+export const SKILL_RANKS: SkillRank[] = [
+  { name: "Apprentice", from: 1, to: 75, trainFrom: 1, characterLevel: 5 },
+  { name: "Journeyman", from: 75, to: 150, trainFrom: 50, characterLevel: 10 },
+  { name: "Expert", from: 150, to: 225, trainFrom: 125, characterLevel: 20 },
+  { name: "Artisan", from: 225, to: 300, trainFrom: 200, characterLevel: 35 }
+];
+
 const SWITCH_SAVING = 0.1;
 
 interface Candidate {
@@ -63,6 +78,19 @@ export function stepName(recipeId: number, itemId: number): string {
     return item.name;
   }
   return window.FOREVER_RECIPE_NAMES[recipeId] || "Recipe " + recipeId;
+}
+
+export function skillRankAt(skill: number): SkillRank {
+  for (const rank of SKILL_RANKS) {
+    if (skill < rank.to) {
+      return rank;
+    }
+  }
+  return SKILL_RANKS[SKILL_RANKS.length - 1];
+}
+
+function startsNewStep(step: GuideStep, recipeId: number, skill: number): boolean {
+  return step.recipeId !== recipeId || skillRankAt(step.from) !== skillRankAt(skill);
 }
 
 export function recipeColor(levels: RecipeLevels, skill: number): RecipeColor {
@@ -221,7 +249,7 @@ export function buildGuide(profession: string, from: number, to: number, knownRe
       learned.add(candidate.recipe.id);
       guide.lessons.push({ recipeId: candidate.recipe.id, itemId: candidate.recipe.itemId, learnAt: Math.max(skill, candidate.levels[0]), teachingItemId: candidate.recipe.teachingItemId || null, cost: candidate.learnCost });
     }
-    if (step === null || step.recipeId !== candidate.recipe.id) {
+    if (step === null || startsNewStep(step, candidate.recipe.id, skill)) {
       if (step !== null) {
         guide.steps.push(finishStep(step, expectedCrafts));
       }

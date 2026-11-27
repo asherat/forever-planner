@@ -2,6 +2,11 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.84.0 — 2026-11-27
+
+- Professions: the plan is split into stages by trainer rank (Apprentice, Journeyman, Expert, Artisan), like gw2crafts' tiers. Each stage says when to train the rank and lists its recipes to learn, the materials to buy for it and its cost with a running total. "Tick all" marks a stage's shopping as bought, and the side panel adds up what's still to buy across all stages.
+- Materials you ticked in an existing plan stay ticked.
+
 ## v0.83.0 — 2026-11-27
 
 - New Professions page: the cheapest way to level a profession with your prices, step by step ("125 → 130: craft 7× Heavy Leather"), with the recipes and patterns to learn and the materials to buy. Recipe colors come from the game files and Wowhead.
