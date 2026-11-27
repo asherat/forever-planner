@@ -61,7 +61,7 @@ It runs entirely in your browser. There is no server: your browser talks to Batt
 - Random suffix stats: the game's `ItemBonus` and `RandPropPoints` tables for the WoW: Forever build, from [wago.tools](https://wago.tools).
 - Item sources, quest levels and faction/class restrictions: your local QuestieDB install.
 - Prices and inventory: your local TradeSkillMaster data.
-- Dungeon list and level ranges: Icy Veins' WoW Forever Dungeons Overview; each dungeon's quests from the Battle.net API.
+- Dungeons and their minimum levels: the game's dungeon finder data (`LFGDungeons`, `ContentTuning`) for the WoW: Forever build, from wago.tools; each dungeon's quests from the Battle.net API; levels from your quests when Questie is connected.
 - Maps: the game's own world map art (`UiMapArt` tiles) and zone positions (`UiMap`, `UiMapAssignment`) for the WoW: Forever build, from [wago.tools](https://wago.tools).
 - Dungeon entrances: your local QuestieDB install (`dungeons.lua`).
 - Zone tiers and notes: the video "Every Zone in WoW Forever RANKED WORST to BEST".
