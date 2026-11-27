@@ -132,3 +132,56 @@ export interface TalentSpecializations {
     specializations?: { specialization_name: string; spent_points: number }[];
   }[];
 }
+
+export interface QuestieQuest {
+  id: number;
+  name: string;
+  questLevel: number;
+  requiredLevel: number;
+  zone: string;
+  faction: string | null;
+  classes: number;
+}
+
+export interface QuestieItemDetail {
+  sources: ItemSource[];
+  quests: QuestieQuest[];
+  vendorFaction: string | null;
+}
+
+export interface QuestieData {
+  items: Record<string, QuestieItemDetail>;
+  quests?: Record<string, QuestieQuest>;
+  [field: string]: unknown;
+}
+
+export interface CraftSource extends ItemSource {
+  type: "craft";
+  profession: string;
+  recipeId: number;
+  reagents: { id: number; name: string; quantity: number }[];
+}
+
+export interface ReputationRequirement {
+  factionId: number;
+  tier: number;
+  text?: string;
+  side?: string | null;
+}
+
+export interface GuideDungeon {
+  name: string;
+  minLevel: number;
+  areas: string[];
+  questIds: number[];
+}
+
+export interface GuideZone {
+  name: string;
+  tier: string;
+  minLevel: number;
+  maxLevel: number;
+  faction: string;
+  note: string;
+  dungeons?: { name: string }[];
+}
