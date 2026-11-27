@@ -2,6 +2,10 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.63.0 — 2026-11-27
+
+- Behind the scenes: the crafting tool's planner (what to buy, craft or take from your characters) is rewritten in TypeScript and now has tests. It gives the same answers.
+
 ## v0.62.0 — 2026-11-27
 
 - Behind the scenes: the whole gear page is now one Vue page (character header and portrait included); the old page code only ranks the gear. It looks and works the same.
