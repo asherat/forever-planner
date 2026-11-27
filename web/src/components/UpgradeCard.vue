@@ -6,6 +6,7 @@ import { firstCraftSource, firstQuestSource, itemDungeons, itemReputationRequire
 import type { Candidate, Character, SlotDefinition, Snapshot } from "../types.ts";
 import { hideItem, skipDungeon } from "../ui/not-interested.ts";
 import { renderTick } from "../ui/render-tick.ts";
+import { addToCart } from "../ui/crafting-cart.ts";
 import { addToQuestList, isInQuestList } from "../ui/quest-list.ts";
 import { comparisonTooltip, gainText, optionSubtitle, priceParts, routeBadge } from "../ui/upgrade-card.ts";
 import ComparisonTooltip from "./ComparisonTooltip.vue";

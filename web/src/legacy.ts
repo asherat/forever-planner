@@ -34,7 +34,8 @@ declare global {
   const WOWHEAD_URL: string;
   function placeForSource(source: { zone: string; x: number | null; y: number | null; name?: string }): { zone: string; x: number | null; y: number | null; caption: string };
   function formatMoney(copper: number): string;
-  function addToCart(itemId: number): void;
+  function writeStorage(key: string, value: unknown): void;
+  const STORAGE_KEYS: Record<string, string>;
   function mapZone(zoneName: string): unknown;
   function dungeonEntrance(dungeonName: string): { zone: string; x: number; y: number } | null;
   function render(): void;

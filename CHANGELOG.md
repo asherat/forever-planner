@@ -2,6 +2,10 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.59.0 — 2026-11-27
+
+- Behind the scenes: the crafting list now runs on Vue. It works the same; the empty list lost a few pixels of stray space.
+
 ## v0.58.0 — 2026-11-27
 
 - Behind the scenes: the play controls (where you play, max gold per upgrade, main/off spec, feral form) now run on Vue. They look and work the same.
