@@ -2,6 +2,11 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.75.0 — 2026-11-27
+
+- Each upgrade now also shows how much stronger it makes you overall, as a share of your whole gear: "+72.1 attack power (+9.5%)".
+- Upgrades that add less than 1% to your whole gear are no longer suggested; they aren't worth the trip or the gold.
+
 ## v0.74.0 — 2026-11-27
 
 - "What to get next" is now ordered by the biggest improvement. Upgrades you can wear in a level or two no longer count for half, so a big helmet upgrade at your next level no longer sits below small ones.

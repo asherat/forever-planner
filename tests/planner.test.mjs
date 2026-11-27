@@ -251,3 +251,20 @@ test("slots are ordered by their biggest improvement, even if it needs a level o
   assert.equal(head.best.availableLevel > snapshot.level, true);
   assert.deepEqual([feet, head].sort(context.compareUpgradeOptions).map(function slotOf(options) { return options.slotDefinition.key; }), ["HEAD", "FEET"]);
 });
+
+test("upgrades under 1% of the whole gear's worth are not suggested", () => {
+  const quest = function questSource(questId) { return [{ type: "quest", questId: questId, quest: "Quest " + questId, zone: "Stranglethorn Vale" }]; };
+  const tinyLegs = sampleItem({ id: 110, name: "Tiny Legs", slot: "LEGS", stats: { AGILITY: 11 }, sources: quest(990) });
+  const realLegs = sampleItem({ id: 111, name: "Real Legs", slot: "LEGS", stats: { AGILITY: 13 }, sources: quest(991) });
+  const { context, character, snapshot } = loadPlanner([tinyLegs, realLegs]);
+  snapshot.equipment.MAIN_HAND = sampleItem({ id: 112, slot: "TWOHWEAPON", itemClass: "Weapon", itemSubclass: "Mace", stats: { STRENGTH: 100 } });
+  snapshot.equipment.LEGS = sampleItem({ id: 113, slot: "LEGS", stats: { AGILITY: 10 } });
+  const weights = context.characterWeights(character);
+  const whole = context.gearScore(snapshot, weights);
+  assert.equal(whole, context.itemScore(snapshot.equipment.MAIN_HAND, weights, "MAIN_HAND") + context.itemScore(snapshot.equipment.LEGS, weights, "LEGS"));
+  assert.equal(context.isWorthwhileGain(whole * 0.009, snapshot, weights), false);
+  assert.equal(context.isWorthwhileGain(whole * 0.011, snapshot, weights), true);
+  const names = context.rankedCandidatesForSlot(context.slotDefinitionByKey("LEGS"), snapshot, character).map(function nameOf(candidate) { return candidate.item.name; });
+  assert.deepEqual(names, ["Real Legs"]);
+  assert.equal(context.isUpgradeForAnySpec(tinyLegs, character, snapshot), false);
+});
