@@ -2,6 +2,10 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.37.0 — 2026-11-27
+
+- Items found in containers (chests and the like) no longer count as something you can go and get, like trash and world drops. The card still shows the container; the item is suggested only when it has another source or is on the auction house.
+
 ## v0.36.0 — 2026-11-27
 
 - Removing a zone from the middle of your leveling path asks how to fill its levels: pick another zone for them, or let the next zone start earlier. Before, the next zone silently stretched back, even below its level range.

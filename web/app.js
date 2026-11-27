@@ -631,7 +631,7 @@ function rankedCandidatesForSlot(slotDefinition, snapshot, character) {
 
 function routeAvailability(item, snapshot, character) {
   const usableLevel = itemUsableLevel(item, snapshot);
-  const sources = sourcesForCharacter(item, snapshot);
+  const sources = obtainableSources(item, snapshot);
   if (sources.length === 0 || isBuyableOnAuctionHouse(item)) {
     return { level: usableLevel, leg: null };
   }
@@ -878,7 +878,7 @@ function dropCreatureCount(sources) {
 }
 
 function isObtainableSource(source) {
-  return source.type !== "world-drop";
+  return source.type !== "world-drop" && source.type !== "object";
 }
 
 function obtainableSources(item, snapshot) {
@@ -1156,7 +1156,7 @@ function questOnlyIds(item, snapshot) {
     return null;
   }
   const questIds = [];
-  for (const source of sourcesForCharacter(item, snapshot)) {
+  for (const source of obtainableSources(item, snapshot)) {
     if (source.type !== "quest") {
       return null;
     }
