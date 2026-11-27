@@ -199,3 +199,44 @@ test("feral only gets leather armor; resto may still use cloth, and cloaks are f
   character.gearFor = "main";
   assert.equal(context.isUpgradeForAnySpec(clothMask, character, snapshot), true);
 });
+
+test("hunters wear mail only from level 40, and then only mail for armor slots", () => {
+  const quest = function questSource(questId) { return [{ type: "quest", questId: questId, quest: "Quest " + questId, zone: "Stranglethorn Vale" }]; };
+  const mailHelm = sampleItem({ id: 90, name: "Mail Helm", slot: "HEAD", itemSubclass: "Mail", requiredLevel: 35, usableLevel: 35, stats: { AGILITY: 12 }, sources: quest(960) });
+  const leatherHelm = sampleItem({ id: 91, name: "Leather Helm", slot: "HEAD", itemSubclass: "Leather", requiredLevel: 36, usableLevel: 36, stats: { AGILITY: 8 }, sources: quest(961) });
+  const { context, character, snapshot } = loadPlanner([mailHelm, leatherHelm]);
+  snapshot.className = "Hunter";
+  snapshot.talentSpecs = ["hunter-marksmanship"];
+  snapshot.level = 38;
+  assert.equal(context.itemUsableLevel(mailHelm, snapshot), 40);
+  assert.equal(context.itemUsableLevel(leatherHelm, snapshot), 36);
+  assert.equal(context.isLevelEstimated(mailHelm, snapshot), false);
+  const head = context.slotDefinitionByKey("HEAD");
+  const ranked = function rankedNames() {
+    context.resetSourceCaches();
+    return context.rankedCandidatesForSlot(head, snapshot, character).map(function describe(candidate) { return candidate.item.name + "@" + candidate.availableLevel; });
+  };
+  assert.deepEqual(ranked(), ["Mail Helm@40", "Leather Helm@36"]);
+  snapshot.level = 41;
+  assert.deepEqual(ranked(), ["Mail Helm@40"]);
+});
+
+test("casters and healers keep lighter armor types; warriors get plate from 40", () => {
+  const intellectLeather = sampleItem({ id: 92, name: "Intellect Leather", slot: "CHEST", itemSubclass: "Leather", stats: { INTELLECT: 15, SPIRIT: 8 }, sources: [{ type: "quest", questId: 970, quest: "Robe Quest", zone: "Tanaris" }] });
+  const { context, character, snapshot } = loadPlanner([intellectLeather]);
+  snapshot.className = "Shaman";
+  snapshot.talentSpecs = ["shaman-restoration"];
+  snapshot.level = 45;
+  assert.equal(context.suitsSpec(intellectLeather, "shaman-restoration", snapshot), true);
+  assert.equal(context.suitsSpec(intellectLeather, "shaman-enhancement", snapshot), false);
+  snapshot.className = "Warrior";
+  const plate = sampleItem({ id: 93, slot: "CHEST", itemSubclass: "Plate", requiredLevel: 40, usableLevel: 40 });
+  const mail = sampleItem({ id: 94, slot: "CHEST", itemSubclass: "Mail", requiredLevel: 30, usableLevel: 30 });
+  snapshot.level = 38;
+  assert.equal(context.bestArmorType("Warrior", 38), "Mail");
+  assert.equal(context.suitsSpec(mail, "warrior-arms", snapshot), true);
+  assert.equal(context.suitsSpec(plate, "warrior-arms", snapshot), true);
+  snapshot.level = 40;
+  assert.equal(context.suitsSpec(mail, "warrior-arms", snapshot), false);
+  assert.equal(context.bestArmorType("Rogue", 60), "Leather");
+});

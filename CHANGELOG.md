@@ -2,6 +2,11 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.73.0 — 2026-11-27
+
+- Physical specs only get their class's best armor type: leather for rogues and ferals, mail from level 40 for hunters and Enhancement shamans, plate from level 40 for Arms, Fury, Protection and Retribution. Casters and healers can still get lighter armor with good stats.
+- Fixed: hunters and shamans were offered mail, and warriors and paladins plate, before level 40, when they can't wear it yet. Those pieces now show as level 40 upgrades.
+
 ## v0.72.0 — 2026-11-27
 
 - Feral druids are only suggested leather armor. Cloth with good stats (like White Bandit Mask) no longer shows up for Feral, since Bear Form multiplies the armor on your gear and Feral uses one set for both forms. Restoration can still get cloth.
