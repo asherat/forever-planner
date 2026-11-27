@@ -44,7 +44,7 @@ test("a random-suffix pick remembers its suffix", () => {
   assert.equal(planGroups(character, snapshot)[0].entries[0].item.name, "Wild Cloak of the Tiger");
 });
 
-test("the plan is grouped by where: crafts first, path zones in order with their dungeons, then elsewhere and buy", () => {
+test("the plan is grouped by where: buy and craft first, then path zones in order with their dungeons, then elsewhere", () => {
   const items = [
     sampleItem({ id: 10, name: "Tanaris Helm", slot: "HEAD", sources: [{ type: "quest", questId: 100, quest: "Desert Quest", zone: "Tanaris" }] }),
     sampleItem({ id: 11, name: "Vale Boots", slot: "FEET", sources: [{ type: "drop", npcId: 5, npc: "Named Raptor", zone: "Stranglethorn Vale" }] }),
@@ -59,12 +59,12 @@ test("the plan is grouped by where: crafts first, path zones in order with their
     togglePick(slotKey, item);
   }
   const groups = planGroups(character, snapshot);
-  assert.deepEqual(groups.map(function titleOf(group) { return group.title; }), ["Craft", "Stranglethorn Vale (40–44)", "Tanaris (44–48)", "Zul'Farrak (dungeon in Tanaris)", "Desolace", "Buy"]);
-  assert.equal(groups[0].entries[0].kind, "craft");
-  assert.equal(groups[1].entries[0].kind, "drop");
-  assert.equal(groups[2].entries[0].kind, "quest");
-  assert.equal(groups[5].entries[0].kind, "vendor");
-  assert.equal(groups[5].entries[0].price, 5000);
+  assert.deepEqual(groups.map(function titleOf(group) { return group.title; }), ["Buy", "Craft", "Stranglethorn Vale (40–44)", "Tanaris (44–48)", "Zul'Farrak (dungeon in Tanaris)", "Desolace"]);
+  assert.equal(groups[0].entries[0].kind, "vendor");
+  assert.equal(groups[0].entries[0].price, 5000);
+  assert.equal(groups[1].entries[0].kind, "craft");
+  assert.equal(groups[2].entries[0].kind, "drop");
+  assert.equal(groups[3].entries[0].kind, "quest");
 });
 
 test("Refresh drops picks you equipped or outgrew", () => {

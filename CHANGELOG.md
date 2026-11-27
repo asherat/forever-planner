@@ -2,6 +2,10 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.78.1 — 2026-11-27
+
+- Your gear plan starts with what to buy, then what to craft, since you can do both right away.
+
 ## v0.78.0 — 2026-11-27
 
 - Pick as many upgrades per slot as you like, for example a quick one to wear now and the best one for later.
