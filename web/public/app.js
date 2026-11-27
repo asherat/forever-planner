@@ -1031,99 +1031,6 @@ function renderPriority(options, snapshot, character) {
   return entry;
 }
 
-function hideItem(itemId) {
-  const character = selectedCharacter();
-  if (character === null) {
-    return;
-  }
-  if (!character.hiddenItemIds) {
-    character.hiddenItemIds = [];
-  }
-  if (character.hiddenItemIds.indexOf(itemId) === -1) {
-    character.hiddenItemIds.push(itemId);
-    saveSettings();
-  }
-  state.undo = { kind: "item", value: itemId, text: "Hid " + itemName(itemId) + "." };
-  render();
-}
-
-function skipDungeon(dungeonName) {
-  const character = selectedCharacter();
-  if (character === null) {
-    return;
-  }
-  if (!character.skippedDungeons) {
-    character.skippedDungeons = [];
-  }
-  if (character.skippedDungeons.indexOf(dungeonName) === -1) {
-    character.skippedDungeons.push(dungeonName);
-    saveSettings();
-  }
-  state.undo = { kind: "dungeon", value: dungeonName, text: "Skipped " + dungeonName + ": its drops and quests no longer count." };
-  render();
-}
-
-function restoreDungeon(dungeonName) {
-  const character = selectedCharacter();
-  if (character === null) {
-    return;
-  }
-  character.skippedDungeons = (character.skippedDungeons || []).filter(function isOtherDungeon(name) {
-    return name !== dungeonName;
-  });
-  saveSettings();
-  render();
-}
-
-function undoLastHide() {
-  const undo = state.undo;
-  state.undo = null;
-  if (undo === null) {
-    return;
-  }
-  if (undo.kind === "item") {
-    restoreItem(undo.value);
-  } else {
-    restoreDungeon(undo.value);
-  }
-}
-
-function renderUndoNotice() {
-  const notice = document.getElementById("undo-notice");
-  notice.replaceChildren();
-  notice.hidden = state.undo === null;
-  if (state.undo === null) {
-    return;
-  }
-  notice.append(state.undo.text + " ");
-  const undoButton = createElement("button", "link", "Undo");
-  undoButton.type = "button";
-  undoButton.dataset.undo = "true";
-  notice.appendChild(undoButton);
-}
-
-function handleUndoClick(event) {
-  if (event.target.dataset.undo !== undefined) {
-    undoLastHide();
-  }
-}
-
-function restoreItem(itemId) {
-  const character = selectedCharacter();
-  if (character === null) {
-    return;
-  }
-  const remaining = [];
-  for (const hiddenId of character.hiddenItemIds || []) {
-    if (hiddenId !== itemId) {
-      remaining.push(hiddenId);
-    }
-  }
-  character.hiddenItemIds = remaining;
-  saveSettings();
-  render();
-}
-
 function renderCharacterSelect() {
   const select = document.getElementById("character-select");
   select.replaceChildren();
@@ -1137,6 +1044,7 @@ function renderCharacterSelect() {
 }
 
 function render() {
+  refreshVue();
   clearSourceCache();
   renderCharacterSelect();
   const character = selectedCharacter();
@@ -1232,8 +1140,6 @@ function render() {
   renderPlayControls(character, snapshot);
   renderRoutePanel(character, snapshot);
   document.getElementById("route-credit").textContent = window.ZONE_GUIDE.credit;
-  renderHiddenItems(character);
-  renderUndoNotice();
   allOptions.sort(compareUpgradeOptions);
   const priorityList = document.getElementById("priority-list");
   priorityList.replaceChildren();
@@ -1323,39 +1229,6 @@ function renderPlayControls(character, snapshot) {
   }
   renderChoiceGroup(document.getElementById("feral-form-choices"), "feral-form",
     [{ value: "cat", label: "Cat" }, { value: "bear", label: "Bear" }], feralForm);
-}
-
-function renderHiddenItems(character) {
-  const container = document.getElementById("hidden-items");
-  const list = document.getElementById("hidden-item-list");
-  list.replaceChildren();
-  const hiddenIds = character.hiddenItemIds || [];
-  const skipped = character.skippedDungeons || [];
-  container.hidden = hiddenIds.length === 0 && skipped.length === 0;
-  for (const dungeonName of skipped) {
-    const entry = createElement("li", "hidden-item");
-    entry.appendChild(createElement("span", null, dungeonName + " (dungeon)"));
-    const restoreButton = createElement("button", "link", "Bring back");
-    restoreButton.type = "button";
-    restoreButton.dataset.restoreDungeon = dungeonName;
-    entry.appendChild(restoreButton);
-    list.appendChild(entry);
-  }
-  for (const itemId of hiddenIds) {
-    const item = itemById(itemId);
-    const entry = createElement("li", "hidden-item");
-    if (item !== null) {
-      entry.appendChild(itemIcon(item, "icon-small"));
-      entry.appendChild(wowheadLink(item));
-    } else {
-      entry.appendChild(createElement("span", null, "Item " + itemId));
-    }
-    const restoreButton = createElement("button", "link", "Bring back");
-    restoreButton.type = "button";
-    restoreButton.dataset.restoreItemId = String(itemId);
-    entry.appendChild(restoreButton);
-    list.appendChild(entry);
-  }
 }
 
 function removeCharacter(slug) {
@@ -1934,17 +1807,6 @@ function handlePlayControlsChange(event) {
   render();
 }
 
-function handleHiddenItemsClick(event) {
-  if (event.target.dataset.restoreDungeon !== undefined) {
-    restoreDungeon(event.target.dataset.restoreDungeon);
-    return;
-  }
-  const itemId = event.target.dataset.restoreItemId;
-  if (itemId !== undefined) {
-    restoreItem(Number(itemId));
-  }
-}
-
 function handleImportChange(event) {
   if (event.target.files.length > 0) {
     importSettings(event.target.files[0]);
@@ -1970,10 +1832,8 @@ function bindEvents() {
   document.getElementById("import-input").addEventListener("change", handleImportChange);
   document.getElementById("character-select").addEventListener("change", handleCharacterSelectChange);
   document.getElementById("priority-list").addEventListener("click", handlePriorityListClick);
-  document.getElementById("undo-notice").addEventListener("click", handleUndoClick);
   document.getElementById("character-list").addEventListener("click", handleCharacterListClick);
   document.getElementById("play-controls").addEventListener("change", handlePlayControlsChange);
-  document.getElementById("hidden-items").addEventListener("click", handleHiddenItemsClick);
   document.getElementById("route-panel").addEventListener("click", handleRouteClick);
   document.getElementById("found-characters").addEventListener("click", handleFoundCharacterClick);
   document.querySelector(".settings-tabs").addEventListener("click", handleSettingsTabClick);

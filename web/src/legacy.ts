@@ -29,6 +29,11 @@ declare global {
   function unitCost(itemId: number): number | null;
   function vendorDiscountRate(): number;
   function isVendorSoldFor(itemId: number, factionLetter: string): boolean;
+  function saveSettings(): void;
+  function render(): void;
+  function qualityClass(quality: string): string;
+  function iconUrlForItem(item: Item): string;
+  function wowheadUrl(item: Item): string;
   function preferredOffer(vendorOffer: { price: number } | null, auctionOffer: { price: number } | null): { price: number } | null;
 }
 
