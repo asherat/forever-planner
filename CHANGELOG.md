@@ -2,6 +2,10 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.46.0 — 2026-11-27
+
+- Behind the scenes: the planner is now built with Vite, the first step of moving to TypeScript and Vue. Nothing changes on the page.
+
 ## v0.45.0 — 2026-11-27
 
 - Fixed: random-stat items could still pass the gold limit through their any-suffix auction house price.

@@ -21,7 +21,7 @@ ESTIMATED_LEVEL_OFFSET = 5
 
 ROOT = Path(__file__).resolve().parent.parent
 CACHE_DIR = ROOT / "data" / "cache"
-OUTPUT_DIR = ROOT / "web" / "data"
+OUTPUT_DIR = ROOT / "web" / "public" / "data"
 CREDENTIALS_FILE = Path.home() / ".config" / "blizzard-api.env"
 WAGO_HOST = "https://wago.tools"
 WAGO_PRODUCT = "wowf"

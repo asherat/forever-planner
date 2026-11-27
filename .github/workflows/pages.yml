@@ -25,18 +25,22 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Install
+        run: npm ci
       - name: Web tests
         run: npm test
       - name: Data builder tests
         run: python -m unittest discover -s tests -p "test_*.py"
+      - name: Build
+        run: npm run build
       - name: Stamp version and build id
         run: |
           VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo dev)
-          sed -i "s/__BUILD__/${GITHUB_SHA::7}/g; s/__VERSION__/${VERSION}/g" web/index.html web/crafting.html
+          sed -i "s/__BUILD__/${GITHUB_SHA::7}/g; s/__VERSION__/${VERSION}/g" dist/index.html dist/crafting.html
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: web
+          path: dist
 
   deploy:
     needs: build

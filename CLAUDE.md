@@ -15,9 +15,10 @@ Its users are an experienced player and a brand-new player, so **simplicity beat
 
 ## Architecture
 
-A static site in `web/`, served by GitHub Pages. There is no server and no build step.
+A static site built with Vite from `web/` and served by GitHub Pages. There is no server.
 
-- Plain classic `<script>` files that share globals. There is no framework and no bundler. Load order is in `index.html` and `crafting.html`.
+- **Migration to TypeScript + Vue 3 is in progress** (chosen 2026-11-27). Plan: (1) Vite pipeline with the old code unchanged — done; (2) logic files become typed modules in `web/src/`, tests with them; (3) a loader that fetches QuestieDB's Forever release from GitHub instead of reading the local install; (4) the UI moves into Vue components one piece at a time, then the crafting page. Each step is its own release.
+- Until a file is migrated it stays a plain classic `<script>` in `web/public/` that shares globals; Vite copies `web/public/` as-is (its "can't be bundled" warnings for those tags are expected). Load order is in `index.html` and `crafting.html`. New code goes in `web/src/` (TypeScript, Vue SFCs), entry `web/src/main.ts`.
 - **The browser calls the Battle.net API directly** with the user's own API client. The secret lives only in `localStorage`. Battle.net rejects `Origin: null`, so the site must be served over HTTP, never opened as `file://`.
 - **Local WoW files** are read through the File System Access API, from a picked `World of Warcraft` or `_forever_` folder whose handle is kept in IndexedDB. The files are read, never uploaded.
   - Questie (`QuestieDB_Forever.toc`, base64 CBOR records, plus `support/Forever/Zones/dungeons.lua`) supplies item sources, quest data and dungeon entrances.
@@ -29,21 +30,23 @@ A static site in `web/`, served by GitHub Pages. There is no server and no build
 
 | File | Role |
 |---|---|
-| `web/index.html`, `web/app.js` | Gear page rendering and events: paper doll, upgrade cards, crafting list, quest list, settings dialog |
-| `web/scoring.js` | Specs and weights, item scores, random-suffix variants, proficiencies, slot baselines (no DOM) |
-| `web/sources.js` | Where an item comes from: sources, quest/reputation rules, trash/container/skipped-dungeon rules, prices, gold limit (no DOM) |
-| `web/upgrades.js` | Ranking candidates per slot, route availability, quicker option, ring/trinket and weapon pairing (no DOM) |
-| `web/main.js` | Calls `start()`; keep it last so every other script can be loaded in tests |
-| `web/crafting.html`, `web/crafting.js` | Crafting tool: recipe trees with own / vendor / AH / craft per material, totals, shopping list, recipe sources |
-| `web/common.js` | Shared state, storage keys, Battle.net fetch, WoW folder reading, prices and money, Wowhead links, map popovers |
-| `web/route.js` | Leveling path editor: zone suggestions, gap filling, route legs used by gear availability |
-| `web/zone-guide.js` | Hand-maintained zone tiers, notes, level ranges, factions and dungeons |
-| `web/game-rules.js` | Slots, class proficiencies, spec presets and playstyles |
-| `web/questie.js` | CBOR decoder and Questie lookups (sources, quest info, chains, starters, dungeon entrances) |
-| `web/tsm.js`, `web/wow-folder.js` | TSM price and inventory parsers, folder handle and file access |
-| `web/data/*.js` | Generated game data. Don't edit by hand |
-| `web/maps/*.jpg` | Generated hover maps, one per `uiMapId` |
-| `data/build.py` | Crawls the Battle.net Forever API, wago.tools and the wowsims item database and writes `web/data/*.js` |
+| `web/index.html`, `web/public/app.js` | Gear page rendering and events: paper doll, upgrade cards, crafting list, quest list, settings dialog |
+| `web/public/scoring.js` | Specs and weights, item scores, random-suffix variants, proficiencies, slot baselines (no DOM) |
+| `web/public/sources.js` | Where an item comes from: sources, quest/reputation rules, trash/container/skipped-dungeon rules, prices, gold limit (no DOM) |
+| `web/public/upgrades.js` | Ranking candidates per slot, route availability, quicker option, ring/trinket and weapon pairing (no DOM) |
+| `web/public/start.js` | Calls `start()`; keep it last so every other script can be loaded in tests |
+| `web/src/` | New TypeScript and Vue code (see the migration plan above); `web/src/main.ts` is the module entry |
+| `vite.config.ts`, `tsconfig.json` | Build (`npm run build` → `dist/`) and type check (`npm run typecheck`) |
+| `web/crafting.html`, `web/public/crafting.js` | Crafting tool: recipe trees with own / vendor / AH / craft per material, totals, shopping list, recipe sources |
+| `web/public/common.js` | Shared state, storage keys, Battle.net fetch, WoW folder reading, prices and money, Wowhead links, map popovers |
+| `web/public/route.js` | Leveling path editor: zone suggestions, gap filling, route legs used by gear availability |
+| `web/public/zone-guide.js` | Hand-maintained zone tiers, notes, level ranges, factions and dungeons |
+| `web/public/game-rules.js` | Slots, class proficiencies, spec presets and playstyles |
+| `web/public/questie.js` | CBOR decoder and Questie lookups (sources, quest info, chains, starters, dungeon entrances) |
+| `web/public/tsm.js`, `web/wow-folder.js` | TSM price and inventory parsers, folder handle and file access |
+| `web/public/data/*.js` | Generated game data. Don't edit by hand |
+| `web/public/maps/*.jpg` | Generated hover maps, one per `uiMapId` |
+| `data/build.py` | Crawls the Battle.net Forever API, wago.tools and the wowsims item database and writes `web/public/data/*.js` |
 | `tools/build-maps.js` | Stitches the game's map tiles (wago.tools CASC, BLP2 DXT1) into 560 px JPEGs |
 
 ### Data rebuilds
@@ -89,7 +92,9 @@ Battle.net Forever namespaces are `static-forever-{region}`, `profile-forever-{r
 - Build DOM with `createElement` and `textContent`, never `innerHTML` with data.
 - English identifiers, descriptive names, no abbreviations.
 - Guard only against real data gaps, such as Questie or TSM not being connected.
-- Every `<script>` and stylesheet URL carries `?build=__BUILD__`. The deploy workflow stamps `__BUILD__` and `__VERSION__` (the latest tag) into the HTML.
+- Every classic `<script>` and stylesheet URL carries `?build=__BUILD__`; Vite hashes the files it bundles. The deploy workflow builds with Vite, then stamps `__BUILD__` and `__VERSION__` (the latest tag) into `dist/*.html`.
+- In TypeScript and Vue: the same naming and no-comments rules; named functions, no ternaries, logic in computed properties or functions rather than in templates, no watchers. Arrow functions only where Vue's API needs them.
+- Dependencies are pinned exactly and must be at least two weeks old when added. TypeScript stays on 6.x while vue-tsc needs its JavaScript API.
 - WoW files use CRLF line endings. Test every reader against a CRLF fixture.
 
 ## Tests and verification
@@ -97,7 +102,7 @@ Battle.net Forever namespaces are `static-forever-{region}`, `profile-forever-{r
 - `npm test` runs `node:test`. Scripts are loaded into a vm sandbox via `tests/helpers/load.js`, and `tests/helpers/cbor.js` builds Questie fixtures. `tests/planner.test.js` loads every gear-page script (all but `main.js`) and tests scoring, sources and ranking directly; script-level `const`s such as `state` are read with `evaluate(context, "state")`.
 - `python3 -m unittest discover -s tests -p "test_*.py"` tests the data builder.
 - Both run in CI before every deploy.
-- For UI changes, serve `web/` (`python3 -m http.server`) and check in a real browser. Playwright with a Battle.net client and a local Questie copy works well. Keep those scripts out of the repo.
+- For UI changes, run `npm run dev` (or `npm run build` and serve `dist/`) and check in a real browser. Playwright with a Battle.net client and a local Questie copy works well. Keep those scripts out of the repo.
 
 ## Branches and releases
 
