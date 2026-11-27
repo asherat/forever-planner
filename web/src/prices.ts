@@ -14,7 +14,7 @@ export interface PriceInfo {
 }
 
 interface IconSource {
-  iconUrl?: string;
+  iconUrl?: string | null;
   iconName?: string;
   icon?: number | null;
 }

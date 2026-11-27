@@ -1,6 +1,6 @@
 import type { QUESTIE } from "./questie.ts";
 import type { TSM } from "./tsm.ts";
-import type { Character, GameRules, GuideDungeon, Item, ZoneGuide } from "./types.ts";
+import type { GameRules, GuideDungeon, Item, ZoneGuide } from "./types.ts";
 import type { Recipe } from "./crafting-plan.ts";
 import type { MapZone } from "./map-popover.ts";
 
@@ -17,17 +17,11 @@ declare global {
     FOREVER_MAPS: { zones: Record<string, MapZone>; continents: Record<string, { uiMapId: number }> };
     FOREVER_ZONES: Record<string, string>;
     showDirectoryPicker?: (options: { id: string; mode: string }) => Promise<FileSystemDirectoryHandle>;
-    start: () => void;
+    FOREVER_REPUTATIONS: Record<string, { id: number; side: string | null }>;
   }
 
-  function render(): void;
-  function refreshCharacter(character: Character): Promise<void>;
-  function handleTsmStartupError(error: Error): void;
-  function currentPriceScope(): { ruleset: string; faction: string };
-  function questieItemIds(): number[];
-  function questieQuestIds(): number[];
 }
 
-export function exposeToLegacy(module: Record<string, unknown>): void {
+export function exposeForDebugging(module: Record<string, unknown>): void {
   Object.assign(window, module);
 }

@@ -2,12 +2,12 @@ import { createApp } from "vue";
 import CraftingPage from "./components/CraftingPage.vue";
 import CraftingTopControls from "./components/CraftingTopControls.vue";
 import { currentPriceScope, indexRecipes, loadCraftingList } from "./crafting-plan.ts";
-import { exposeToLegacy } from "./legacy.ts";
+import { exposeForDebugging } from "./legacy.ts";
 import { QUESTIE } from "./questie.ts";
 import { TSM } from "./tsm.ts";
 import { addFromLocationHash, handleHashChange } from "./ui/crafting-page.ts";
 import { refreshVue } from "./ui/render-tick.ts";
-import { readWowFolder } from "./folder-data.ts";
+import { readWowFolder, useFolderScope } from "./folder-data.ts";
 import { enableMapPopovers } from "./map-popover.ts";
 import * as plannerState from "./state.ts";
 import { loadState, setStatus } from "./state.ts";
@@ -27,9 +27,10 @@ function handleStartupError(error: Error): void {
 
 window.TSM = TSM;
 window.QUESTIE = QUESTIE;
-exposeToLegacy(plannerState);
-exposeToLegacy({ WOW_FOLDER: WOW_FOLDER, readWowFolder: readWowFolder });
-exposeToLegacy({ currentPriceScope: currentPriceScope, questieItemIds: questieItemIds, questieQuestIds: questieQuestIds, refreshVue: refreshVue });
+exposeForDebugging(plannerState);
+exposeForDebugging({ WOW_FOLDER: WOW_FOLDER, readWowFolder: readWowFolder });
+useFolderScope({ currentPriceScope: currentPriceScope, questieItemIds: questieItemIds, questieQuestIds: questieQuestIds });
+exposeForDebugging({ refreshVue: refreshVue, currentPriceScope: currentPriceScope, questieItemIds: questieItemIds, questieQuestIds: questieQuestIds });
 enableMapPopovers();
 loadState();
 loadCraftingList();

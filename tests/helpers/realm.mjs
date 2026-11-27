@@ -33,12 +33,14 @@ for (const fileName of CLASSIC_DATA) {
 for (const modulePath of ["state.ts", "prices.ts", "battle-net.ts", "map-popover.ts", "folder-data.ts"]) {
   Object.assign(globalThis, await import("../../web/src/" + modulePath));
 }
-vm.runInThisContext(fs.readFileSync(new URL("app.js", PUBLIC_DIRECTORY), "utf8"), { filename: "app.js" });
 Object.assign(globalThis, await import("../../web/src/route.ts"));
 Object.assign(globalThis, await import("../../web/src/sources.ts"));
 Object.assign(globalThis, await import("../../web/src/scoring.ts"));
 Object.assign(globalThis, await import("../../web/src/upgrades.ts"));
 Object.assign(globalThis, await import("../../web/src/settings.ts"));
+Object.assign(globalThis, await import("../../web/src/gear.ts"));
+Object.assign(globalThis, await import("../../web/src/profile.ts"));
+Object.assign(globalThis, await import("../../web/src/tooltip-checks.ts"));
 
 export const planner = globalThis;
 
