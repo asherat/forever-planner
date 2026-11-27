@@ -2,6 +2,10 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.47.0 — 2026-11-27
+
+- Behind the scenes: TSM price and inventory reading is the first part rewritten in TypeScript. A TSM row with missing values no longer turns into a broken price.
+
 ## v0.46.0 — 2026-11-27
 
 - Behind the scenes: the planner is now built with Vite, the first step of moving to TypeScript and Vue. Nothing changes on the page.
