@@ -1,11 +1,6 @@
-const test = require("node:test");
-const assert = require("node:assert/strict");
-const { loadScripts, evaluate } = require("./helpers/load");
-
-const PLANNER_SCRIPTS = [
-  "game-rules.js", "data/dungeons.js", "zone-guide.js", "common.js",
-  "route.js", "scoring.js", "sources.js", "upgrades.js", "app.js"
-];
+import test from "node:test";
+import assert from "node:assert/strict";
+import { planner, resetPlanner } from "./helpers/realm.mjs";
 
 function sampleItem(overrides) {
   return Object.assign({
@@ -15,18 +10,7 @@ function sampleItem(overrides) {
 }
 
 function loadPlanner(items, characterOverrides) {
-  const context = loadScripts(PLANNER_SCRIPTS, { FOREVER_ITEMS: items || [] });
-  const character = Object.assign({ slug: "test-hero", displayName: "Test Hero", hiddenItemIds: [] }, characterOverrides);
-  evaluate(context, "state.settings = defaultSettings(); state.snapshots = {};");
-  const state = evaluate(context, "state");
-  state.settings.characters.push(character);
-  state.settings.selectedCharacterSlug = character.slug;
-  const snapshot = {
-    level: 43, className: "Druid", factionType: "HORDE", ruleset: "Normal",
-    talentSpecs: ["druid-feral-cat"], equipment: {}, completedQuestIds: [], professions: [], reputations: {}
-  };
-  state.snapshots[character.slug] = snapshot;
-  return { context, character, snapshot, state };
+  return Object.assign({ context: planner }, resetPlanner(items, characterOverrides));
 }
 
 function tsmPrice(regionMarketValue, minBuyout, numAuctions) {

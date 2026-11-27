@@ -2,6 +2,10 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.48.0 — 2026-11-27
+
+- Behind the scenes: item scoring (weights, random suffixes, proficiencies) is rewritten in TypeScript. Recommendations are unchanged.
+
 ## v0.47.0 — 2026-11-27
 
 - Behind the scenes: TSM price and inventory reading is the first part rewritten in TypeScript. A TSM row with missing values no longer turns into a broken price.
