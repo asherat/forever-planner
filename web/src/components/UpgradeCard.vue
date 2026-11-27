@@ -2,11 +2,10 @@
 import { computed } from "vue";
 import "../legacy.ts";
 import { activeSpec, specPreset } from "../scoring.ts";
-import { firstCraftSource, firstQuestSource, itemDungeons, itemReputationRequirement, meetsReputation, reputationRequirementText, sourcesForCharacter } from "../sources.ts";
+import { firstCraftSource, itemDungeons, itemReputationRequirement, meetsReputation, reputationRequirementText, sourcesForCharacter } from "../sources.ts";
 import type { Candidate, Character, SlotDefinition, Snapshot } from "../types.ts";
 import { hideItem, skipDungeon } from "../ui/not-interested.ts";
-import { addToCart } from "../ui/crafting-cart.ts";
-import { addToQuestList, isInQuestList } from "../ui/quest-list.ts";
+import { isPicked, togglePick } from "../ui/gear-plan.ts";
 import { auctionOnlyText, comparisonTooltip, gainText, optionSubtitle, priceParts, routeBadge } from "../ui/upgrade-card.ts";
 import ComparisonTooltip from "./ComparisonTooltip.vue";
 import ItemIcon from "./ItemIcon.vue";
@@ -87,26 +86,37 @@ const prices = computed(function priceLine() {
   return priceParts(item.value, craftSource.value, props.snapshot, props.candidate.gain, specPreset(activeSpec(props.character)).unit).map(pricePart);
 });
 
-const questSource = computed(function questToAdd() {
-  const source = firstQuestSource(sources.value);
-  if (source === null || source.questId === undefined || isInQuestList(props.character, source.questId)) {
-    return null;
-  }
-  return source;
-});
-
 const dungeons = computed(function cardDungeons() {
   return Array.from(itemDungeons(item.value, props.snapshot));
 });
 
-function addQuest(): void {
-  if (questSource.value !== null && questSource.value.questId !== undefined) {
-    addToQuestList(questSource.value.questId, item.value.id);
+const picked = computed(function isThisPicked() {
+  return isPicked(props.character, props.slotDefinition.key, item.value);
+});
+
+const cardClasses = computed(function cardClass() {
+  if (picked.value) {
+    return "option picked";
   }
+  return "option";
+});
+
+const pickLabel = computed(function pickText() {
+  if (picked.value) {
+    return "Picked ✓";
+  }
+  return "Pick";
+});
+
+function pick(): void {
+  togglePick(props.slotDefinition.key, item.value);
 }
 
-function addToCraftingList(): void {
-  addToCart(item.value.id);
+function cardClicked(event: MouseEvent): void {
+  if ((event.target as HTMLElement).closest("a, button")) {
+    return;
+  }
+  pick();
 }
 
 function notInterested(): void {
@@ -129,7 +139,7 @@ const skippers = computed(function dungeonSkippers() {
 </script>
 
 <template>
-  <div class="option">
+  <div :class="cardClasses" @click="cardClicked">
     <div class="option-label">{{ label }}</div>
     <div class="option-heading" tabindex="0">
       <ItemIcon :item="item" size="icon-medium" />
@@ -157,8 +167,7 @@ const skippers = computed(function dungeonSkippers() {
       </template>
     </div>
     <div class="option-actions">
-      <button v-if="questSource" type="button" class="link" @click="addQuest">Add quest</button>
-      <button v-if="craftSource" type="button" class="link" @click="addToCraftingList">Add to crafting list</button>
+      <button type="button" class="pick-button" :aria-pressed="picked" @click="pick">{{ pickLabel }}</button>
       <button type="button" class="link" @click="notInterested">Not interested</button>
       <button v-for="skipper in skippers" :key="skipper.name" type="button" class="link" @click="skipper.skip">{{ skipper.label }}</button>
     </div>

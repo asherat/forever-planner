@@ -2,11 +2,10 @@
 import { computed } from "vue";
 import "../legacy.ts";
 import { activeSpec, specLabel } from "../scoring.ts";
-import CraftingCart from "./CraftingCart.vue";
+import GearPlan from "./GearPlan.vue";
 import NotInterested from "./NotInterested.vue";
 import PlayControls from "./PlayControls.vue";
 import PriorityList from "./PriorityList.vue";
-import QuestList from "./QuestList.vue";
 import RoutePanel from "./RoutePanel.vue";
 import SlotColumn from "./SlotColumn.vue";
 import UndoNotice from "./UndoNotice.vue";
@@ -84,18 +83,14 @@ const routeCredit = window.ZONE_GUIDE.credit;
     </div>
 
     <aside id="planner-sidebar" class="planner-sidebar" :hidden="isWaiting">
+      <section id="gear-plan-panel" class="gear-plan-panel panel" aria-labelledby="gear-plan-title">
+        <h2 id="gear-plan-title">Your gear plan</h2>
+        <div id="gear-plan"><GearPlan /></div>
+      </section>
       <section id="route-panel" class="route-panel panel" aria-labelledby="route-title">
         <h2 id="route-title">Leveling path</h2>
         <div id="route-content"><RoutePanel /></div>
         <p id="route-credit" class="muted route-credit">{{ routeCredit }}</p>
-      </section>
-      <section id="crafting-cart" class="crafting-cart panel" aria-labelledby="crafting-cart-title">
-        <h2 id="crafting-cart-title">Crafting list</h2>
-        <div id="crafting-cart-content"><CraftingCart /></div>
-      </section>
-      <section id="quest-list-panel" class="quest-list-panel panel" aria-labelledby="quest-list-title">
-        <h2 id="quest-list-title">Quest list</h2>
-        <div id="quest-list"><QuestList /></div>
       </section>
     </aside>
   </div>
