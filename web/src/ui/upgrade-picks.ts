@@ -62,6 +62,9 @@ export function questUpgradePicks(allOptions: (UpgradeOptions | PairedUpgradeOpt
     if (pick === null && part.quicker !== null) {
       pick = questPick(part.quicker, snapshot);
     }
+    if (pick === null && part.onTheWay !== null) {
+      pick = questPick(part.onTheWay, snapshot);
+    }
     if (pick !== null && !questIds.has(pick.questId)) {
       questIds.add(pick.questId);
       picks.push(pick);

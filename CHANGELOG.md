@@ -2,6 +2,10 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.76.0 — 2026-11-27
+
+- New "On your way" pick: when a slot's best and quicker picks aren't free on your leveling path, the card also shows the best upgrade you'll get anyway from a quest or a named mob in your planned zones, like the Corrupted Riverglades Pendant from Mad Marrius. These count even when they're under 1%.
+
 ## v0.75.0 — 2026-11-27
 
 - Each upgrade now also shows how much stronger it makes you overall, as a share of your whole gear: "+72.1 attack power (+9.5%)".
