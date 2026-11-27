@@ -100,8 +100,8 @@ window.GAME_RULES = {
   },
 
   specs: {
-    "druid-feral-cat": { label: "Feral (cat)", preset: "feral-cat", talentTree: "Feral Combat" },
-    "druid-feral-bear": { label: "Feral (bear)", preset: "feral-bear" },
+    "druid-feral-cat": { label: "Feral (cat)", preset: "feral-cat", talentTree: "Feral Combat", armorTypes: ["Leather"] },
+    "druid-feral-bear": { label: "Feral (bear)", preset: "feral-bear", armorTypes: ["Leather"] },
     "druid-restoration": { label: "Restoration", preset: "healer", talentTree: "Restoration" },
     "druid-balance": { label: "Balance", preset: "druid-balance", talentTree: "Balance" },
     "warrior-arms": { label: "Arms", preset: "warrior-arms", talentTree: "Arms" },

@@ -228,6 +228,16 @@ export function canUseItem(item: Item, snapshot: Snapshot): boolean {
   return false;
 }
 
+const ARMOR_TYPES = ["Cloth", "Leather", "Mail", "Plate"];
+
+export function suitsSpec(item: Item, specKey: string): boolean {
+  const armorTypes = rules().specs[specKey].armorTypes;
+  if (!armorTypes || item.slot === "CLOAK" || ARMOR_TYPES.indexOf(item.itemSubclass) === -1) {
+    return true;
+  }
+  return armorTypes.indexOf(item.itemSubclass) !== -1;
+}
+
 export function isTwoHanded(item: Item | null | undefined): boolean {
   return item !== null && item !== undefined && item.slot === "TWOHWEAPON";
 }
