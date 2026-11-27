@@ -2,6 +2,10 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.77.1 — 2026-11-27
+
+- The crafting tool's hints now point to your gear plan instead of the old crafting list.
+
 ## v0.77.0 — 2026-11-27
 
 - New: your gear plan. Click the upgrade cards you want (one per slot) and they're highlighted; click again to unpick. The plan on the right lists your picks by where to get them, along your leveling path: each zone in order, then other places and dungeons, then things to buy and to craft, with the next quest step, quest giver, mob or vendor for each. Remove a pick there with ×.

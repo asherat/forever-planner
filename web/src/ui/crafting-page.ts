@@ -567,6 +567,6 @@ export function addFromLocationHash(): void {
   }
   crafting.list.entries = entries;
   history.replaceState(null, "", window.location.pathname);
-  setStatus("Loaded " + entries.length + " items from your crafting list.", "success");
+  setStatus("Loaded " + entries.length + " items from your gear plan.", "success");
 }
 
