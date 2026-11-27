@@ -23,7 +23,6 @@ declare global {
     };
     showDirectoryPicker?: (options: { id: string; mode: string }) => Promise<FileSystemDirectoryHandle>;
     start: () => void;
-    startCrafting: () => void;
   }
 
   const state: {
@@ -49,6 +48,8 @@ declare global {
   function mapZone(zoneName: string): unknown;
   function dungeonEntrance(dungeonName: string): { zone: string; x: number; y: number } | null;
   function render(): void;
+  function enableMapPopovers(): void;
+  function loadState(): void;
   function refreshCharacter(character: Character): Promise<void>;
   function handleTsmStartupError(error: Error): void;
   function defaultSettings(): Settings;

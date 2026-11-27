@@ -2,6 +2,10 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.64.0 — 2026-11-27
+
+- Behind the scenes: the crafting tool page now runs on Vue. It looks and works the same.
+
 ## v0.63.0 — 2026-11-27
 
 - Behind the scenes: the crafting tool's planner (what to buy, craft or take from your characters) is rewritten in TypeScript and now has tests. It gives the same answers.
