@@ -240,3 +240,14 @@ test("casters and healers keep lighter armor types; warriors get plate from 40",
   assert.equal(context.suitsSpec(mail, "warrior-arms", snapshot), false);
   assert.equal(context.bestArmorType("Rogue", 60), "Leather");
 });
+
+test("slots are ordered by their biggest improvement, even if it needs a level or two", () => {
+  const quest = function questSource(questId) { return [{ type: "quest", questId: questId, quest: "Quest " + questId, zone: "Stranglethorn Vale" }]; };
+  const bigHelm = sampleItem({ id: 100, name: "Big Helm", slot: "HEAD", requiredLevel: 44, usableLevel: 44, stats: { AGILITY: 15 }, sources: quest(980) });
+  const smallBoots = sampleItem({ id: 101, name: "Small Boots", slot: "FEET", requiredLevel: 40, usableLevel: 40, stats: { AGILITY: 9 }, sources: quest(981) });
+  const { context, character, snapshot } = loadPlanner([bigHelm, smallBoots]);
+  const head = context.upgradeOptions(context.slotDefinitionByKey("HEAD"), snapshot, character, context.emptyBlockList());
+  const feet = context.upgradeOptions(context.slotDefinitionByKey("FEET"), snapshot, character, context.emptyBlockList());
+  assert.equal(head.best.availableLevel > snapshot.level, true);
+  assert.deepEqual([feet, head].sort(context.compareUpgradeOptions).map(function slotOf(options) { return options.slotDefinition.key; }), ["HEAD", "FEET"]);
+});
