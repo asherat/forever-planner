@@ -1,6 +1,7 @@
 import { createApp } from "vue";
 import NotInterested from "./components/NotInterested.vue";
 import PriorityList from "./components/PriorityList.vue";
+import SlotColumn from "./components/SlotColumn.vue";
 import QuestList from "./components/QuestList.vue";
 import RoutePanel from "./components/RoutePanel.vue";
 import UndoNotice from "./components/UndoNotice.vue";
@@ -31,3 +32,6 @@ createApp(NotInterested).mount("#not-interested");
 createApp(RoutePanel).mount("#route-content");
 createApp(QuestList).mount("#quest-list");
 createApp(PriorityList).mount("#priority-list");
+createApp(SlotColumn, { column: "left" }).mount("#slots-left");
+createApp(SlotColumn, { column: "right" }).mount("#slots-right");
+createApp(SlotColumn, { column: "bottom" }).mount("#slots-bottom");
