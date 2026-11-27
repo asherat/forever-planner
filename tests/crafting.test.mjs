@@ -105,6 +105,21 @@ test("a recipe cycle doesn't loop forever", () => {
   assert.equal(plan.root.missingPrice, true);
 });
 
+test("a price worked out at the top of a recipe cycle doesn't make a deeper step craft what it can't", () => {
+  setUp({
+    entries: [{ itemId: LEATHER, quantity: 1 }],
+    prices: { [LEATHER]: auction(1000), [POTION]: auction(100) },
+    recipes: [
+      { id: 2, profession: "Alchemy", itemId: POTION, quantity: 2, reagents: [[LEATHER, 1]] },
+      { id: 3, profession: "Alchemy", itemId: LEATHER, quantity: 1, reagents: [[POTION, 1]] }
+    ]
+  });
+  const leather = planList()[0].root;
+  assert.equal(leather.mode, "craft");
+  assert.equal(leather.cost, 100);
+  assert.equal(leather.children[0].buyQuantity, 1);
+});
+
 test("totals add up shopping, what to take from alts and the professions", () => {
   setUp({
     entries: [{ itemId: ARMOR, quantity: 2 }],

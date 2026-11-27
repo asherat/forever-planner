@@ -1,6 +1,6 @@
 import "./legacy.ts";
-import type { Recipe } from "./crafting-plan.ts";
-import { buyOffer, clearMarketCache, isCheaperToCraft, marketCost } from "./crafting-plan.ts";
+import type { CraftingEntry, Plan, PlanMode, Recipe } from "./crafting-plan.ts";
+import { MAX_RECIPE_DEPTH, buyOffer, clearMarketCache, collectNodes, createStockPool, isCheaperToCraft, marketCost, planEntries } from "./crafting-plan.ts";
 
 export type RecipeLevels = [number, number, number, number];
 export type RecipeColor = "orange" | "yellow" | "green" | "grey";
@@ -270,4 +270,48 @@ export function buildGuide(profession: string, from: number, to: number, knownRe
   }
   guide.materials = sumMaterials(guide.steps, MARKET_PRICING);
   return guide;
+}
+
+function stepEntries(step: GuideStep): CraftingEntry[] {
+  return step.reagents.map(function entryOf(reagent) {
+    return { itemId: reagent[0], quantity: reagent[1] * step.crafts };
+  });
+}
+
+function planSteps(steps: GuideStep[], overrides: Record<string, PlanMode>): Plan[][] {
+  const pool = createStockPool();
+  return steps.map(function planned(step) {
+    return planEntries(stepEntries(step), pool, overrides);
+  });
+}
+
+function itemsToBuyInstead(planned: Plan[][], canCraft: (recipe: Recipe) => boolean, overrides: Record<string, PlanMode>): number[] {
+  const itemIds: number[] = [];
+  for (const plans of planned) {
+    for (const plan of plans) {
+      for (const node of collectNodes(plan.root, [])) {
+        if (node.recipe !== null && !canCraft(node.recipe) && !overrides[node.itemId] && buyOffer(node.itemId) !== null && itemIds.indexOf(node.itemId) === -1) {
+          itemIds.push(node.itemId);
+        }
+      }
+    }
+  }
+  return itemIds;
+}
+
+export function planStepMaterials(steps: GuideStep[], canCraft: (recipe: Recipe) => boolean): Plan[][] {
+  clearMarketCache();
+  const overrides: Record<string, PlanMode> = {};
+  let planned = planSteps(steps, overrides);
+  for (let round = 0; round < MAX_RECIPE_DEPTH; round += 1) {
+    const itemIds = itemsToBuyInstead(planned, canCraft, overrides);
+    if (itemIds.length === 0) {
+      break;
+    }
+    for (const itemId of itemIds) {
+      overrides[itemId] = "buy";
+    }
+    planned = planSteps(steps, overrides);
+  }
+  return planned;
 }

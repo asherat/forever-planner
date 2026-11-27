@@ -7,7 +7,7 @@ import type { GuideStep } from "../profession-guide.ts";
 import CraftingItemLabel from "./CraftingItemLabel.vue";
 import MoneyAmount from "./MoneyAmount.vue";
 
-const props = defineProps<{ step: GuideStep; done: boolean }>();
+const props = defineProps<{ step: GuideStep; done: boolean; craftFirst: string }>();
 const emit = defineEmits<{ toggle: [] }>();
 
 const isKnownItem = computed(function knownItem() {
@@ -60,6 +60,7 @@ function toggled(): void {
         <span class="guide-step-cost"><MoneyAmount :copper="step.cost" /></span>
       </div>
       <p class="muted guide-step-reagents">{{ reagents }}</p>
+      <p v-if="craftFirst" class="guide-step-craft-first">{{ craftFirst }}</p>
     </div>
   </li>
 </template>

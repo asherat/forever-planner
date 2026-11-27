@@ -43,7 +43,8 @@ It runs entirely in your browser. There is no server: your browser talks to Batt
 **Professions**
 
 - The Professions page plans the cheapest way to level a profession from your current skill (read from Battle.net) to any target, with your auction house and vendor prices. Each step says what to craft and about how many times: orange recipes always give a point, yellow and green ones less often, so the plan counts the extra crafts.
-- The plan is split by trainer rank (Apprentice, Journeyman, Expert, Artisan), with when to train the next rank. Each stage lists its recipes to learn (trainer, or a pattern with where to get it and its price), the materials to buy for it, marking the ones that are cheaper to craft yourself, and its cost with a running total. The side panel adds up everything still to buy.
+- The plan is split by trainer rank (Apprentice, Journeyman, Expert, Artisan), with when to train the next rank. Each stage lists its recipes to learn (trainer, or a pattern with where to get it and its price), the materials to buy for it, and its cost with a running total. The side panel adds up everything still to buy.
+- With your WoW folder connected, materials your characters already have (bags, bank, mail, from TSM) are used first, stage by stage, and the plan says who has them. A material that's cheaper to craft yourself is listed as its own materials, with a "Craft first" line on the step that needs it, when your character has the profession for it.
 - Your plan is saved per character and profession. Tick steps and materials as you go and come back later; steps below your skill tick themselves after a Refresh.
 - Enchanting only has its rods and oils for now: the enchants themselves aren't in the data yet.
 

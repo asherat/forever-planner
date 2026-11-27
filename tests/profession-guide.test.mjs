@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { resetPlanner } from "./helpers/realm.mjs";
+import { resetPlanner, run } from "./helpers/realm.mjs";
 import { crafting, defaultCraftingList, indexRecipes } from "../web/src/crafting-plan.ts";
 import { buildGuide, recipeColor, skillRankAt, skillUpChance } from "../web/src/profession-guide.ts";
 import { costStillToBuy, shoppingRows, stageRows, startGuidePage } from "../web/src/ui/profession-page.ts";
@@ -8,6 +8,7 @@ import { costStillToBuy, shoppingRows, stageRows, startGuidePage } from "../web/
 const LINEN = 2589;
 const WOOL = 2592;
 const PATTERN = 9000;
+const BOLT = 2996;
 
 function setUp(options) {
   const { character, snapshot, state } = resetPlanner();
@@ -15,7 +16,8 @@ function setUp(options) {
   globalThis.FOREVER_CRAFTING_ITEMS = {
     [LINEN]: { name: "Linen Cloth", quality: "COMMON", icon: 1, vendorPrice: 0 },
     [WOOL]: { name: "Wool Cloth", quality: "COMMON", icon: 2, vendorPrice: 0 },
-    [PATTERN]: { name: "Pattern: Fancy Wool", quality: "UNCOMMON", icon: 3, vendorPrice: 0 }
+    [PATTERN]: { name: "Pattern: Fancy Wool", quality: "UNCOMMON", icon: 3, vendorPrice: 0 },
+    [BOLT]: { name: "Bolt of Linen Cloth", quality: "COMMON", icon: 4, vendorPrice: 0 }
   };
   globalThis.FOREVER_RECIPES = options.recipes;
   globalThis.FOREVER_RECIPE_LEVELS = options.levels;
@@ -23,7 +25,7 @@ function setUp(options) {
   indexRecipes();
   state.questie = { items: {} };
   state.tsm = { prices: options.prices };
-  state.inventory = null;
+  state.inventory = options.inventory || null;
   crafting.list = defaultCraftingList();
   return character;
 }
@@ -145,10 +147,10 @@ test("starts a new step where a trainer rank ends", () => {
 });
 
 test("splits a plan into rank stages, each with its own shopping list and a running total", () => {
-  setUp(LINEN_FROM_70_TO_80);
+  const character = setUp(LINEN_FROM_70_TO_80);
   const guide = buildGuide("Tailoring", 70, 80, []);
   const saved = { createdAt: 0, guide: guide, doneSteps: [], boughtMaterials: ["Apprentice:" + LINEN] };
-  const stages = stageRows(saved, null);
+  const stages = stageRows(saved, null, character);
   assert.deepEqual(stages.map(function titleOf(stage) { return stage.title; }), ["Apprentice 70 → 75", "Journeyman 75 → 80"]);
   assert.equal(stages[0].training, "");
   assert.match(stages[1].training, /train Journeyman/);
@@ -166,4 +168,45 @@ test("moves materials ticked before stages existed into the stages that use them
   startGuidePage();
   assert.deepEqual(character.professionGuides.Tailoring.boughtMaterials, ["Apprentice:" + LINEN, "Journeyman:" + LINEN]);
   assert.equal(character.professionGuides.Tailoring.boughtItemIds, undefined);
+});
+
+function alt(bags) {
+  return { characters: { Alt: { name: "Alt", faction: "Horde", ruleset: "Normal", bags: bags, bank: {}, mail: {}, auctions: {}, money: 0, professions: [], classKey: "" } }, modifiedAt: 0, accountCount: 1 };
+}
+
+test("uses what your characters have before buying, in stage order", () => {
+  const character = setUp(Object.assign({ inventory: alt({ [LINEN]: 7 }) }, LINEN_FROM_70_TO_80));
+  const guide = buildGuide("Tailoring", 70, 80, []);
+  const stages = stageRows({ createdAt: 0, guide: guide, doneSteps: [], boughtMaterials: [] }, null, character);
+  assert.equal(stages[0].hasMaterials, false);
+  assert.deepEqual(stages[0].taking.map(function row(entry) { return [entry.quantity, entry.places]; }), [["5×", "Alt: 5 in bags"]]);
+  assert.deepEqual(stages[1].materials.map(function row(entry) { return [entry.itemId, entry.quantity, entry.cost]; }), [[LINEN, "3×", 30]]);
+  assert.equal(stages[1].taking[0].quantity, "2×");
+  assert.equal(costStillToBuy(stages), 30);
+});
+
+const SHIRTS_FROM_BOLTS = {
+  recipes: [
+    { id: 1, profession: "Tailoring", itemId: 100, quantity: 1, reagents: [[BOLT, 1]] },
+    { id: 5, profession: "Mining", itemId: BOLT, quantity: 1, reagents: [[LINEN, 2]] }
+  ],
+  levels: { 1: [1, 100, 120, 140] },
+  prices: { [LINEN]: auction(10), [BOLT]: auction(100) }
+};
+
+test("crafts a cheaper material first and buys its materials instead", () => {
+  const character = setUp(SHIRTS_FROM_BOLTS);
+  run("state.snapshots['test-hero'].professions = [{ name: 'Mining', skillPoints: 50, recipeIds: [] }]");
+  const guide = buildGuide("Tailoring", 1, 5, []);
+  const stages = stageRows({ createdAt: 0, guide: guide, doneSteps: [], boughtMaterials: [] }, null, character);
+  assert.equal(stages[0].steps[0].craftFirst, "Craft first: 4× Bolt of Linen Cloth");
+  assert.deepEqual(stages[0].materials.map(function row(entry) { return [entry.itemId, entry.quantity]; }), [[LINEN, "8×"]]);
+});
+
+test("buys a material made by a profession the character doesn't have", () => {
+  const character = setUp(SHIRTS_FROM_BOLTS);
+  const guide = buildGuide("Tailoring", 1, 5, []);
+  const stages = stageRows({ createdAt: 0, guide: guide, doneSteps: [], boughtMaterials: [] }, null, character);
+  assert.equal(stages[0].steps[0].craftFirst, "");
+  assert.deepEqual(stages[0].materials.map(function row(entry) { return [entry.itemId, entry.quantity, entry.cost]; }), [[BOLT, "4×", 400]]);
 });

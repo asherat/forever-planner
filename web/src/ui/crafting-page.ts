@@ -1,6 +1,6 @@
 import "../legacy.ts";
 import { collectNodes, crafting, craftingItem, inventory, isBindOnPickup, isInScope, saveCraftingList } from "../crafting-plan.ts";
-import type { CraftingEntry, Plan, PlanMode, PlanNode, Recipe, ShoppingLine, TakingLine } from "../crafting-plan.ts";
+import type { CraftingEntry, Plan, PlanMode, PlanNode, Recipe, ShoppingLine } from "../crafting-plan.ts";
 import { knowsRecipe, professionOf, selectedCharacter, setStatus, state } from "../state.ts";
 import { characterPlan, slotPicks } from "./gear-plan.ts";
 import { recipeSource } from "./recipe-sources.ts";
@@ -14,7 +14,6 @@ const MODE_ICON_PATHS: Record<ChoosableMode, string> = {
   ah: "M12 3c4.4 0 8 1.3 8 3s-3.6 3-8 3-8-1.3-8-3 3.6-3 8-3zm-8 3v4c0 1.7 3.6 3 8 3s8-1.3 8-3V6m-16 4v4c0 1.7 3.6 3 8 3s8-1.3 8-3v-4m-16 4v4c0 1.7 3.6 3 8 3s8-1.3 8-3v-4",
   craft: "M14.5 4.5l5 5-2 2-1.5-1.5-8.5 8.5a1.8 1.8 0 0 1-2.5-2.5L13.5 7.5 12 6l2.5-1.5z"
 };
-const PLACE_LABELS: Record<string, string> = { bags: "bags", bank: "bank", mail: "mailbox", auctions: "on the AH" };
 
 export interface ModeChoice {
   mode: ChoosableMode;
@@ -194,14 +193,6 @@ export function planRequirements(plan: Plan): Requirements {
 
 export function shoppingText(line: ShoppingLine): string {
   return " ×" + line.quantity;
-}
-
-export function takingPlaces(line: TakingLine): string {
-  const places: string[] = [];
-  for (const place of Object.keys(line.places)) {
-    places.push(line.places[place] + " in " + PLACE_LABELS[place]);
-  }
-  return line.character + ": " + places.join(", ");
 }
 
 interface Crafter {

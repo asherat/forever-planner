@@ -116,7 +116,7 @@ export interface PlanTotals {
 }
 
 type MarketCost = { cost: number; mode: "buy" | "craft" } | null;
-type StockPool = Map<number, Holding[]>;
+export type StockPool = Map<number, Holding[]>;
 
 export function defaultCraftingList(): CraftingList {
   return { entries: [], overrides: {}, useInventory: true, excludedCharacters: [], scope: null, barteringRank: 0, sharesMaterials: true };
@@ -247,8 +247,12 @@ function offerForMode(itemId: number, mode: PlanMode): Offer | null {
   return buyOffer(itemId);
 }
 
+function canStillCraft(itemId: number, depth: number, path: number[]): boolean {
+  return depth < MAX_RECIPE_DEPTH && path.indexOf(itemId) === -1;
+}
+
 function marketUnitCost(itemId: number, depth: number, path: number[]): MarketCost {
-  if (crafting.marketCache.has(itemId)) {
+  if (canStillCraft(itemId, depth, path) && crafting.marketCache.has(itemId)) {
     return crafting.marketCache.get(itemId) || null;
   }
   const offer = buyOffer(itemId);
@@ -335,7 +339,7 @@ export function includedInventoryCharacters(): InventoryCharacter[] {
   return characters;
 }
 
-function createStockPool(): StockPool {
+export function createStockPool(): StockPool {
   const pool: StockPool = new Map();
   for (const character of includedInventoryCharacters()) {
     for (const place of INVENTORY_PLACES) {
@@ -422,22 +426,22 @@ function emptyNode(itemId: number, quantity: number, available: number, mode: Pl
   };
 }
 
-function craftRemainder(node: PlanNode, remaining: number, pool: StockPool, depth: number, path: number[]): void {
+function craftRemainder(node: PlanNode, remaining: number, pool: StockPool, overrides: Record<string, PlanMode>, depth: number, path: number[]): void {
   const recipe = anyRecipe(node.itemId, depth, path) as Recipe;
   node.recipe = recipe;
   node.craftCount = Math.ceil(remaining / recipe.quantity);
   const nextPath = path.concat([node.itemId]);
   for (const reagent of recipe.reagents) {
-    const child = planNode(reagent[0], reagent[1] * node.craftCount, pool, depth + 1, nextPath);
+    const child = planNode(reagent[0], reagent[1] * node.craftCount, pool, overrides, depth + 1, nextPath);
     node.children.push(child);
     node.cost += child.cost;
     node.missingPrice = node.missingPrice || child.missingPrice;
   }
 }
 
-function planNode(itemId: number, quantity: number, pool: StockPool, depth: number, path: number[]): PlanNode {
+function planNode(itemId: number, quantity: number, pool: StockPool, overrides: Record<string, PlanMode>, depth: number, path: number[]): PlanNode {
   const available = stockAvailable(pool, itemId);
-  let mode = crafting.list.overrides[itemId] || defaultMode(itemId, available, depth, path);
+  let mode = overrides[itemId] || defaultMode(itemId, available, depth, path);
   if (mode === "craft" && anyRecipe(itemId, depth, path) === null) {
     mode = defaultMode(itemId, available, depth, path);
   }
@@ -450,17 +454,19 @@ function planNode(itemId: number, quantity: number, pool: StockPool, depth: numb
   }
   let remaining = quantity;
   let howToGetRest = mode;
-  if (mode === "own") {
+  if (mode === "own" || mode === "buy") {
     node.ownUsed = Math.min(available, quantity);
     node.taken = takeFromStock(pool, itemId, node.ownUsed);
     remaining = quantity - node.ownUsed;
+  }
+  if (mode === "own") {
     howToGetRest = remainderMode(itemId, depth, path);
   }
   if (remaining === 0) {
     return node;
   }
   if (howToGetRest === "craft") {
-    craftRemainder(node, remaining, pool, depth, path);
+    craftRemainder(node, remaining, pool, overrides, depth, path);
     return node;
   }
   node.buyQuantity = remaining;
@@ -473,6 +479,17 @@ function planNode(itemId: number, quantity: number, pool: StockPool, depth: numb
   return node;
 }
 
+function planEntry(entry: CraftingEntry, pool: StockPool, overrides: Record<string, PlanMode>): Plan {
+  const root = planNode(entry.itemId, entry.quantity, pool, overrides, 0, []);
+  return { entry: entry, root: root, readyMadeCost: totalFor(buyOffer(entry.itemId), entry.quantity) };
+}
+
+export function planEntries(entries: CraftingEntry[], pool: StockPool, overrides: Record<string, PlanMode>): Plan[] {
+  return entries.map(function planned(entry) {
+    return planEntry(entry, pool, overrides);
+  });
+}
+
 export function planList(): Plan[] {
   crafting.marketCache.clear();
   const sharedPool = createStockPool();
@@ -482,8 +499,7 @@ export function planList(): Plan[] {
     if (!crafting.list.sharesMaterials) {
       pool = createStockPool();
     }
-    const root = planNode(entry.itemId, entry.quantity, pool, 0, []);
-    plans.push({ entry: entry, root: root, readyMadeCost: totalFor(buyOffer(entry.itemId), entry.quantity) });
+    plans.push(planEntry(entry, pool, crafting.list.overrides));
   }
   return plans;
 }

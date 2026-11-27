@@ -1,8 +1,10 @@
 import { reactive } from "vue";
 import "../legacy.ts";
-import { SKILL_RANKS, buildGuide, professionRecipes, skillRankAt, stepName, sumMaterials } from "../profession-guide.ts";
-import type { GuideLesson, GuideMaterial, GuideStep, MaterialPricing, SkillRank } from "../profession-guide.ts";
-import type { Recipe } from "../crafting-plan.ts";
+import { SKILL_RANKS, buildGuide, planStepMaterials, professionRecipes, skillRankAt, stepName } from "../profession-guide.ts";
+import type { GuideLesson, GuideStep, SkillRank } from "../profession-guide.ts";
+import { aggregatePlans, collectNodes, craftingItem } from "../crafting-plan.ts";
+import type { Plan, Recipe, ShoppingLine, TakingLine } from "../crafting-plan.ts";
+import { takingPlaces } from "./inventory-text.ts";
 import { professionOf, saveSettings, selectedCharacter, snapshotOf, state } from "../state.ts";
 import type { Character, SavedGuide } from "../types.ts";
 import { recipeSource } from "./recipe-sources.ts";
@@ -148,30 +150,6 @@ export function isStepDone(saved: SavedGuide, step: GuideStep, index: number, sk
   return skill !== null && skill >= step.to;
 }
 
-function plannedMaterial(saved: SavedGuide, itemId: number): GuideMaterial | null {
-  for (const material of saved.guide.materials) {
-    if (material.itemId === itemId) {
-      return material;
-    }
-  }
-  return null;
-}
-
-function plannedPricing(saved: SavedGuide): MaterialPricing {
-  function plannedUnitCost(itemId: number): number {
-    const material = plannedMaterial(saved, itemId);
-    if (material === null || material.quantity === 0) {
-      return 0;
-    }
-    return material.cost / material.quantity;
-  }
-  function plannedAsCrafted(itemId: number): boolean {
-    const material = plannedMaterial(saved, itemId);
-    return material !== null && Boolean(material.craft);
-  }
-  return { unitCost: plannedUnitCost, isCrafted: plannedAsCrafted };
-}
-
 function recipeById(profession: string, recipeId: number): Recipe | null {
   for (const recipe of professionRecipes(profession)) {
     if (recipe.id === recipeId) {
@@ -210,12 +188,51 @@ export interface StepRow {
   index: number;
   step: GuideStep;
   done: boolean;
+  craftFirst: string;
 }
 
-function stepRows(saved: SavedGuide, skill: number | null): StepRow[] {
-  return saved.guide.steps.map(function rowOf(step, index) {
-    return { key: index + ":" + step.recipeId, index: index, step: step, done: isStepDone(saved, step, index, skill) };
+function craftFirstText(plans: Plan[]): string {
+  const counts = new Map<number, number>();
+  for (const plan of plans) {
+    for (const node of collectNodes(plan.root, []).reverse()) {
+      if (node.recipe !== null && node.craftCount > 0) {
+        counts.set(node.itemId, (counts.get(node.itemId) || 0) + node.craftCount);
+      }
+    }
+  }
+  const parts: string[] = [];
+  counts.forEach(function partOf(count, itemId) {
+    parts.push(count + "× " + craftingItem(itemId).name);
   });
+  if (parts.length === 0) {
+    return "";
+  }
+  return "Craft first: " + parts.join(", ");
+}
+
+function canCraftFor(character: Character | null, profession: string): (recipe: Recipe) => boolean {
+  const snapshot = snapshotOf(character);
+  return function canCraft(recipe: Recipe): boolean {
+    return recipe.profession === profession || professionOf(snapshot, recipe.profession) !== null;
+  };
+}
+
+function plannedStepRows(saved: SavedGuide, skill: number | null, character: Character | null): { rows: StepRow[]; plans: Map<number, Plan[]> } {
+  const rows = saved.guide.steps.map(function rowOf(step, index) {
+    return { key: index + ":" + step.recipeId, index: index, step: step, done: isStepDone(saved, step, index, skill), craftFirst: "" };
+  });
+  const rowsLeft = rows.filter(function isLeft(row) {
+    return !row.done;
+  });
+  const planned = planStepMaterials(rowsLeft.map(function stepOf(row) {
+    return row.step;
+  }), canCraftFor(character, saved.guide.profession));
+  const plans = new Map<number, Plan[]>();
+  rowsLeft.forEach(function attach(row, position) {
+    row.craftFirst = craftFirstText(planned[position]);
+    plans.set(row.index, planned[position]);
+  });
+  return { rows: rows, plans: plans };
 }
 
 export interface LessonRow {
@@ -247,31 +264,28 @@ export interface MaterialRow {
   count: number;
   quantity: string;
   cost: number;
+  hasPrice: boolean;
   bought: boolean;
-  how: string;
 }
 
-function craftHint(material: GuideMaterial): string {
-  if (material.craft) {
-    return "Cheaper to craft";
-  }
-  return "";
+function materialRow(saved: SavedGuide, rank: SkillRank, line: ShoppingLine): MaterialRow {
+  const key = boughtKey(rank, line.itemId);
+  return { key: key, itemId: line.itemId, inputId: "material-" + rank.name + "-" + line.itemId, count: line.quantity, quantity: line.quantity + "×", cost: line.cost, hasPrice: line.offer !== null, bought: saved.boughtMaterials.indexOf(key) !== -1 };
 }
 
-function isLeftRow(row: StepRow): boolean {
-  return !row.done;
+export interface TakingRow {
+  key: string;
+  itemId: number;
+  quantity: string;
+  places: string;
 }
 
-function stepOfRow(row: StepRow): GuideStep {
-  return row.step;
+function takingRow(line: TakingLine): TakingRow {
+  return { key: line.character + "|" + line.itemId, itemId: line.itemId, quantity: line.count + "×", places: takingPlaces(line) };
 }
 
-function materialRows(saved: SavedGuide, rank: SkillRank, steps: StepRow[]): MaterialRow[] {
-  const stepsLeft = steps.filter(isLeftRow).map(stepOfRow);
-  return sumMaterials(stepsLeft, plannedPricing(saved)).map(function rowOf(material) {
-    const key = boughtKey(rank, material.itemId);
-    return { key: key, itemId: material.itemId, inputId: "material-" + rank.name + "-" + material.itemId, count: material.quantity, quantity: material.quantity + "×", cost: material.cost, bought: saved.boughtMaterials.indexOf(key) !== -1, how: craftHint(material) };
-  });
+function compareByCost(first: MaterialRow, second: MaterialRow): number {
+  return second.cost - first.cost;
 }
 
 function addUnboughtCost(total: number, row: MaterialRow): number {
@@ -296,6 +310,8 @@ export interface StageRow {
   hasLessons: boolean;
   materials: MaterialRow[];
   hasMaterials: boolean;
+  taking: TakingRow[];
+  hasTaking: boolean;
   allBought: boolean;
   tickAllLabel: string;
   stillToBuy: number;
@@ -323,9 +339,10 @@ function tickAllLabel(allBought: boolean): string {
   return "Tick all";
 }
 
-export function stageRows(saved: SavedGuide, skill: number | null): StageRow[] {
+export function stageRows(saved: SavedGuide, skill: number | null, character: Character | null): StageRow[] {
   const guide = saved.guide;
-  const steps = stepRows(saved, skill);
+  const planned = plannedStepRows(saved, skill, character);
+  const steps = planned.rows;
   const stages: StageRow[] = [];
   let runningTotal = 0;
   for (const rank of SKILL_RANKS) {
@@ -340,7 +357,15 @@ export function stageRows(saved: SavedGuide, skill: number | null): StageRow[] {
     }
     const cost = stageSteps.reduce(addStepCost, 0) + stageLessons.reduce(addLessonCost, 0);
     runningTotal += cost;
-    const materials = materialRows(saved, rank, stageSteps);
+    const stagePlans: Plan[] = [];
+    for (const row of stageSteps) {
+      stagePlans.push(...(planned.plans.get(row.index) || []));
+    }
+    const totals = aggregatePlans(stagePlans);
+    const materials = totals.shopping.map(function rowOf(line) {
+      return materialRow(saved, rank, line);
+    }).sort(compareByCost);
+    const taking = totals.taking.map(takingRow);
     const allBought = materials.length > 0 && materials.every(isBoughtRow);
     stages.push({
       key: rank.name,
@@ -355,6 +380,8 @@ export function stageRows(saved: SavedGuide, skill: number | null): StageRow[] {
       hasLessons: stageLessons.length > 0,
       materials: materials,
       hasMaterials: materials.length > 0,
+      taking: taking,
+      hasTaking: taking.length > 0,
       allBought: allBought,
       tickAllLabel: tickAllLabel(allBought),
       stillToBuy: materials.reduce(addUnboughtCost, 0)
@@ -383,7 +410,7 @@ export interface ShoppingRow {
   itemId: number;
   quantity: string;
   cost: number;
-  how: string;
+  hasPrice: boolean;
 }
 
 function compareShoppingRows(first: ShoppingRow, second: ShoppingRow): number {
@@ -399,7 +426,7 @@ export function shoppingRows(stages: StageRow[]): ShoppingRow[] {
         continue;
       }
       const count = (counts.get(material.itemId) || 0) + material.count;
-      const row = rows.get(material.itemId) || { key: material.itemId, itemId: material.itemId, quantity: "", cost: 0, how: material.how };
+      const row = rows.get(material.itemId) || { key: material.itemId, itemId: material.itemId, quantity: "", cost: 0, hasPrice: material.hasPrice };
       row.cost += material.cost;
       row.quantity = count + "×";
       counts.set(material.itemId, count);
