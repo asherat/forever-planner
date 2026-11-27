@@ -393,6 +393,21 @@ test("leaves out recipes with a cooldown", () => {
   assert.deepEqual(stepsOf(guide), [[2, 1, 4, 3]]);
 });
 
+test("uses recipes with a cooldown when asked to, and says how long the step takes", () => {
+  const character = setUp({
+    recipes: [
+      { id: 1, profession: "Tailoring", itemId: 100, quantity: 1, reagents: [[LINEN, 1]], cooldown: 3600 },
+      { id: 2, profession: "Tailoring", itemId: 101, quantity: 1, reagents: [[WOOL, 1]] }
+    ],
+    levels: { 1: [1, 100, 120, 140], 2: [1, 100, 120, 140] },
+    prices: { [LINEN]: auction(1), [WOOL]: auction(50) }
+  });
+  const guide = buildGuide("Tailoring", 1, 4, { knownRecipeIds: [], canCraft: ANYONE, ownedTools: [], usesCooldowns: true });
+  assert.deepEqual(stepsOf(guide), [[1, 1, 4, 3]]);
+  const stages = stageRows({ createdAt: 0, guide: guide, doneSteps: [], boughtMaterials: [] }, null, character);
+  assert.equal(stages[0].steps[0].cooldown, "Cooldowns: 3 crafts here have one, about 2 hours of waiting in all");
+});
+
 test("a rank's buy list can be copied for TSM, Auctionator or as text, without what's ticked", () => {
   const character = setUp(LINEN_FROM_70_TO_80);
   const guide = buildGuide("Tailoring", 70, 80, { knownRecipeIds: [], canCraft: ANYONE, ownedTools: [] });

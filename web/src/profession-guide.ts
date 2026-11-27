@@ -38,6 +38,7 @@ export interface GuideOptions {
   knownRecipeIds: number[];
   canCraft: CraftCheck;
   ownedTools: number[];
+  usesCooldowns?: boolean;
 }
 
 export interface GuideLesson {
@@ -64,6 +65,7 @@ export interface Guide {
   materials: GuideMaterial[];
   total: number;
   stuckAt: number | null;
+  usesCooldowns?: boolean;
 }
 
 export interface SkillRank {
@@ -122,6 +124,7 @@ interface Priced {
 interface Pricing {
   profession: string;
   canCraft: CraftCheck;
+  usesCooldowns: boolean;
   infos: Map<number, RecipeInfo>;
   cache: Map<string, Priced | null>;
 }
@@ -213,8 +216,12 @@ function isLearnedBy(info: RecipeInfo | undefined, skill: number): boolean {
   return info === undefined || info.isKnown || (info.learnCost !== null && info.levels[0] <= skill);
 }
 
+function isOnAnUnusedCooldown(pricing: Pricing, recipe: Recipe): boolean {
+  return Boolean(recipe.cooldown) && !pricing.usesCooldowns;
+}
+
 function canCraftAt(pricing: Pricing, recipe: Recipe, skill: number): boolean {
-  if (recipe.cooldown || !pricing.canCraft(recipe)) {
+  if (isOnAnUnusedCooldown(pricing, recipe) || !pricing.canCraft(recipe)) {
     return false;
   }
   return recipe.profession !== pricing.profession || isLearnedBy(pricing.infos.get(recipe.id), skill);
@@ -289,7 +296,7 @@ function ownCraftOf(pricing: Pricing, itemId: number, quantity: number, skill: n
 }
 
 function candidateFor(pricing: Pricing, info: RecipeInfo, from: number): Candidate | null {
-  if (info.recipe.cooldown || (!info.isKnown && info.learnCost === null)) {
+  if (isOnAnUnusedCooldown(pricing, info.recipe) || (!info.isKnown && info.learnCost === null)) {
     return null;
   }
   const skill = Math.max(info.levels[0], from);
@@ -388,10 +395,11 @@ function craftForPointsWherePaysOff(bundle: Bundle, inputs: CandidateInput[], sk
 }
 
 function bundleOf(candidate: Candidate, skill: number, made: Map<number, number>): Bundle {
-  const bundle: Bundle = { cost: 0, points: skillUpChance(candidate.info.levels, skill), fromStock: [], parts: [], craftedForPoints: [] };
+  const chance = skillUpChance(candidate.info.levels, skill);
+  const bundle: Bundle = { cost: 0, points: chance, fromStock: [], parts: [], craftedForPoints: [] };
   const bought: CandidateInput[] = [];
   for (const input of candidate.inputs) {
-    if ((made.get(input.itemId) || 0) >= input.quantity) {
+    if (chance > 0 && (made.get(input.itemId) || 0) >= input.quantity / chance) {
       bundle.fromStock.push(input);
       continue;
     }
@@ -528,12 +536,12 @@ function useBundle(candidate: Candidate, bundle: Bundle, made: Map<number, numbe
 
 export function buildGuide(profession: string, from: number, to: number, options: GuideOptions): Guide {
   clearMarketCache();
-  const pricing: Pricing = { profession: profession, canCraft: options.canCraft, infos: recipeInfos(profession, options.knownRecipeIds), cache: new Map() };
+  const pricing: Pricing = { profession: profession, canCraft: options.canCraft, usesCooldowns: Boolean(options.usesCooldowns), infos: recipeInfos(profession, options.knownRecipeIds), cache: new Map() };
   const candidates = candidatesFor(pricing, from);
   const learned = new Set<number>();
   const obtained = options.ownedTools.slice();
   const made = new Map<number, number>();
-  const guide: Guide = { profession: profession, from: from, to: to, steps: [], lessons: [], materials: [], total: 0, stuckAt: null };
+  const guide: Guide = { profession: profession, from: from, to: to, steps: [], lessons: [], materials: [], total: 0, stuckAt: null, usesCooldowns: Boolean(options.usesCooldowns) };
   let step: GuideStep | null = null;
   let current: Candidate | null = null;
   let expectedCrafts = 0;
@@ -608,8 +616,8 @@ function costUpTo(guide: Guide, skill: number): number {
   return total;
 }
 
-export function levelingCosts(profession: string, canCraft: CraftCheck): (number | null)[] {
-  const guide = buildGuide(profession, 1, COMPARED_SKILLS[COMPARED_SKILLS.length - 1], { knownRecipeIds: [], canCraft: canCraft, ownedTools: [] });
+export function levelingCosts(profession: string, canCraft: CraftCheck, usesCooldowns: boolean): (number | null)[] {
+  const guide = buildGuide(profession, 1, COMPARED_SKILLS[COMPARED_SKILLS.length - 1], { knownRecipeIds: [], canCraft: canCraft, ownedTools: [], usesCooldowns: usesCooldowns });
   return COMPARED_SKILLS.map(function costTo(skill) {
     if (guide.stuckAt !== null && guide.stuckAt < skill) {
       return null;
@@ -631,8 +639,8 @@ function stepEntries(step: GuideStep): CraftingEntry[] {
   return entries;
 }
 
-export function stepCraftCheck(profession: string, knownRecipeIds: number[], canCraft: CraftCheck): StepCraftCheck {
-  const pricing: Pricing = { profession: profession, canCraft: canCraft, infos: recipeInfos(profession, knownRecipeIds), cache: new Map() };
+export function stepCraftCheck(profession: string, knownRecipeIds: number[], canCraft: CraftCheck, usesCooldowns: boolean): StepCraftCheck {
+  const pricing: Pricing = { profession: profession, canCraft: canCraft, usesCooldowns: usesCooldowns, infos: recipeInfos(profession, knownRecipeIds), cache: new Map() };
   return function canCraftInStep(recipe: Recipe, step: GuideStep): boolean {
     return canCraftAt(pricing, recipe, step.from);
   };

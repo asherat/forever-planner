@@ -159,6 +159,7 @@ function discard(): void {
     </label>
     <label>From skill <input v-model.number="guideForm.from" type="number" min="1" :max="MAX_SKILL - 1"></label>
     <label>To skill <input v-model.number="guideForm.to" type="number" min="2" :max="MAX_SKILL"></label>
+    <label class="checkbox-line guide-form-option"><input v-model="guideForm.usesCooldowns" type="checkbox"> Craft recipes with a cooldown myself (transmutes, Mooncloth) instead of buying what they make</label>
     <button type="button" class="primary" :disabled="hasNoPrices" @click="makeGuide">{{ makeLabel }}</button>
     <button v-if="canCompare" type="button" :disabled="hasNoPrices" @click="compareProfessions">Compare professions</button>
     <p class="muted guide-form-note">{{ skillText }}</p>
