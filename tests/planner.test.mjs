@@ -164,3 +164,17 @@ test("one quest reward can't fill both ring slots", () => {
   const bests = group.parts.map(function bestName(part) { return part.best.item.name; });
   assert.deepEqual(bests, ["Big Ring", "Small Ring"]);
 });
+
+test("an item you can only buy says so instead of listing chance drops and chests", async () => {
+  const { auctionOnlyText } = await import("../web/src/ui/upgrade-card.ts");
+  const ring = sampleItem({ id: 7552, name: "Falcon's Hook", slot: "FINGER" });
+  const { snapshot, state } = loadPlanner([ring]);
+  state.questie = { items: { 7552: { sources: [{ type: "world-drop", count: 144 }, { type: "object", name: "Solid Chest", zone: "Stranglethorn Vale" }], quests: [] } } };
+  assert.equal(auctionOnlyText(ring, snapshot), "");
+  state.tsm = { prices: { 7552: tsmPrice(5581, 9000, 18) } };
+  planner.resetSourceCaches();
+  assert.equal(auctionOnlyText(ring, snapshot), "Buy it on the auction house (18 listed)");
+  state.questie.items[7552].sources.push({ type: "quest", questId: 900, quest: "Ring Quest", zone: "Stranglethorn Vale" });
+  planner.resetSourceCaches();
+  assert.equal(auctionOnlyText(ring, snapshot), "");
+});
