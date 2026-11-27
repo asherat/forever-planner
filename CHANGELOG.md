@@ -2,6 +2,10 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.29.0 — 2026-11-27
+
+- Items with random stats ("…of the Tiger", "…of the Monkey") now count as upgrades. Each one is compared using the suffix that's best for your spec, and the card tells you which one to look for, e.g. "Wild Leather Helmet of the Tiger".
+
 ## v0.28.0 — 2026-11-26
 
 - "Where do you play most?" has two choices: Questing and Dungeons. Questing on a PvP realm automatically values stamina and armor more, using the ruleset from your profile, and shows as "Questing (PvP realm)". A saved "World PvP" choice becomes questing.

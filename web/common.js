@@ -198,6 +198,9 @@ function iconUrlForItem(item) {
 }
 
 function wowheadUrl(item) {
+  if (item.suffix) {
+    return WOWHEAD_URL + "item=" + item.id + "?bonus=" + item.suffix.bonusId;
+  }
   return WOWHEAD_URL + "item=" + item.id;
 }
 

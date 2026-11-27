@@ -606,6 +606,11 @@ button:disabled {
   font-size: 0.85rem;
 }
 
+.option-note {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
 .sources {
   margin: 0;
   padding-left: 18px;

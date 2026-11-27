@@ -430,6 +430,31 @@ function itemScore(item, weights) {
   return Math.round(score * 10) / 10;
 }
 
+function itemWithSuffix(item, suffix) {
+  const stats = Object.assign({}, item.stats);
+  for (const statKey of Object.keys(suffix.stats)) {
+    stats[statKey] = (stats[statKey] || 0) + suffix.stats[statKey];
+  }
+  return Object.assign({}, item, { name: item.name + " " + suffix.name, stats: stats, suffix: suffix });
+}
+
+function bestSuffixVariant(item, weights) {
+  if (!item.randomSuffixes) {
+    return item;
+  }
+  let best = item;
+  let bestScore = itemScore(item, weights);
+  for (const suffix of item.randomSuffixes) {
+    const variant = itemWithSuffix(item, suffix);
+    const score = itemScore(variant, weights);
+    if (score > bestScore) {
+      best = variant;
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
 function canUseItem(item, snapshot) {
   const proficiencies = window.GAME_RULES.classProficiencies[snapshot.className];
   if (item.classes && item.classes.indexOf(snapshot.className) === -1) {
@@ -538,12 +563,13 @@ function rankedCandidatesForSlot(slotDefinition, snapshot, character) {
     if (availableLevel > maximumLevel) {
       continue;
     }
-    const gain = itemScore(item, weights) - comparisonBaseline(slotDefinition, snapshot, item, weights);
+    const variant = bestSuffixVariant(item, weights);
+    const gain = itemScore(variant, weights) - comparisonBaseline(slotDefinition, snapshot, variant, weights);
     if (gain <= 0) {
       continue;
     }
     candidates.push({
-      item: item,
+      item: variant,
       availableLevel: availableLevel,
       routeLeg: routeLeg,
       gain: Math.round(gain * 10) / 10
@@ -1279,6 +1305,9 @@ function renderOption(label, candidate, snapshot, character, slotDefinition) {
   option.appendChild(heading);
 
   option.appendChild(gainBadges(candidate, character));
+  if (item.suffix) {
+    option.appendChild(createElement("div", "option-note", "Comes with random stats. Best for you: " + item.suffix.name + "."));
+  }
   if (candidate.routeLeg) {
     const zone = guideZone(candidate.routeLeg.zone);
     let tierClass = "tier-grey";
