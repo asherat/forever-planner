@@ -13,8 +13,8 @@ function chosen(profession: string): void {
 
 <template>
   <section class="panel guide-comparison">
-    <h2>What each profession costs to level</h2>
-    <p class="muted">From scratch, with today's prices and what this character can craft. Cheapest to 300 first.</p>
+    <h2>What each primary profession costs to level</h2>
+    <p class="muted">From scratch, with today's prices and what this character can craft. Cheapest to 300 first. Cooking and First Aid aren't listed: they give no legacy points.</p>
     <div class="guide-comparison-scroll">
       <table>
         <thead>

@@ -2,6 +2,10 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.88.1 — 2026-11-27
+
+- "Compare professions" only lists primary professions: Cooking and First Aid give no legacy points.
+
 ## v0.88.0 — 2026-11-27
 
 - Professions: Enchanting now plans with the enchants themselves, not just rods and oils.
