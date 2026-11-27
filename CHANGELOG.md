@@ -2,6 +2,12 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.88.2 — 2026-11-27
+
+- Professions: choosing another character re-reads prices for that character's realm type and faction.
+- Professions: amounts in the buy lists line up with the item icons.
+- README corrections and an unused function removed; the compiler now rejects unused variables.
+
 ## v0.88.1 — 2026-11-27
 
 - "Compare professions" only lists primary professions: Cooking and First Aid give no legacy points.

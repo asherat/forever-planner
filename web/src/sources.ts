@@ -567,15 +567,6 @@ export function hasOwnProfessionCraft(item: Item, snapshot: Snapshot): boolean {
   return false;
 }
 
-export function firstQuestSource(sources: ItemSource[]): ItemSource | null {
-  for (const source of sources) {
-    if (source.type === "quest") {
-      return source;
-    }
-  }
-  return null;
-}
-
 export function firstCraftSource(sources: ItemSource[]): CraftSource | null {
   for (const source of sources) {
     if (isCraftSource(source)) {

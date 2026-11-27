@@ -5,7 +5,8 @@ import type { CraftCheck, Guide, GuideLesson, GuideStep, SkillRank } from "../pr
 import { INVENTORY_PLACES, aggregatePlans, collectNodes, craftingItem, includedInventoryCharacters } from "../crafting-plan.ts";
 import type { Plan, Recipe, ShoppingLine, TakingLine } from "../crafting-plan.ts";
 import { takingPlaces } from "./inventory-text.ts";
-import { professionOf, saveSettings, selectedCharacter, snapshotOf, state } from "../state.ts";
+import { readWowFolder } from "../folder-data.ts";
+import { professionOf, saveSettings, selectedCharacter, setStatus, snapshotOf, state } from "../state.ts";
 import type { Character, SavedGuide } from "../types.ts";
 import { recipeSource, trainerSource } from "./recipe-sources.ts";
 import { qualityClass } from "../prices.ts";
@@ -92,6 +93,17 @@ function moveBoughtItemsToStages(): void {
   if (hasMoved) {
     saveSettings();
   }
+}
+
+function reportFolderError(error: Error): void {
+  setStatus("Could not read your WoW folder: " + error.message, "error");
+}
+
+export function chooseCharacter(slug: string): void {
+  state.settings.selectedCharacterSlug = slug;
+  saveSettings();
+  chooseProfession(professionChoices(selectedCharacter())[0].name);
+  readWowFolder(false).catch(reportFolderError);
 }
 
 export function startGuidePage(): void {
