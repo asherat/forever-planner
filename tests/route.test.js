@@ -76,35 +76,73 @@ test("dungeons only count for a zone when they are included", () => {
   assert.equal(context.legForZone(character, snapshot, "Zul'Farrak").zone, "Tanaris");
 });
 
-test("removing a zone in the middle asks how to fill its levels", () => {
-  const { context, character, snapshot } = freshRoute();
+function fullPath(context, character, snapshot) {
   context.chooseZone(character, snapshot, "Riverglades");
   context.chooseZone(character, snapshot, "Tanaris");
-  context.removeLeg(character, snapshot, 0);
-  const empty = evaluate(context, "routeEditor.emptyLevels");
-  assert.equal(empty.fromLevel, 42);
-  assert.equal(empty.toLevel, 45);
-  assert.equal(empty.removedZone, "Riverglades");
-  assert.equal(empty.nextZone, "Tanaris");
-});
+  context.chooseZone(character, snapshot, "Un'Goro Crater");
+  context.chooseZone(character, snapshot, "Mount Hyjal");
+}
 
-test("filling the empty levels puts the new zone back in the same place", () => {
+test("removing a zone in the middle leaves its levels empty", () => {
   const { context, character, snapshot } = freshRoute();
-  context.chooseZone(character, snapshot, "Riverglades");
-  context.chooseZone(character, snapshot, "Tanaris");
-  context.removeLeg(character, snapshot, 0);
-  context.fillEmptyLevels(character, "The Hinterlands");
+  fullPath(context, character, snapshot);
+  context.removeLeg(character, 0);
   const legs = context.routeLegs(character, snapshot);
-  assert.deepEqual([legs[0].zone, legs[1].zone], ["The Hinterlands", "Tanaris"]);
+  assert.equal(legs[0].zone, null);
+  assert.equal(legs[0].fromLevel, 42);
   assert.equal(legs[0].toLevel, 45);
+  assert.deepEqual(Array.from(legs[0].removedZones), ["Riverglades"]);
+  assert.equal(legs[1].zone, "Tanaris");
   assert.equal(legs[1].fromLevel, 45);
-  assert.equal(evaluate(context, "routeEditor.emptyLevels"), null);
 });
 
-test("removing the last zone asks nothing", () => {
+test("two removed zones each keep their own empty levels", () => {
   const { context, character, snapshot } = freshRoute();
-  context.chooseZone(character, snapshot, "Riverglades");
-  context.chooseZone(character, snapshot, "Tanaris");
-  context.removeLeg(character, snapshot, 1);
-  assert.equal(evaluate(context, "routeEditor.emptyLevels"), null);
+  fullPath(context, character, snapshot);
+  context.removeLeg(character, 0);
+  context.removeLeg(character, 2);
+  const legs = context.routeLegs(character, snapshot);
+  assert.deepEqual(Array.from(legs, function zoneOf(leg) { return leg.zone; }), [null, "Tanaris", null, "Mount Hyjal"]);
+  assert.equal(legs[2].fromLevel, 50);
+  assert.equal(legs[2].toLevel, 55);
+});
+
+test("removing zones next to each other merges their empty levels", () => {
+  const { context, character, snapshot } = freshRoute();
+  fullPath(context, character, snapshot);
+  context.removeLeg(character, 0);
+  context.removeLeg(character, 1);
+  const legs = context.routeLegs(character, snapshot);
+  assert.equal(legs[0].zone, null);
+  assert.equal(legs[0].toLevel, 50);
+  assert.deepEqual(Array.from(legs[0].removedZones), ["Riverglades", "Tanaris"]);
+  assert.equal(legs[1].zone, "Un'Goro Crater");
+});
+
+test("filling empty levels puts the new zone in their place", () => {
+  const { context, character, snapshot } = freshRoute();
+  fullPath(context, character, snapshot);
+  context.removeLeg(character, 0);
+  context.fillEmptyLevels(character, 0, "The Hinterlands");
+  const legs = context.routeLegs(character, snapshot);
+  assert.deepEqual([legs[0].zone, legs[0].toLevel, legs[1].zone, legs[1].fromLevel], ["The Hinterlands", 45, "Tanaris", 45]);
+});
+
+test("starting the next zone earlier closes the empty levels", () => {
+  const { context, character, snapshot } = freshRoute();
+  fullPath(context, character, snapshot);
+  context.removeLeg(character, 0);
+  context.startNextZoneEarlier(character, 0);
+  const legs = context.routeLegs(character, snapshot);
+  assert.equal(legs[0].zone, "Tanaris");
+  assert.equal(legs[0].fromLevel, 42);
+});
+
+test("removing the last zone leaves no empty levels behind", () => {
+  const { context, character, snapshot } = freshRoute();
+  fullPath(context, character, snapshot);
+  context.removeLeg(character, 2);
+  context.removeLeg(character, 3);
+  const legs = context.routeLegs(character, snapshot);
+  assert.deepEqual(Array.from(legs, function zoneOf(leg) { return leg.zone; }), ["Riverglades", "Tanaris"]);
 });
