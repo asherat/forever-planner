@@ -121,6 +121,7 @@ export interface SlotDefinition {
 
 export interface Proficiencies {
   armor: string[];
+  armorFromLevel?: Record<string, number>;
   oneHand: string[];
   twoHand: string[];
   ranged: string[];
@@ -131,7 +132,7 @@ export interface SpecDefinition {
   label: string;
   preset: string;
   talentTree?: string;
-  armorTypes?: string[];
+  bestArmorOnly?: boolean;
 }
 
 export interface Playstyle {

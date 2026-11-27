@@ -168,7 +168,23 @@ export function itemFaction(item: Item): string | null {
   return detail.vendorFaction;
 }
 
+export function armorTrainingLevel(className: string, armorType: string): number {
+  const proficiencies = window.GAME_RULES.classProficiencies[className];
+  if (!proficiencies || !proficiencies.armorFromLevel) {
+    return 0;
+  }
+  return proficiencies.armorFromLevel[armorType] || 0;
+}
+
 export function itemUsableLevel(item: Item, snapshot: Snapshot): number {
+  let level = itemRequiredLevel(item, snapshot);
+  if (item.itemClass === "Armor") {
+    level = Math.max(level, armorTrainingLevel(snapshot.className, item.itemSubclass));
+  }
+  return level;
+}
+
+function itemRequiredLevel(item: Item, snapshot: Snapshot): number {
   const usableLevel = item.usableLevel || 1;
   if (!item.levelEstimated) {
     return usableLevel;
@@ -190,7 +206,7 @@ export function itemUsableLevel(item: Item, snapshot: Snapshot): number {
 }
 
 export function isLevelEstimated(item: Item, snapshot: Snapshot): boolean {
-  return Boolean(item.levelEstimated) && itemUsableLevel(item, snapshot) === item.usableLevel;
+  return Boolean(item.levelEstimated) && itemRequiredLevel(item, snapshot) === item.usableLevel && itemUsableLevel(item, snapshot) === item.usableLevel;
 }
 
 export function questieQuest(questId: number | undefined): QuestieQuest | null {
