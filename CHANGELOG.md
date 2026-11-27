@@ -2,6 +2,10 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.53.0 — 2026-11-27
+
+- Behind the scenes: the first parts of the page now run on Vue (the Undo line and the "Not interested" list). They look and work the same.
+
 ## v0.52.0 — 2026-11-27
 
 - Questie reading is rewritten in TypeScript, and that fixed a misreading: some creatures and containers showed up as "Unknown creature" or "Container" with wrong levels, now they have their real names (for example Witch Doctor Zum'rah in Zul'Farrak, as a boss).
