@@ -7,6 +7,28 @@ import { WOW_FOLDER } from "./wow-folder.ts";
 
 type FolderReader = (folder: FileSystemDirectoryHandle) => Promise<void>;
 
+export interface FolderScope {
+  currentPriceScope(): { ruleset: string; faction: string };
+  questieItemIds(): number[];
+  questieQuestIds(): number[];
+}
+
+let pageScope: FolderScope = {
+  currentPriceScope: function noScope() {
+    return { ruleset: "", faction: "" };
+  },
+  questieItemIds: function noItems() {
+    return [];
+  },
+  questieQuestIds: function noQuests() {
+    return [];
+  }
+};
+
+export function useFolderScope(scope: FolderScope): void {
+  pageScope = scope;
+}
+
 async function readQuestieFile(folder: FileSystemDirectoryHandle): Promise<void> {
   const questieFile = await WOW_FOLDER.readAddonFile(folder, window.QUESTIE.addonName, window.QUESTIE.fileName);
   if (questieFile === null) {
@@ -16,7 +38,7 @@ async function readQuestieFile(folder: FileSystemDirectoryHandle): Promise<void>
   if (state.questie !== null && state.questie.modifiedAt === questieFile.modifiedAt) {
     return;
   }
-  const details = window.QUESTIE.buildDetails(questieFile.text, questieItemIds(), window.FOREVER_ZONES, questieQuestIds()) as QuestieDetails;
+  const details = window.QUESTIE.buildDetails(questieFile.text, pageScope.questieItemIds(), window.FOREVER_ZONES, pageScope.questieQuestIds()) as QuestieDetails;
   details.modifiedAt = questieFile.modifiedAt;
   details.dungeonEntrances = {};
   const dungeonFile = await WOW_FOLDER.readAddonFile(folder, window.QUESTIE.addonName, window.QUESTIE.dungeonFile);
@@ -32,7 +54,7 @@ async function readTsmFromFolder(folder: FileSystemDirectoryHandle): Promise<voi
     state.tsm = null;
     return;
   }
-  const scope = currentPriceScope();
+  const scope = pageScope.currentPriceScope();
   state.tsm = window.TSM.readPrices(tsmFile.text, scope.ruleset, scope.faction);
 }
 
@@ -43,7 +65,7 @@ async function readLegacyTsmFile(askPermission: boolean): Promise<void> {
     return;
   }
   const file = await (handle as FileSystemFileHandle).getFile();
-  const scope = currentPriceScope();
+  const scope = pageScope.currentPriceScope();
   state.tsm = window.TSM.readPrices(await file.text(), scope.ruleset, scope.faction);
 }
 

@@ -2,6 +2,10 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.68.0 — 2026-11-27
+
+- Behind the scenes: the last old-style script (loading your character from Battle.net, the Wowhead reputation checks and the gear ranking run) is rewritten in TypeScript, with tests for reading the character profile. All of the planner's code is TypeScript and Vue now. Everything works the same.
+
 ## v0.67.0 — 2026-11-27
 
 - An upgrade you can only get by buying it (it otherwise only drops by chance or from chests, like Falcon's Hook) now says "Buy it on the auction house (18 listed)" instead of listing world drops and chests, which looked like you should farm it.

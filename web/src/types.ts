@@ -50,6 +50,7 @@ export interface Item {
   vendorPrice?: number;
   icon?: number;
   iconName?: string;
+  iconUrl?: string | null;
   fromSimulator?: boolean;
   reputation?: string;
   reputationRequirement?: { factionId: number; tier: number };

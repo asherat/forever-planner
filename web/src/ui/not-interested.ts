@@ -4,6 +4,7 @@ import { itemById, itemName } from "../sources.ts";
 import type { Character, Snapshot } from "../types.ts";
 import { dungeonHasUpgrades, isUpgradeForAnySpec } from "../upgrades.ts";
 import { saveSettings, selectedCharacter, state } from "../state.ts";
+import { render } from "../gear.ts";
 
 export interface UndoAction {
   kind: "item" | "dungeon";

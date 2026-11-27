@@ -6,6 +6,7 @@ import { refreshVue } from "./render-tick.ts";
 import { inventoryStatusText, questieStatusText, readWowFolder, tsmStatusText } from "../folder-data.ts";
 import { STORAGE_KEYS, characterSlug, findCharacter, saveSettings, saveSnapshots, setStatus, state, writeStorage } from "../state.ts";
 import { WOW_FOLDER } from "../wow-folder.ts";
+import { render } from "../gear.ts";
 
 export const SETTINGS_TABS = [
   { key: "characters", label: "Characters" },
