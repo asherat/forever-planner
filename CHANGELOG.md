@@ -2,6 +2,11 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.91.2 — 2026-11-27
+
+- "Copy for TSM" searches by item id ("i:2318/x101;…"), which TSM's own search parser reads directly, so an item with an unusual name can't be missed.
+- On a phone the top bar scrolls away with the page instead of covering a fifth of the screen.
+
 ## v0.91.1 — 2026-11-27
 
 - "Copy for TSM" now copies a search for TSM's Shopping tab, with the amounts ("Light Leather/exact/x101;…"), instead of a group to import. Your own groups stay as they are.
