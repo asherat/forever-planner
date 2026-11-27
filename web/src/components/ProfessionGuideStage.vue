@@ -67,7 +67,7 @@ function allToggled(): void {
       </section>
     </div>
     <ol class="crafting-list guide-steps">
-      <ProfessionGuideStep v-for="row in stage.steps" :key="row.key" :step="row.step" :done="row.done" :craft-first="row.craftFirst" :recipe="row.recipe" @toggle="stepToggled(row.index)" />
+      <ProfessionGuideStep v-for="row in stage.steps" :key="row.key" :step="row.step" :done="row.done" :craft-first="row.craftFirst" :recipe="row.recipe" :tools="row.tools" @toggle="stepToggled(row.index)" />
     </ol>
   </section>
 </template>

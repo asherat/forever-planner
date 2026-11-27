@@ -48,7 +48,7 @@ It runs entirely in your browser. There is no server: your browser talks to Batt
 - Expert and Artisan recipes and rank training name the trainer you need (like "Artisan Leatherworker: Una in Thunder Bluff"), linked to Wowhead and the map, when Questie is connected. Hover a step's item to see its recipe for one craft.
 - "Compare professions" shows what each profession costs to level to 150, 225 and 300 from scratch, cheapest first. A character with two primary professions only gets its own, plus Cooking and First Aid.
 - Your plan is saved per character and profession. Tick steps and materials as you go and come back later; steps below your skill tick themselves after a Refresh.
-- Enchanting only has its rods and oils for now: the enchants themselves aren't in the data yet.
+- Tools count: enchants need the right rod and smithing needs a Blacksmith Hammer. The plan gets each tool at the first step that needs it (crafting a rod, buying a hammer), and skips tools you already have.
 
 ## Setup
 

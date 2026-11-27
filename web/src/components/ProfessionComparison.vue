@@ -25,7 +25,7 @@ function chosen(profession: string): void {
         </thead>
         <tbody>
           <tr v-for="row in rows" :key="row.key">
-            <th scope="row"><button type="button" class="link" @click="chosen(row.name)">{{ row.name }}</button><span v-if="row.note" class="muted guide-comparison-note">{{ row.note }}</span></th>
+            <th scope="row"><button type="button" class="link" @click="chosen(row.name)">{{ row.name }}</button></th>
             <td v-for="cell in row.cells" :key="cell.key">
               <MoneyAmount v-if="cell.hasCost" :copper="cell.copper" />
               <span v-else class="muted">no prices</span>

@@ -504,8 +504,11 @@ def build_recipe_list():
                     if recipe is None:
                         continue
                     crafted_item = recipe.get("crafted_item") or recipe.get("horde_crafted_item") or recipe.get("alliance_crafted_item")
-                    if crafted_item is None or not recipe.get("reagents"):
+                    if not recipe.get("reagents"):
                         continue
+                    crafted_item_id = None
+                    if crafted_item is not None:
+                        crafted_item_id = crafted_item["id"]
                     reagents = []
                     for reagent in recipe["reagents"]:
                         reagents.append([reagent["reagent"]["id"], reagent["quantity"]])
@@ -513,7 +516,7 @@ def build_recipe_list():
                         "id": recipe["id"],
                         "name": recipe.get("name", ""),
                         "profession": profession["name"],
-                        "itemId": crafted_item["id"],
+                        "itemId": crafted_item_id,
                         "quantity": max(1, int(recipe.get("crafted_quantity", {}).get("value", 1))),
                         "reagents": reagents,
                     })
@@ -543,10 +546,64 @@ def add_teaching_items(recipes):
             recipe["teachingItemId"] = teaching_item_id
 
 
-def build_crafting_items(recipes):
-    item_ids = set()
+def add_recipe_tools(recipes):
+    spells = {}
+    for ability in wago_table("SkillLineAbility"):
+        spells[ability["ID"]] = ability["Spell"]
+    required = {}
+    for row in wago_table("SpellTotems"):
+        categories = []
+        for column in ("RequiredTotemCategoryID_0", "RequiredTotemCategoryID_1"):
+            if row[column] not in ("", "0"):
+                categories.append(int(row[column]))
+        if categories:
+            required[row["SpellID"]] = categories
     for recipe in recipes:
-        item_ids.add(recipe["itemId"])
+        categories = required.get(spells.get(str(recipe["id"])))
+        if categories:
+            recipe["tools"] = categories
+
+
+def build_tools(recipes):
+    categories = {}
+    for row in wago_table("TotemCategory"):
+        categories[int(row["ID"])] = row
+    needed = set()
+    for recipe in recipes:
+        needed.update(recipe.get("tools", []))
+    tool_types = set(categories[category]["TotemCategoryType"] for category in needed)
+    items = {}
+    names = {}
+    for row in wago_table("ItemSparse"):
+        category = int(row["TotemCategoryID"] or 0)
+        if category in categories and categories[category]["TotemCategoryType"] in tool_types:
+            items[int(row["ID"])] = category
+            names[(category, row["Display_lang"])] = int(row["ID"])
+    compact_categories = {}
+    for category in sorted(set(items.values()) | needed):
+        row = categories[category]
+        compact_categories[category] = {
+            "name": row["Name_lang"],
+            "type": int(row["TotemCategoryType"]),
+            "mask": int(row["TotemCategoryMask"]),
+            "itemId": names.get((category, row["Name_lang"])),
+        }
+    return {"categories": compact_categories, "items": items}
+
+
+def tool_item_ids(tools):
+    item_ids = set()
+    for category in tools["categories"].values():
+        if category["itemId"] is not None:
+            item_ids.add(category["itemId"])
+    return item_ids
+
+
+def build_crafting_items(recipes, extra_item_ids):
+    item_ids = set(extra_item_ids)
+    for recipe in recipes:
+        if recipe["itemId"] is not None:
+            item_ids.add(recipe["itemId"])
         if "teachingItemId" in recipe:
             item_ids.add(recipe["teachingItemId"])
         for reagent_id, quantity in recipe["reagents"]:
@@ -993,6 +1050,8 @@ def main():
 
     recipes = build_recipe_list()
     add_teaching_items(recipes)
+    add_recipe_tools(recipes)
+    tools = build_tools(recipes)
     outputs = [
         ("items.js", "FOREVER_ITEMS", compact_items),
         ("zones.js", "FOREVER_ZONES", zone_names()),
@@ -1000,7 +1059,8 @@ def main():
         ("maps.js", "FOREVER_MAPS", build_maps()),
         ("reputations.js", "FOREVER_REPUTATIONS", reputation_names()),
         ("recipes.js", "FOREVER_RECIPES", recipes),
-        ("crafting-items.js", "FOREVER_CRAFTING_ITEMS", build_crafting_items(recipes)),
+        ("crafting-items.js", "FOREVER_CRAFTING_ITEMS", build_crafting_items(recipes, tool_item_ids(tools))),
+        ("tools.js", "FOREVER_TOOLS", tools),
     ]
     for file_name, global_name, payload in outputs:
         write_javascript_global(file_name, global_name, payload)

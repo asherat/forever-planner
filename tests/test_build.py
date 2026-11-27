@@ -176,3 +176,34 @@ class CacheTest(unittest.TestCase):
             found.write_text('{"id": 1}')
             os.utime(found, (old, old))
             self.assertTrue(build.is_fresh_cache(found))
+
+
+WAGO_TOOL_TABLES = {
+    "SkillLineAbility": [{"ID": "4289", "Spell": "7418"}, {"ID": "2963", "Spell": "2963"}],
+    "SpellTotems": [{"SpellID": "7418", "RequiredTotemCategoryID_0": "373", "RequiredTotemCategoryID_1": "0"}],
+    "TotemCategory": [
+        {"ID": "373", "Name_lang": "Runed Copper Rod", "TotemCategoryType": "3", "TotemCategoryMask": "1"},
+        {"ID": "377", "Name_lang": "Runed Arcanite Rod", "TotemCategoryType": "3", "TotemCategoryMask": "31"},
+        {"ID": "162", "Name_lang": "Blacksmith Hammer", "TotemCategoryType": "24", "TotemCategoryMask": "4"},
+    ],
+    "ItemSparse": [
+        {"ID": "6218", "Display_lang": "Runed Copper Rod", "TotemCategoryID": "373"},
+        {"ID": "16207", "Display_lang": "Runed Arcanite Rod", "TotemCategoryID": "377"},
+        {"ID": "5956", "Display_lang": "Blacksmith Hammer", "TotemCategoryID": "162"},
+        {"ID": "25", "Display_lang": "Worn Shortsword", "TotemCategoryID": "0"},
+    ],
+}
+
+
+class RecipeToolsTest(unittest.TestCase):
+    @mock.patch.object(build, "wago_table", side_effect=WAGO_TOOL_TABLES.get)
+    def test_adds_the_tools_a_recipe_needs_and_the_items_that_count_as_them(self, wago_table):
+        recipes = [{"id": 4289, "itemId": None}, {"id": 2963, "itemId": 2996}]
+        build.add_recipe_tools(recipes)
+        self.assertEqual(recipes[0]["tools"], [373])
+        self.assertNotIn("tools", recipes[1])
+        tools = build.build_tools(recipes)
+        self.assertEqual(tools["items"], {6218: 373, 16207: 377})
+        self.assertEqual(tools["categories"][373], {"name": "Runed Copper Rod", "type": 3, "mask": 1, "itemId": 6218})
+        self.assertEqual(tools["categories"][377]["mask"], 31)
+        self.assertEqual(build.tool_item_ids(tools), {6218, 16207})

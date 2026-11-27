@@ -9,6 +9,9 @@ const LINEN = 2589;
 const WOOL = 2592;
 const PATTERN = 9000;
 const BOLT = 2996;
+const COPPER_ROD = 6218;
+const SILVER_ROD = 6339;
+const DUST = 10940;
 
 function setUp(options) {
   const { character, snapshot, state } = resetPlanner();
@@ -17,7 +20,14 @@ function setUp(options) {
     [LINEN]: { name: "Linen Cloth", quality: "COMMON", icon: 1, vendorPrice: 0 },
     [WOOL]: { name: "Wool Cloth", quality: "COMMON", icon: 2, vendorPrice: 0 },
     [PATTERN]: { name: "Pattern: Fancy Wool", quality: "UNCOMMON", icon: 3, vendorPrice: 0 },
-    [BOLT]: { name: "Bolt of Linen Cloth", quality: "COMMON", icon: 4, vendorPrice: 0 }
+    [BOLT]: { name: "Bolt of Linen Cloth", quality: "COMMON", icon: 4, vendorPrice: 0 },
+    [COPPER_ROD]: { name: "Runed Copper Rod", quality: "COMMON", icon: 5, vendorPrice: 0, bindOnPickup: true },
+    [SILVER_ROD]: { name: "Runed Silver Rod", quality: "COMMON", icon: 6, vendorPrice: 0, bindOnPickup: true },
+    [DUST]: { name: "Strange Dust", quality: "COMMON", icon: 7, vendorPrice: 0 }
+  };
+  globalThis.FOREVER_TOOLS = {
+    categories: { 373: { name: "Runed Copper Rod", type: 3, mask: 1, itemId: COPPER_ROD }, 374: { name: "Runed Silver Rod", type: 3, mask: 3, itemId: SILVER_ROD } },
+    items: { [COPPER_ROD]: 373, [SILVER_ROD]: 374 }
   };
   globalThis.FOREVER_RECIPES = options.recipes;
   globalThis.FOREVER_RECIPE_LEVELS = options.levels;
@@ -59,7 +69,7 @@ test("levels with the cheapest recipe per skill point and counts the expected cr
     levels: { 1: [1, 10, 15, 20], 2: [10, 20, 25, 30] },
     prices: { [LINEN]: auction(10), [WOOL]: auction(30) }
   });
-  const guide = buildGuide("Tailoring", 1, 20, [], ANYONE);
+  const guide = buildGuide("Tailoring", 1, 20, { knownRecipeIds: [], canCraft: ANYONE, ownedTools: [] });
   assert.equal(guide.stuckAt, null);
   assert.deepEqual(guide.steps.map(function span(step) { return [step.recipeId, step.from, step.to, step.color]; }), [[1, 1, 17, "orange"], [2, 17, 20, "orange"]]);
   assert.equal(guide.steps[0].crafts, 20);
@@ -77,7 +87,7 @@ test("does not use a recipe before it can be learned", () => {
     levels: { 1: [1, 30, 40, 50], 2: [20, 40, 45, 50] },
     prices: { [LINEN]: auction(100), [WOOL]: auction(1) }
   });
-  const guide = buildGuide("Tailoring", 1, 30, [], ANYONE);
+  const guide = buildGuide("Tailoring", 1, 30, { knownRecipeIds: [], canCraft: ANYONE, ownedTools: [] });
   assert.deepEqual(guide.steps.map(function span(step) { return [step.recipeId, step.from, step.to]; }), [[1, 1, 20], [2, 20, 30]]);
 });
 
@@ -90,7 +100,7 @@ test("buys a pattern only when it pays off, and lists it once", () => {
     levels: { 1: [1, 40, 45, 50], 2: [1, 40, 45, 50] },
     prices: { [LINEN]: auction(100), [WOOL]: auction(10), [PATTERN]: auction(500) }
   });
-  const guide = buildGuide("Tailoring", 1, 40, [], ANYONE);
+  const guide = buildGuide("Tailoring", 1, 40, { knownRecipeIds: [], canCraft: ANYONE, ownedTools: [] });
   assert.deepEqual(guide.steps.map(function recipeOf(step) { return step.recipeId; }), [2]);
   assert.deepEqual(guide.lessons.map(function lessonOf(lesson) { return [lesson.recipeId, lesson.teachingItemId, lesson.cost]; }), [[2, PATTERN, 500]]);
   assert.equal(guide.total, 39 * 10 + 500);
@@ -102,7 +112,7 @@ test("a known recipe needs no pattern and no learning level", () => {
     levels: { 2: [30, 40, 45, 50] },
     prices: { [WOOL]: auction(10) }
   });
-  const guide = buildGuide("Tailoring", 10, 20, [2], ANYONE);
+  const guide = buildGuide("Tailoring", 10, 20, { knownRecipeIds: [2], canCraft: ANYONE, ownedTools: [] });
   assert.equal(guide.lessons.length, 0);
   assert.equal(guide.steps[0].crafts, 10);
 });
@@ -113,7 +123,7 @@ test("stops where no recipe gives skill", () => {
     levels: { 1: [1, 10, 15, 20] },
     prices: { [LINEN]: auction(10) }
   });
-  const guide = buildGuide("Tailoring", 1, 40, [], ANYONE);
+  const guide = buildGuide("Tailoring", 1, 40, { knownRecipeIds: [], canCraft: ANYONE, ownedTools: [] });
   assert.equal(guide.stuckAt, 20);
 });
 
@@ -143,7 +153,7 @@ const LINEN_FROM_70_TO_80 = {
 
 test("starts a new step where a trainer rank ends", () => {
   setUp(LINEN_FROM_70_TO_80);
-  const guide = buildGuide("Tailoring", 70, 80, [], ANYONE);
+  const guide = buildGuide("Tailoring", 70, 80, { knownRecipeIds: [], canCraft: ANYONE, ownedTools: [] });
   assert.deepEqual(guide.steps.map(function span(step) { return [step.recipeId, step.from, step.to, step.crafts]; }), [[1, 70, 75, 5], [1, 75, 80, 5]]);
   assert.equal(skillRankAt(74).name, "Apprentice");
   assert.equal(skillRankAt(75).name, "Journeyman");
@@ -152,7 +162,7 @@ test("starts a new step where a trainer rank ends", () => {
 
 test("splits a plan into rank stages, each with its own shopping list and a running total", () => {
   const character = setUp(LINEN_FROM_70_TO_80);
-  const guide = buildGuide("Tailoring", 70, 80, [], ANYONE);
+  const guide = buildGuide("Tailoring", 70, 80, { knownRecipeIds: [], canCraft: ANYONE, ownedTools: [] });
   const saved = { createdAt: 0, guide: guide, doneSteps: [], boughtMaterials: ["Apprentice:" + LINEN] };
   const stages = stageRows(saved, null, character);
   assert.deepEqual(stages.map(function titleOf(stage) { return stage.title; }), ["Apprentice 70 → 75", "Journeyman 75 → 80"]);
@@ -167,7 +177,7 @@ test("splits a plan into rank stages, each with its own shopping list and a runn
 
 test("moves materials ticked before stages existed into the stages that use them", () => {
   const character = setUp(LINEN_FROM_70_TO_80);
-  const guide = buildGuide("Tailoring", 70, 80, [], ANYONE);
+  const guide = buildGuide("Tailoring", 70, 80, { knownRecipeIds: [], canCraft: ANYONE, ownedTools: [] });
   character.professionGuides = { Tailoring: { createdAt: 0, guide: guide, doneSteps: [], boughtItemIds: [LINEN, WOOL] } };
   startGuidePage();
   assert.deepEqual(character.professionGuides.Tailoring.boughtMaterials, ["Apprentice:" + LINEN, "Journeyman:" + LINEN]);
@@ -180,7 +190,7 @@ function alt(bags) {
 
 test("uses what your characters have before buying, in stage order", () => {
   const character = setUp(Object.assign({ inventory: alt({ [LINEN]: 7 }) }, LINEN_FROM_70_TO_80));
-  const guide = buildGuide("Tailoring", 70, 80, [], ANYONE);
+  const guide = buildGuide("Tailoring", 70, 80, { knownRecipeIds: [], canCraft: ANYONE, ownedTools: [] });
   const stages = stageRows({ createdAt: 0, guide: guide, doneSteps: [], boughtMaterials: [] }, null, character);
   assert.equal(stages[0].hasMaterials, false);
   assert.deepEqual(stages[0].taking.map(function row(entry) { return [entry.quantity, entry.places]; }), [["5×", "Alt: 5 in bags"]]);
@@ -201,7 +211,7 @@ const SHIRTS_FROM_BOLTS = {
 test("crafts a cheaper material first and buys its materials instead", () => {
   const character = setUp(SHIRTS_FROM_BOLTS);
   run("state.snapshots['test-hero'].professions = [{ name: 'Mining', skillPoints: 50, recipeIds: [] }]");
-  const guide = buildGuide("Tailoring", 1, 5, [], ANYONE);
+  const guide = buildGuide("Tailoring", 1, 5, { knownRecipeIds: [], canCraft: ANYONE, ownedTools: [] });
   const stages = stageRows({ createdAt: 0, guide: guide, doneSteps: [], boughtMaterials: [] }, null, character);
   assert.equal(stages[0].steps[0].craftFirst, "Craft first: 4× Bolt of Linen Cloth");
   assert.deepEqual(stages[0].materials.map(function row(entry) { return [entry.itemId, entry.quantity]; }), [[LINEN, "8×"]]);
@@ -209,7 +219,7 @@ test("crafts a cheaper material first and buys its materials instead", () => {
 
 test("buys a material made by a profession the character doesn't have", () => {
   const character = setUp(SHIRTS_FROM_BOLTS);
-  const guide = buildGuide("Tailoring", 1, 5, [], function onlyTailoring(recipe) { return recipe.profession === "Tailoring"; });
+  const guide = buildGuide("Tailoring", 1, 5, { knownRecipeIds: [], canCraft: function onlyTailoring(recipe) { return recipe.profession === "Tailoring"; }, ownedTools: [] });
   assert.equal(guide.steps[0].unitCost, 100);
   const stages = stageRows({ createdAt: 0, guide: guide, doneSteps: [], boughtMaterials: [] }, null, character);
   assert.equal(stages[0].steps[0].craftFirst, "");
@@ -246,10 +256,52 @@ test("says which trainer teaches a recipe and shows its recipe for one craft", (
     prices: { [LINEN]: auction(10) }
   });
   run("state.questie = null");
-  const guide = buildGuide("Tailoring", 160, 170, [], ANYONE);
+  const guide = buildGuide("Tailoring", 160, 170, { knownRecipeIds: [], canCraft: ANYONE, ownedTools: [] });
   const stages = stageRows({ createdAt: 0, guide: guide, doneSteps: [], boughtMaterials: [] }, null, character);
   assert.equal(stages[0].lessons[0].where, "From a trainer at skill 160");
   assert.equal(stages[0].lessons[0].source.text, "An Expert Tailor");
   assert.deepEqual(stages[0].steps[0].recipe.lines, [{ className: "", text: "3× Linen Cloth" }]);
   assert.equal(stages[0].steps[0].recipe.subtitle, "One craft makes 2 and takes:");
+});
+
+const ENCHANTING = {
+  recipes: [
+    { id: 10, profession: "Enchanting", itemId: COPPER_ROD, quantity: 1, reagents: [[DUST, 1]] },
+    { id: 11, profession: "Enchanting", itemId: SILVER_ROD, quantity: 1, reagents: [[DUST, 3]] },
+    { id: 12, profession: "Enchanting", itemId: null, quantity: 1, reagents: [[DUST, 1]], tools: [373] },
+    { id: 13, profession: "Enchanting", itemId: null, quantity: 1, reagents: [[DUST, 2]], tools: [374] }
+  ],
+  levels: { 10: [1, 1, 1, 1], 11: [1, 1, 1, 1], 12: [1, 10, 15, 20], 13: [10, 30, 35, 40] },
+  prices: { [DUST]: auction(10) }
+};
+
+test("gets a rod once, the first time an enchant needs it, and lets a better rod cover the lesser ones", () => {
+  setUp(ENCHANTING);
+  globalThis.FOREVER_RECIPE_NAMES = { 12: "Enchant Bracer - Minor Health", 13: "Enchant Bracer - Minor Stamina" };
+  const guide = buildGuide("Enchanting", 1, 30, { knownRecipeIds: [], canCraft: ANYONE, ownedTools: [] });
+  assert.deepEqual(guide.steps.map(function span(step) { return [step.recipeId, step.from, step.to, step.tools || []]; }), [[12, 1, 16, [373]], [13, 16, 30, [374]]]);
+  assert.equal(guide.steps[0].itemId, null);
+  assert.equal(guide.steps[0].toolCost, 10);
+  assert.equal(guide.steps[1].toolCost, 30);
+  assert.deepEqual(guide.lessons.map(function lessonOf(lesson) { return lesson.recipeId; }), [12, 10, 13, 11]);
+});
+
+test("doesn't get a rod the character already has a better one of", () => {
+  setUp(ENCHANTING);
+  const guide = buildGuide("Enchanting", 1, 10, { knownRecipeIds: [], canCraft: ANYONE, ownedTools: [374] });
+  assert.equal(guide.steps[0].tools, undefined);
+  assert.equal(guide.steps[0].toolCost, undefined);
+});
+
+test("plans the rod with the step's materials and names the enchant", () => {
+  const character = setUp(ENCHANTING);
+  globalThis.FOREVER_RECIPE_NAMES = { 12: "Enchant Bracer - Minor Health" };
+  const guide = buildGuide("Enchanting", 1, 10, { knownRecipeIds: [], canCraft: ANYONE, ownedTools: [] });
+  const stages = stageRows({ createdAt: 0, guide: guide, doneSteps: [], boughtMaterials: [] }, null, character);
+  const step = stages[0].steps[0];
+  assert.equal(step.craftFirst, "Craft first: 1× Runed Copper Rod");
+  assert.equal(step.tools, "Needs: Runed Copper Rod");
+  assert.equal(step.recipe.title, "Enchant Bracer - Minor Health");
+  assert.equal(step.recipe.subtitle, "One enchant takes:");
+  assert.deepEqual(stages[0].materials.map(function row(entry) { return [entry.itemId, entry.quantity]; }), [[DUST, "10×"]]);
 });
