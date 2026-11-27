@@ -4,6 +4,7 @@ import CraftingItemLabel from "./CraftingItemLabel.vue";
 import MoneyAmount from "./MoneyAmount.vue";
 import ProfessionGuideStep from "./ProfessionGuideStep.vue";
 import RecipeSourceLines from "./RecipeSourceLines.vue";
+import ShoppingCopyButtons from "./ShoppingCopyButtons.vue";
 
 defineProps<{ stage: StageRow }>();
 const emit = defineEmits<{ toggleStep: [index: number]; toggleBought: [key: string]; toggleAll: [] }>();
@@ -45,6 +46,7 @@ function allToggled(): void {
             <span v-else class="summary-value muted">no price</span>
           </li>
         </ul>
+        <ShoppingCopyButtons v-if="stage.hasToBuy" :list-name="stage.exportName" :lines="stage.toBuy" />
         <template v-if="stage.hasTaking">
           <h3 class="guide-stage-taking">From your characters</h3>
           <ul class="summary-list">

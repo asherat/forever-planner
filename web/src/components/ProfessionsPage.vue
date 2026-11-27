@@ -9,6 +9,7 @@ import CraftingItemLabel from "./CraftingItemLabel.vue";
 import MoneyAmount from "./MoneyAmount.vue";
 import ProfessionComparison from "./ProfessionComparison.vue";
 import ProfessionGuideStage from "./ProfessionGuideStage.vue";
+import ShoppingCopyButtons from "./ShoppingCopyButtons.vue";
 
 const status = computed(function dataStatus() {
   return { text: dataStatusText(), isConnected: state.wowFolderConnected };
@@ -79,6 +80,12 @@ const summary = computed(function summaryView() {
 
 const shopping = computed(function shoppingView() {
   return shoppingRows(stages.value);
+});
+
+const shoppingExport = computed(function linesToCopy() {
+  return shopping.value.map(function lineOf(row) {
+    return { itemId: row.itemId, quantity: row.count, fromVendor: row.fromVendor };
+  });
 });
 
 const shoppingLabel = computed(function shoppingSummary() {
@@ -182,6 +189,7 @@ function discard(): void {
             <span v-else class="summary-value muted">no price</span>
           </li>
         </ul>
+        <ShoppingCopyButtons :list-name="summary.title" :lines="shoppingExport" />
       </details>
     </aside>
   </section>

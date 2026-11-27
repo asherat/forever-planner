@@ -13,6 +13,7 @@ import { qualityClass } from "../prices.ts";
 import { shortDateTime } from "../dates.ts";
 import type { Tooltip } from "./upgrade-card.ts";
 import type { RecipeSourceView } from "./recipe-sources.ts";
+import type { ExportLine } from "./shopping-export.ts";
 
 export const PROFESSIONS = ["Alchemy", "Blacksmithing", "Cooking", "Enchanting", "Engineering", "First Aid", "Leatherworking", "Tailoring"];
 export const MAX_SKILL = 300;
@@ -460,12 +461,13 @@ export interface MaterialRow {
   quantity: string;
   cost: number;
   hasPrice: boolean;
+  fromVendor: boolean;
   bought: boolean;
 }
 
 function materialRow(saved: SavedGuide, rank: SkillRank, line: ShoppingLine): MaterialRow {
   const key = boughtKey(rank, line.itemId);
-  return { key: key, itemId: line.itemId, inputId: "material-" + rank.name + "-" + line.itemId, count: line.quantity, quantity: line.quantity + "×", cost: line.cost, hasPrice: line.offer !== null, bought: saved.boughtMaterials.indexOf(key) !== -1 };
+  return { key: key, itemId: line.itemId, inputId: "material-" + rank.name + "-" + line.itemId, count: line.quantity, quantity: line.quantity + "×", cost: line.cost, hasPrice: line.offer !== null, fromVendor: line.offer !== null && line.offer.where === "vendor", bought: saved.boughtMaterials.indexOf(key) !== -1 };
 }
 
 export interface TakingRow {
@@ -498,6 +500,14 @@ function isBoughtRow(row: MaterialRow): boolean {
   return row.bought;
 }
 
+function isNotBoughtRow(row: MaterialRow): boolean {
+  return !row.bought;
+}
+
+function exportLine(row: MaterialRow): ExportLine {
+  return { itemId: row.itemId, quantity: row.count, fromVendor: row.fromVendor };
+}
+
 export interface StageRow {
   key: string;
   title: string;
@@ -517,6 +527,9 @@ export interface StageRow {
   allBought: boolean;
   tickAllLabel: string;
   stillToBuy: number;
+  exportName: string;
+  toBuy: ExportLine[];
+  hasToBuy: boolean;
 }
 
 function needsTraining(rank: SkillRank, planFrom: number): boolean {
@@ -614,7 +627,10 @@ export function stageRows(saved: SavedGuide, skill: number | null, character: Ch
       hasTaking: taking.length > 0,
       allBought: allBought,
       tickAllLabel: tickAllLabel(allBought),
-      stillToBuy: materials.reduce(addUnboughtCost, 0)
+      stillToBuy: materials.reduce(addUnboughtCost, 0),
+      exportName: guide.profession + " " + rank.name,
+      toBuy: materials.filter(isNotBoughtRow).map(exportLine),
+      hasToBuy: !allBought && materials.length > 0
     });
   }
   return stages;
@@ -638,6 +654,8 @@ export function toggleStageBought(saved: SavedGuide, stage: StageRow): void {
 export interface ShoppingRow {
   key: number;
   itemId: number;
+  count: number;
+  fromVendor: boolean;
   quantity: string;
   cost: number;
   hasPrice: boolean;
@@ -656,8 +674,9 @@ export function shoppingRows(stages: StageRow[]): ShoppingRow[] {
         continue;
       }
       const count = (counts.get(material.itemId) || 0) + material.count;
-      const row = rows.get(material.itemId) || { key: material.itemId, itemId: material.itemId, quantity: "", cost: 0, hasPrice: material.hasPrice };
+      const row = rows.get(material.itemId) || { key: material.itemId, itemId: material.itemId, count: 0, fromVendor: material.fromVendor, quantity: "", cost: 0, hasPrice: material.hasPrice };
       row.cost += material.cost;
+      row.count = count;
       row.quantity = count + "×";
       counts.set(material.itemId, count);
       rows.set(material.itemId, row);
