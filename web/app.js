@@ -1,24 +1,12 @@
-const FUTURE_UPGRADE_WEIGHT = 0.5;
-const completedQuestCache = { snapshot: null, questIds: new Set() };
-const CLASS_BITS = { Warrior: 1, Paladin: 2, Hunter: 4, Rogue: 8, Priest: 16, Shaman: 64, Mage: 128, Warlock: 256, Druid: 1024 };
-const QUICKER_PASSES = ["easy-now", "easy-soon", "own-profession", "usable-now"];
 const MAX_SOURCES_SHOWN = 2;
 const AVAILABLE_STEPS_SHOWN = 2;
-const NEUTRAL_REPUTATION_TIER = 3;
-const REPUTATION_TIERS_WITHIN_REACH = 1;
 const WOWHEAD_TOOLTIP_URL = "https://nether.wowhead.com/forever/tooltip/item/";
 const MAX_TOOLTIP_CHECKS_PER_RUN = 60;
 const TOOLTIP_CHECK_BATCH = 4;
-const TOOLTIP_CHECKS_PER_SLOT = 5;
-const itemIndex = new Map();
 const TOOLTIP_CACHE_DAYS = 14;
 const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000;
 const tooltipChecks = { pending: new Set(), running: false };
-const REPUTATION_TIER_NAMES = ["Hated", "Hostile", "Unfriendly", "Neutral", "Friendly", "Honored", "Revered", "Exalted"];
 const CREATURE_RANKS = { 1: "elite", 2: "rare elite", 3: "boss", 4: "rare" };
-const COPPER_PER_GOLD = 10000;
-const FARMABLE_DROP_CREATURE_LIMIT = 3;
-const MAIN_STATS = ["STRENGTH", "AGILITY", "INTELLECT", "ATTACK_POWER", "RANGED_ATTACK_POWER", "SPELL_POWER", "SPELL_HEALING_DONE"];
 
 function fetchProfile(characterSlugValue, path) {
   return fetchFromBattleNet("/profile/wow/character/" + encodeURIComponent(characterSlugValue) + path, "profile");
@@ -116,14 +104,6 @@ function compactCompletedQuests(completed) {
   return questIds;
 }
 
-function completedQuests(snapshot) {
-  if (completedQuestCache.snapshot !== snapshot) {
-    completedQuestCache.snapshot = snapshot;
-    completedQuestCache.questIds = new Set(snapshot.completedQuestIds || []);
-  }
-  return completedQuestCache.questIds;
-}
-
 function compactReputations(reputations) {
   const tiers = {};
   if (reputations === null) {
@@ -133,54 +113,6 @@ function compactReputations(reputations) {
     tiers[entry.faction.id] = entry.standing.tier;
   }
   return tiers;
-}
-
-function reputationTier(snapshot, factionId) {
-  if (snapshot.reputations && snapshot.reputations[factionId] !== undefined) {
-    return snapshot.reputations[factionId];
-  }
-  return NEUTRAL_REPUTATION_TIER;
-}
-
-function itemReputationRequirement(item, snapshot) {
-  if (item.reputationRequirement) {
-    return { factionId: item.reputationRequirement.factionId, tier: item.reputationRequirement.tier, text: item.reputation };
-  }
-  const looked = state.tooltipRequirements[item.id];
-  if (!looked || !looked.reputations) {
-    return null;
-  }
-  for (const requirement of looked.reputations) {
-    if (requirement.side === null || requirement.side === snapshot.factionType) {
-      return requirement;
-    }
-  }
-  return null;
-}
-
-function meetsReputation(item, snapshot) {
-  const requirement = itemReputationRequirement(item, snapshot);
-  if (requirement === null) {
-    return true;
-  }
-  return reputationTier(snapshot, requirement.factionId) >= requirement.tier;
-}
-
-function isReputationWithinReach(item, snapshot) {
-  const requirement = itemReputationRequirement(item, snapshot);
-  if (requirement === null) {
-    return true;
-  }
-  return reputationTier(snapshot, requirement.factionId) >= requirement.tier - REPUTATION_TIERS_WITHIN_REACH;
-}
-
-function reputationRequirementText(item, snapshot) {
-  const requirement = itemReputationRequirement(item, snapshot);
-  const current = REPUTATION_TIER_NAMES[reputationTier(snapshot, requirement.factionId)];
-  if (meetsReputation(item, snapshot)) {
-    return requirement.text + " (you have it)";
-  }
-  return requirement.text + " (you're " + current + ")";
 }
 
 function isTooltipLookupFresh(itemId) {
@@ -320,379 +252,6 @@ async function refreshCharacter(character) {
   setStatus("Updated from your last logout (" + new Date(profile.last_login_timestamp).toLocaleString() + ").", "success");
 }
 
-function specForTalentTree(className, treeName) {
-  const classSpecKeys = window.GAME_RULES.classSpecs[className] || [];
-  for (const specKey of classSpecKeys) {
-    if (window.GAME_RULES.specs[specKey].talentTree === treeName) {
-      return specKey;
-    }
-  }
-  return null;
-}
-
-function mainTreeOfGroup(group) {
-  let bestTree = null;
-  let bestPoints = 0;
-  for (const specialization of group.specializations || []) {
-    if (specialization.spent_points > bestPoints) {
-      bestPoints = specialization.spent_points;
-      bestTree = specialization.specialization_name;
-    }
-  }
-  return bestTree;
-}
-
-function detectTalentSpecs(className, specializations) {
-  const detected = [];
-  if (specializations === null) {
-    return detected;
-  }
-  const groups = (specializations.specialization_groups || []).slice();
-  groups.sort(compareActiveGroupFirst);
-  for (const group of groups) {
-    const specKey = specForTalentTree(className, mainTreeOfGroup(group));
-    if (specKey !== null && detected.indexOf(specKey) === -1) {
-      detected.push(specKey);
-    }
-  }
-  return detected;
-}
-
-function compareActiveGroupFirst(first, second) {
-  return Number(Boolean(second.is_active)) - Number(Boolean(first.is_active));
-}
-
-function characterSpecs(character, snapshot) {
-  let specs = snapshot.talentSpecs || [];
-  if (specs.length === 0) {
-    const classSpecKeys = window.GAME_RULES.classSpecs[snapshot.className] || ["druid-feral-cat"];
-    specs = [classSpecKeys[0]];
-  }
-  const resolved = [];
-  for (const specKey of specs) {
-    if (specKey === window.GAME_RULES.feralSpecs.cat && character.feralForm === "bear") {
-      resolved.push(window.GAME_RULES.feralSpecs.bear);
-    } else {
-      resolved.push(specKey);
-    }
-  }
-  return resolved;
-}
-
-function hasFeralSpec(snapshot) {
-  return (snapshot.talentSpecs || []).indexOf(window.GAME_RULES.feralSpecs.cat) !== -1;
-}
-
-function characterPlaystyle(character) {
-  if (character.playstyle && window.GAME_RULES.playstyles[character.playstyle]) {
-    return character.playstyle;
-  }
-  return window.GAME_RULES.defaultPlaystyle;
-}
-
-function activeSpec(character) {
-  const specs = characterSpecs(character, state.snapshots[character.slug]);
-  if (character.gearFor === "off" && specs.length > 1) {
-    return specs[1];
-  }
-  return specs[0];
-}
-
-function isPvpRuleset(snapshot) {
-  return snapshot.ruleset === window.GAME_RULES.pvpRuleset;
-}
-
-function specPreset(specKey) {
-  return window.GAME_RULES.specPresets[window.GAME_RULES.specs[specKey].preset];
-}
-
-function mainStatWeight(weights) {
-  let strongest = 0;
-  for (const statKey of MAIN_STATS) {
-    strongest = Math.max(strongest, weights[statKey] || 0);
-  }
-  return strongest;
-}
-
-function characterWeights(character) {
-  return weightsForSpec(character, activeSpec(character));
-}
-
-function weightsForSpec(character, specKey) {
-  const playstyle = window.GAME_RULES.playstyles[characterPlaystyle(character)];
-  const weights = Object.assign({}, specPreset(specKey).weights);
-  for (const statKey of Object.keys(playstyle.multipliers)) {
-    if (weights[statKey]) {
-      weights[statKey] = weights[statKey] * playstyle.multipliers[statKey];
-    }
-  }
-  if (playstyle.pvpRulesetStaminaShare && isPvpRuleset(state.snapshots[character.slug])) {
-    weights.STAMINA = Math.max(weights.STAMINA || 0, playstyle.pvpRulesetStaminaShare * mainStatWeight(weights));
-  }
-  return weights;
-}
-
-function isRangedWeapon(item) {
-  return item.slot === "RANGED" || item.slot === "RANGEDRIGHT" || item.slot === "THROWN";
-}
-
-function weaponDamageWeight(item, weights, slotKey) {
-  if (isRangedWeapon(item)) {
-    return weights.RANGED_DPS || 0;
-  }
-  if (slotKey === "OFF_HAND" || item.slot === "WEAPONOFFHAND") {
-    return weights.OFF_HAND_DPS || 0;
-  }
-  return weights.MAIN_HAND_DPS || 0;
-}
-
-function itemArmor(item) {
-  if (item.armor !== undefined) {
-    return item.armor;
-  }
-  const known = itemById(item.id);
-  if (known === null) {
-    return 0;
-  }
-  return known.armor || 0;
-}
-
-function itemScore(item, weights, slotKey) {
-  if (item === null || item === undefined) {
-    return 0;
-  }
-  let score = 0;
-  for (const statKey of Object.keys(item.stats || {})) {
-    if (weights[statKey]) {
-      score += item.stats[statKey] * weights[statKey];
-    }
-  }
-  if (item.weapon) {
-    score += item.weapon.damagePerSecond * weaponDamageWeight(item, weights, slotKey);
-  }
-  if (weights.ARMOR) {
-    score += itemArmor(item) * weights.ARMOR;
-  }
-  return Math.round(score * 10) / 10;
-}
-
-function itemWithSuffix(item, suffix) {
-  const stats = Object.assign({}, item.stats);
-  for (const statKey of Object.keys(suffix.stats)) {
-    stats[statKey] = (stats[statKey] || 0) + suffix.stats[statKey];
-  }
-  return Object.assign({}, item, { name: item.name + " " + suffix.name, stats: stats, suffix: suffix });
-}
-
-function bestSuffixVariant(item, weights, slotKey) {
-  if (!item.randomSuffixes) {
-    return item;
-  }
-  let best = item;
-  let bestScore = itemScore(item, weights, slotKey);
-  for (const suffix of item.randomSuffixes) {
-    const variant = itemWithSuffix(item, suffix);
-    const score = itemScore(variant, weights, slotKey);
-    if (score > bestScore) {
-      best = variant;
-      bestScore = score;
-    }
-  }
-  return best;
-}
-
-function canUseItem(item, snapshot) {
-  const proficiencies = window.GAME_RULES.classProficiencies[snapshot.className];
-  if (item.classes && item.classes.indexOf(snapshot.className) === -1) {
-    return false;
-  }
-  const faction = itemFaction(item);
-  if (faction !== null && faction !== snapshot.factionType) {
-    return false;
-  }
-  if (!proficiencies) {
-    return true;
-  }
-  if (item.slot === "CLOAK" || item.slot === "NECK" || item.slot === "FINGER" || item.slot === "TRINKET") {
-    return true;
-  }
-  if (item.itemClass === "Armor") {
-    return proficiencies.armor.indexOf(item.itemSubclass) !== -1;
-  }
-  if (item.itemClass === "Weapon") {
-    return weaponProficiency(proficiencies, item).indexOf(item.itemSubclass) !== -1;
-  }
-  return false;
-}
-
-function weaponProficiency(proficiencies, item) {
-  if (item.slot === "TWOHWEAPON") {
-    return proficiencies.twoHand;
-  }
-  if (item.slot === "RANGED" || item.slot === "RANGEDRIGHT" || item.slot === "THROWN") {
-    return proficiencies.ranged;
-  }
-  if (item.slot === "WEAPONOFFHAND" && !proficiencies.dualWield) {
-    return [];
-  }
-  return proficiencies.oneHand;
-}
-
-function isTwoHanded(item) {
-  return item !== null && item !== undefined && item.slot === "TWOHWEAPON";
-}
-
-function slotItemTypes(slotDefinition, snapshot) {
-  const types = slotDefinition.itemSlots.slice();
-  const proficiencies = window.GAME_RULES.classProficiencies[snapshot.className];
-  if (slotDefinition.key === "OFF_HAND" && proficiencies && proficiencies.dualWield) {
-    types.push("WEAPON", "WEAPONOFFHAND");
-  }
-  return types;
-}
-
-function comparisonBaseline(slotDefinition, snapshot, item, weights) {
-  const equipment = snapshot.equipment;
-  if (slotDefinition.key === "MAIN_HAND" && isTwoHanded(item)) {
-    return itemScore(equipment.MAIN_HAND, weights, "MAIN_HAND") + itemScore(equipment.OFF_HAND, weights, "OFF_HAND");
-  }
-  return itemScore(equipment[slotDefinition.key], weights, slotDefinition.key);
-}
-
-function slotDefinitionByKey(slotKey) {
-  for (const slotDefinition of window.GAME_RULES.equipmentSlots) {
-    if (slotDefinition.key === slotKey) {
-      return slotDefinition;
-    }
-  }
-  return null;
-}
-
-function rankedCandidatesForSlot(slotDefinition, snapshot, character) {
-  const equipment = snapshot.equipment;
-  if (slotDefinition.key === "OFF_HAND" && isTwoHanded(equipment.MAIN_HAND)) {
-    return [];
-  }
-  const itemTypes = slotItemTypes(slotDefinition, snapshot);
-  const maximumLevel = snapshot.level + Number(state.settings.lookaheadLevels);
-  const weights = characterWeights(character);
-  const equippedIds = equippedItemIds(snapshot);
-  const hiddenIds = new Set(character.hiddenItemIds || []);
-  const routeActive = isRouteActive(character);
-  const candidates = [];
-  for (const item of window.FOREVER_ITEMS) {
-    if (itemTypes.indexOf(item.slot) === -1) {
-      continue;
-    }
-    if (equippedIds.has(item.id) || hiddenIds.has(item.id)) {
-      continue;
-    }
-    if (!canUseItem(item, snapshot)) {
-      continue;
-    }
-    if (!isReputationWithinReach(item, snapshot)) {
-      continue;
-    }
-    if (!hasKnownSource(item, snapshot)) {
-      continue;
-    }
-    if (!isWithinGoldLimit(cheapestCost(item, snapshot))) {
-      continue;
-    }
-    let availableLevel = Math.max(itemUsableLevel(item, snapshot), earliestSourceLevel(item, snapshot));
-    let routeLeg = null;
-    if (routeActive) {
-      const availability = routeAvailability(item, snapshot, character);
-      if (availability === null) {
-        continue;
-      }
-      availableLevel = availability.level;
-      routeLeg = availability.leg;
-    }
-    if (availableLevel > maximumLevel) {
-      continue;
-    }
-    const variant = bestSuffixVariant(item, weights, slotDefinition.key);
-    const gain = itemScore(variant, weights, slotDefinition.key) - comparisonBaseline(slotDefinition, snapshot, variant, weights);
-    if (gain <= 0) {
-      continue;
-    }
-    candidates.push({
-      item: variant,
-      availableLevel: availableLevel,
-      routeLeg: routeLeg,
-      gain: Math.round(gain * 10) / 10
-    });
-  }
-  candidates.sort(compareCandidates);
-  for (const candidate of candidates.slice(0, TOOLTIP_CHECKS_PER_SLOT)) {
-    if (needsTooltipCheck(candidate.item, snapshot)) {
-      tooltipChecks.pending.add(candidate.item.id);
-    }
-  }
-  return candidates;
-}
-
-function itemDungeons(item, snapshot) {
-  const names = new Set();
-  for (const source of gettableSources(item, snapshot)) {
-    if (source.type !== "drop" && source.type !== "quest") {
-      continue;
-    }
-    const dungeon = dungeonForArea(source.zone);
-    if (dungeon !== null) {
-      names.add(dungeon.name);
-    }
-  }
-  return names;
-}
-
-function bestGainAnySlot(item, snapshot, weights) {
-  let best = 0;
-  for (const slotDefinition of window.GAME_RULES.equipmentSlots) {
-    if (slotDefinition.cosmetic || slotItemTypes(slotDefinition, snapshot).indexOf(item.slot) === -1) {
-      continue;
-    }
-    if (slotDefinition.key === "OFF_HAND" && isTwoHanded(snapshot.equipment.MAIN_HAND)) {
-      continue;
-    }
-    const variant = bestSuffixVariant(item, weights, slotDefinition.key);
-    const gain = itemScore(variant, weights, slotDefinition.key) - comparisonBaseline(slotDefinition, snapshot, variant, weights);
-    best = Math.max(best, gain);
-  }
-  return best;
-}
-
-function routeAvailability(item, snapshot, character) {
-  const usableLevel = itemUsableLevel(item, snapshot);
-  const sources = obtainableSources(item, snapshot);
-  if (sources.length === 0 || isBuyableOnAuctionHouse(item)) {
-    return { level: usableLevel, leg: null };
-  }
-  let best = null;
-  for (const source of sources) {
-    if (source.type === "vendor" || source.type === "craft") {
-      return { level: usableLevel, leg: null };
-    }
-    if (!source.zone) {
-      continue;
-    }
-    const leg = legForSource(character, snapshot, source);
-    if (leg === null || usableLevel > leg.toLevel + 1) {
-      continue;
-    }
-    const level = Math.max(usableLevel, leg.fromLevel);
-    if (best === null || level < best.level) {
-      best = { level: level, leg: leg };
-    }
-  }
-  return best;
-}
-
-function compareCandidates(first, second) {
-  return second.gain - first.gain;
-}
-
 function gainBadge(value, label, unit) {
   const badge = createElement("span", "gain");
   if (value > 0) {
@@ -711,331 +270,6 @@ function gainBadges(candidate, character) {
   const gains = createElement("div", "gains");
   gains.appendChild(gainBadge(candidate.gain, specLabel(activeSpec(character)), specPreset(activeSpec(character)).unit));
   return gains;
-}
-
-function specLabel(specKey) {
-  return window.GAME_RULES.specs[specKey].label;
-}
-
-function hasProfession(snapshot, professionName) {
-  for (const profession of snapshot.professions) {
-    if (profession.name === professionName) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function questieDetail(item) {
-  if (state.questie === null) {
-    return null;
-  }
-  return state.questie.items[item.id] || null;
-}
-
-function factionLetter(factionType) {
-  if (factionType === "ALLIANCE") {
-    return "A";
-  }
-  return "H";
-}
-
-function questieQuestsForCharacter(detail, snapshot) {
-  const quests = [];
-  const classBit = CLASS_BITS[snapshot.className];
-  for (const quest of detail.quests) {
-    if (completedQuests(snapshot).has(quest.id)) {
-      continue;
-    }
-    const factionMatches = quest.faction === null || quest.faction === snapshot.factionType;
-    const classMatches = !quest.classes || !classBit || Boolean(quest.classes & classBit);
-    if (factionMatches && classMatches) {
-      quests.push(quest);
-    }
-  }
-  return quests;
-}
-
-function itemFaction(item) {
-  if (item.faction) {
-    return item.faction;
-  }
-  const detail = questieDetail(item);
-  if (detail === null || detail.vendorFaction === null) {
-    return null;
-  }
-  for (const source of item.sources || []) {
-    if (source.type === "craft" || source.type === "quest") {
-      return null;
-    }
-  }
-  if (detail.quests.length > 0) {
-    return null;
-  }
-  return detail.vendorFaction;
-}
-
-function itemUsableLevel(item, snapshot) {
-  if (!item.levelEstimated) {
-    return item.usableLevel;
-  }
-  const detail = questieDetail(item);
-  if (detail === null) {
-    return item.usableLevel;
-  }
-  let lowestQuestLevel = 0;
-  for (const quest of questieQuestsForCharacter(detail, snapshot)) {
-    if (quest.questLevel > 0 && (lowestQuestLevel === 0 || quest.questLevel < lowestQuestLevel)) {
-      lowestQuestLevel = quest.questLevel;
-    }
-  }
-  if (lowestQuestLevel > 0) {
-    return lowestQuestLevel;
-  }
-  return item.usableLevel;
-}
-
-function isLevelEstimated(item, snapshot) {
-  return item.levelEstimated && itemUsableLevel(item, snapshot) === item.usableLevel;
-}
-
-function questieQuest(questId) {
-  if (state.questie === null || !state.questie.quests) {
-    return null;
-  }
-  return state.questie.quests[questId] || null;
-}
-
-function isQuestForCharacter(questId, snapshot) {
-  if (completedQuests(snapshot).has(questId)) {
-    return false;
-  }
-  const quest = questieQuest(questId);
-  if (quest === null) {
-    return true;
-  }
-  if (quest.faction !== null && quest.faction !== snapshot.factionType) {
-    return false;
-  }
-  const classBit = CLASS_BITS[snapshot.className];
-  if (quest.classes && classBit && !(quest.classes & classBit)) {
-    return false;
-  }
-  return true;
-}
-
-function sourcesForCharacter(item, snapshot) {
-  const sources = [];
-  const detail = questieDetail(item);
-  const questLevels = {};
-  const otherFactionQuestIds = new Set();
-  const listedQuestIds = new Set();
-  if (detail !== null) {
-    for (const quest of questieQuestsForCharacter(detail, snapshot)) {
-      questLevels[quest.id] = quest;
-    }
-    for (const quest of detail.quests) {
-      if (quest.faction !== null && quest.faction !== snapshot.factionType) {
-        otherFactionQuestIds.add(quest.id);
-      }
-    }
-  }
-  for (const source of item.sources || []) {
-    if (source.faction && source.faction !== snapshot.factionType) {
-      continue;
-    }
-    if (source.type === "quest" && otherFactionQuestIds.has(source.questId)) {
-      continue;
-    }
-    if (source.type === "quest" && !isQuestForCharacter(source.questId, snapshot)) {
-      continue;
-    }
-    if (source.type === "quest" && !source.level && !questLevels[source.questId] && questieQuest(source.questId) !== null) {
-      listedQuestIds.add(source.questId);
-      sources.push(Object.assign({}, source, { level: questieQuest(source.questId).questLevel }));
-      continue;
-    }
-    if (source.type === "quest") {
-      listedQuestIds.add(source.questId);
-      if (questLevels[source.questId]) {
-        sources.push(Object.assign({}, source, { level: questLevels[source.questId].questLevel }));
-        continue;
-      }
-    }
-    sources.push(source);
-  }
-  if (detail === null) {
-    return sources;
-  }
-  for (const questId of Object.keys(questLevels)) {
-    const quest = questLevels[questId];
-    if (!listedQuestIds.has(quest.id)) {
-      sources.push({ type: "quest", questId: quest.id, quest: quest.name, zone: quest.zone, level: quest.questLevel });
-    }
-  }
-  const ownLetter = factionLetter(snapshot.factionType);
-  const dropCreatures = dropCreatureCount(detail.sources);
-  if (dropCreatures > FARMABLE_DROP_CREATURE_LIMIT) {
-    sources.push({ type: "world-drop", count: dropCreatures });
-  }
-  for (const source of detail.sources) {
-    if (dropCreatures > FARMABLE_DROP_CREATURE_LIMIT && isDropSource(source)) {
-      continue;
-    }
-    if (source.type === "vendor" && source.friendlyTo && source.friendlyTo.indexOf(ownLetter) === -1) {
-      continue;
-    }
-    if (source.type === "vendor" && item.vendorPrice) {
-      sources.push(Object.assign({}, source, { price: item.vendorPrice * (1 - vendorDiscountRate()) }));
-      continue;
-    }
-    sources.push(source);
-  }
-  return sources;
-}
-
-function isDropSource(source) {
-  return source.type === "drop" || source.type === "more-drops" || source.type === "world-drop";
-}
-
-function dropCreatureCount(sources) {
-  let count = 0;
-  for (const source of sources) {
-    if (source.type === "drop") {
-      count += 1;
-    }
-    if (source.type === "more-drops" || source.type === "world-drop") {
-      count += source.count;
-    }
-  }
-  return count;
-}
-
-function isObtainableSource(source) {
-  return source.type !== "world-drop" && source.type !== "object";
-}
-
-function gettableSources(item, snapshot) {
-  return sourcesForCharacter(item, snapshot).filter(isObtainableSource);
-}
-
-function skippedDungeons() {
-  const character = selectedCharacter();
-  if (character === null || !character.skippedDungeons) {
-    return [];
-  }
-  return character.skippedDungeons;
-}
-
-function isFromSkippedDungeon(source) {
-  const dungeon = dungeonForArea(source.zone);
-  return dungeon !== null && skippedDungeons().indexOf(dungeon.name) !== -1;
-}
-
-function obtainableSources(item, snapshot) {
-  const sources = [];
-  for (const source of gettableSources(item, snapshot)) {
-    if (!isFromSkippedDungeon(source)) {
-      sources.push(source);
-    }
-  }
-  return sources;
-}
-
-function isListedOnAuctionHouse(item) {
-  const price = priceFor(item.id);
-  return price !== null && price.listed > 0;
-}
-
-function goldLimitInCopper() {
-  const character = selectedCharacter();
-  if (character === null || character.maxGoldPerUpgrade === undefined || character.maxGoldPerUpgrade === null) {
-    return null;
-  }
-  return character.maxGoldPerUpgrade * COPPER_PER_GOLD;
-}
-
-function isWithinGoldLimit(price) {
-  const limit = goldLimitInCopper();
-  if (limit === null || price === null || price === undefined) {
-    return true;
-  }
-  return price <= limit;
-}
-
-function isBuyableOnAuctionHouse(item) {
-  if (item.suffix) {
-    return false;
-  }
-  return isListedOnAuctionHouse(item) && isWithinGoldLimit(averagePrice(item.id));
-}
-
-function sourceCost(source, snapshot) {
-  if (source.type === "vendor") {
-    if (source.price === undefined) {
-      return null;
-    }
-    return source.price;
-  }
-  if (source.type === "craft") {
-    const cost = averageMaterialCost(source, snapshot);
-    if (cost.missing > 0) {
-      return null;
-    }
-    return cost.total;
-  }
-  return 0;
-}
-
-function cheapestCost(item, snapshot) {
-  let cheapest = null;
-  if (!item.suffix) {
-    cheapest = averagePrice(item.id);
-  }
-  for (const source of obtainableSources(item, snapshot)) {
-    const cost = sourceCost(source, snapshot);
-    if (cost !== null && (cheapest === null || cost < cheapest)) {
-      cheapest = cost;
-    }
-  }
-  return cheapest;
-}
-
-function knowsRecipe(snapshot, source) {
-  for (const profession of snapshot.professions) {
-    if (profession.name === source.profession && (profession.recipeIds || []).indexOf(source.recipeId) !== -1) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function isEasySource(source, snapshot) {
-  if (source.type === "quest") {
-    return true;
-  }
-  if (source.type === "vendor") {
-    return isWithinGoldLimit(source.price);
-  }
-  if (source.type === "craft") {
-    return knowsRecipe(snapshot, source);
-  }
-  return false;
-}
-
-function hasEasySource(item, snapshot) {
-  if (!meetsReputation(item, snapshot)) {
-    return false;
-  }
-  if (isBuyableOnAuctionHouse(item)) {
-    return true;
-  }
-  for (const source of sourcesForCharacter(item, snapshot)) {
-    if (isEasySource(source, snapshot)) {
-      return true;
-    }
-  }
-  return false;
 }
 
 function joinDetails(parts) {
@@ -1127,180 +361,6 @@ function statLabel(statKey) {
   }
   const words = statKey.toLowerCase().split("_").join(" ");
   return words.charAt(0).toUpperCase() + words.slice(1);
-}
-
-function sourceLevel(source, usableLevel) {
-  if (source.type === "quest" && source.level) {
-    return source.level;
-  }
-  if ((source.type === "quest" || source.type === "drop") && source.zone && guideZone(source.zone) !== null) {
-    return Math.max(usableLevel, guideZone(source.zone).minLevel);
-  }
-  return usableLevel;
-}
-
-function earliestSourceLevel(item, snapshot) {
-  const usableLevel = itemUsableLevel(item, snapshot);
-  if (isBuyableOnAuctionHouse(item)) {
-    return usableLevel;
-  }
-  let earliest = null;
-  for (const source of obtainableSources(item, snapshot)) {
-    const level = sourceLevel(source, usableLevel);
-    if (earliest === null || level < earliest) {
-      earliest = level;
-    }
-  }
-  if (earliest === null) {
-    return usableLevel;
-  }
-  return earliest;
-}
-
-function hasKnownSource(item, snapshot) {
-  return obtainableSources(item, snapshot).length > 0 || isBuyableOnAuctionHouse(item);
-}
-
-function isUsableNow(candidate, snapshot) {
-  return candidate.availableLevel <= snapshot.level;
-}
-
-function hasOwnProfessionCraft(item, snapshot) {
-  for (const source of sourcesForCharacter(item, snapshot)) {
-    if (source.type === "craft" && hasProfession(snapshot, source.profession)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function quickerPassMatches(pass, candidate, snapshot) {
-  if (pass === "easy-now") {
-    return isUsableNow(candidate, snapshot) && hasEasySource(candidate.item, snapshot);
-  }
-  if (pass === "easy-soon") {
-    return hasEasySource(candidate.item, snapshot);
-  }
-  if (pass === "own-profession") {
-    return hasOwnProfessionCraft(candidate.item, snapshot);
-  }
-  return isUsableNow(candidate, snapshot);
-}
-
-function quickerOption(best, candidates, snapshot) {
-  for (const pass of QUICKER_PASSES) {
-    if (quickerPassMatches(pass, best, snapshot)) {
-      return null;
-    }
-    for (const candidate of candidates) {
-      if (candidate.item.name !== best.item.name && quickerPassMatches(pass, candidate, snapshot)) {
-        return candidate;
-      }
-    }
-  }
-  return null;
-}
-
-function candidatePriority(candidate, snapshot) {
-  if (isUsableNow(candidate, snapshot)) {
-    return candidate.gain;
-  }
-  return candidate.gain * FUTURE_UPGRADE_WEIGHT;
-}
-
-function questOnlyIds(item, snapshot) {
-  if (isBuyableOnAuctionHouse(item)) {
-    return null;
-  }
-  const questIds = [];
-  for (const source of obtainableSources(item, snapshot)) {
-    if (source.type !== "quest") {
-      return null;
-    }
-    questIds.push(source.questId);
-  }
-  return questIds;
-}
-
-function isBlockedByPartner(item, snapshot, blocked) {
-  if (blocked.names.has(item.name)) {
-    return true;
-  }
-  const questIds = questOnlyIds(item, snapshot);
-  if (questIds === null || questIds.length === 0) {
-    return false;
-  }
-  for (const questId of questIds) {
-    if (!blocked.questIds.has(questId)) {
-      return false;
-    }
-  }
-  return true;
-}
-
-function blockPicks(options, snapshot, blocked) {
-  const picks = [options.best];
-  if (options.quicker !== null) {
-    picks.push(options.quicker);
-  }
-  for (const pick of picks) {
-    blocked.names.add(pick.item.name);
-    for (const source of sourcesForCharacter(pick.item, snapshot)) {
-      if (source.type === "quest") {
-        blocked.questIds.add(source.questId);
-      }
-    }
-  }
-}
-
-function emptyBlockList() {
-  return { names: new Set(), questIds: new Set() };
-}
-
-function upgradeOptions(slotDefinition, snapshot, character, blocked) {
-  const candidates = [];
-  for (const candidate of rankedCandidatesForSlot(slotDefinition, snapshot, character)) {
-    if (!isBlockedByPartner(candidate.item, snapshot, blocked)) {
-      candidates.push(candidate);
-    }
-  }
-  if (candidates.length === 0) {
-    return null;
-  }
-  const best = candidates[0];
-  const quicker = quickerOption(best, candidates, snapshot);
-  let priority = candidatePriority(best, snapshot);
-  if (quicker !== null && candidatePriority(quicker, snapshot) > priority) {
-    priority = candidatePriority(quicker, snapshot);
-  }
-  return { slotDefinition: slotDefinition, best: best, quicker: quicker, priority: priority };
-}
-
-function pairedUpgradeOptions(slotDefinition, snapshot, character) {
-  const weights = characterWeights(character);
-  const keys = [slotDefinition.key, slotDefinition.pairedWith];
-  if (itemScore(snapshot.equipment[keys[1]], weights, keys[1]) < itemScore(snapshot.equipment[keys[0]], weights, keys[0])) {
-    keys.reverse();
-  }
-  const blocked = emptyBlockList();
-  const parts = [];
-  let priority = 0;
-  for (const key of keys) {
-    const options = upgradeOptions(slotDefinitionByKey(key), snapshot, character, blocked);
-    if (options === null) {
-      continue;
-    }
-    parts.push(options);
-    blockPicks(options, snapshot, blocked);
-    if (options.priority > priority) {
-      priority = options.priority;
-    }
-  }
-  return { group: true, slotDefinition: slotDefinition, parts: parts, priority: priority };
-}
-
-function compareUpgradeOptions(first, second) {
-  return second.priority - first.priority;
 }
 
 function renderTooltip(lines) {
@@ -1583,15 +643,6 @@ function setSourceMapTarget(element, source) {
   }
 }
 
-function firstQuestSource(sources) {
-  for (const source of sources) {
-    if (source.type === "quest") {
-      return source;
-    }
-  }
-  return null;
-}
-
 function characterQuestList(character) {
   if (!character.questList) {
     character.questList = [];
@@ -1776,14 +827,6 @@ function completedStepCount(steps, completed) {
   return count;
 }
 
-function equippedItemIds(snapshot) {
-  const itemIds = new Set();
-  for (const slotKey of Object.keys(snapshot.equipment)) {
-    itemIds.add(snapshot.equipment[slotKey].id);
-  }
-  return itemIds;
-}
-
 function pruneQuestList(character, snapshot) {
   const equipped = equippedItemIds(snapshot);
   const completed = completedQuests(snapshot);
@@ -1799,24 +842,6 @@ function pruneQuestList(character, snapshot) {
   character.questList = kept;
   saveSettings();
   return removedNames;
-}
-
-function isUpgradeForAnySpec(item, character, snapshot) {
-  for (const specKey of characterSpecs(character, snapshot)) {
-    if (bestGainAnySlot(item, snapshot, weightsForSpec(character, specKey)) > 0) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function dungeonHasUpgrades(dungeonName, character, snapshot) {
-  for (const item of window.FOREVER_ITEMS) {
-    if (canUseItem(item, snapshot) && itemDungeons(item, snapshot).has(dungeonName) && isUpgradeForAnySpec(item, character, snapshot)) {
-      return true;
-    }
-  }
-  return false;
 }
 
 function pruneNotInterested(character, snapshot) {
@@ -1858,14 +883,6 @@ function pruneCraftingCart(snapshot) {
   state.craftingCart = kept;
   writeStorage(STORAGE_KEYS.craftingCart, state.craftingCart);
   return removedNames;
-}
-
-function itemName(itemId) {
-  const item = itemById(itemId);
-  if (item === null) {
-    return "item " + itemId;
-  }
-  return item.name;
 }
 
 function renderQuestList(character, snapshot) {
@@ -1911,54 +928,6 @@ async function copyWaypoint(text) {
   } catch (error) {
     setStatus(text, "info");
   }
-}
-
-function firstCraftSource(sources) {
-  for (const source of sources) {
-    if (source.type === "craft") {
-      return source;
-    }
-  }
-  return null;
-}
-
-function averagePrice(itemId) {
-  if (state.tsm === null || !state.tsm.prices[itemId]) {
-    return null;
-  }
-  const price = state.tsm.prices[itemId];
-  return price.regionMarketValue || price.marketValue || price.marketValueRecent || price.regionSale || null;
-}
-
-function materialUnitPrice(itemId, snapshot) {
-  let vendor = null;
-  const known = window.FOREVER_CRAFTING_ITEMS[itemId];
-  if (known && known.vendorPrice > 0 && isVendorSoldFor(itemId, factionLetter(snapshot.factionType))) {
-    vendor = { price: known.vendorPrice * (1 - vendorDiscountRate()) };
-  }
-  let auction = null;
-  if (averagePrice(itemId) !== null) {
-    auction = { price: averagePrice(itemId) };
-  }
-  const offer = preferredOffer(vendor, auction);
-  if (offer === null) {
-    return null;
-  }
-  return offer.price;
-}
-
-function averageMaterialCost(source, snapshot) {
-  let total = 0;
-  let missing = 0;
-  for (const reagent of source.reagents) {
-    const price = materialUnitPrice(reagent.id, snapshot);
-    if (price === null) {
-      missing += 1;
-    } else {
-      total += price * reagent.quantity;
-    }
-  }
-  return { total: total, missing: missing };
 }
 
 function renderOptionPrices(item, craftSource, snapshot, gain, unit) {
@@ -2159,6 +1128,7 @@ function renderCharacterSelect() {
 }
 
 function render() {
+  clearSourceCache();
   renderCharacterSelect();
   const character = selectedCharacter();
   const welcome = document.getElementById("welcome");
@@ -2205,6 +1175,7 @@ function render() {
   const optionsBySlot = {};
   const allOptions = [];
   const handledPairs = new Set();
+  const weaponQuests = emptyBlockList();
   for (const slotDefinition of window.GAME_RULES.equipmentSlots) {
     if (slotDefinition.cosmetic || handledPairs.has(slotDefinition.key)) {
       continue;
@@ -2221,9 +1192,16 @@ function render() {
       }
       continue;
     }
-    const options = upgradeOptions(slotDefinition, snapshot, character, emptyBlockList());
+    let blocked = emptyBlockList();
+    if (slotDefinition.key === "MAIN_HAND" || slotDefinition.key === "OFF_HAND") {
+      blocked = weaponQuests;
+    }
+    const options = upgradeOptions(slotDefinition, snapshot, character, blocked);
     if (options === null) {
       continue;
+    }
+    if (slotDefinition.key === "MAIN_HAND") {
+      blockQuestPicks(options, snapshot, weaponQuests);
     }
     optionsBySlot[slotDefinition.key] = options;
     allOptions.push(options);
@@ -2369,15 +1347,6 @@ function renderHiddenItems(character) {
     entry.appendChild(restoreButton);
     list.appendChild(entry);
   }
-}
-
-function itemById(itemId) {
-  if (itemIndex.size === 0) {
-    for (const item of window.FOREVER_ITEMS) {
-      itemIndex.set(item.id, item);
-    }
-  }
-  return itemIndex.get(itemId) || null;
 }
 
 function removeCharacter(slug) {
@@ -2529,7 +1498,7 @@ function closeSettings() {
   state.credentials = { clientId: clientId, clientSecret: clientSecret };
   writeStorage(STORAGE_KEYS.credentials, state.credentials);
   state.settings.region = document.getElementById("region-select").value;
-  state.settings.lookaheadLevels = Number(document.getElementById("lookahead-input").value) || 0;
+  state.settings.lookaheadLevels = clampedLookahead(document.getElementById("lookahead-input").value);
   saveSettings();
   render();
 }
@@ -2543,6 +1512,14 @@ function exportSettings() {
   URL.revokeObjectURL(link.href);
 }
 
+function clampedLookahead(value) {
+  const levels = Math.round(Number(value));
+  if (!(levels >= 0)) {
+    return DEFAULT_LOOKAHEAD_LEVELS;
+  }
+  return Math.min(MAX_LOOKAHEAD_LEVELS, levels);
+}
+
 function validatedSettings(imported) {
   if (imported === null || typeof imported !== "object" || !Array.isArray(imported.characters)) {
     return null;
@@ -2551,16 +1528,19 @@ function validatedSettings(imported) {
   if (REGIONS.indexOf(imported.region) !== -1) {
     settings.region = imported.region;
   }
-  const lookahead = Number(imported.lookaheadLevels);
-  if (lookahead >= 0 && lookahead <= 10) {
-    settings.lookaheadLevels = lookahead;
-  }
+  settings.lookaheadLevels = clampedLookahead(imported.lookaheadLevels);
   for (const character of imported.characters) {
     if (character === null || typeof character !== "object" || typeof character.slug !== "string" || typeof character.displayName !== "string") {
       return null;
     }
     if (!Array.isArray(character.hiddenItemIds)) {
       character.hiddenItemIds = [];
+    }
+    if (!Array.isArray(character.skippedDungeons)) {
+      character.skippedDungeons = [];
+    }
+    if (character.maxGoldPerUpgrade !== undefined && character.maxGoldPerUpgrade !== null && !(Number(character.maxGoldPerUpgrade) >= 0)) {
+      character.maxGoldPerUpgrade = null;
     }
     settings.characters.push(character);
   }
@@ -3013,5 +1993,3 @@ function start() {
     setStatus("Open Settings to add your API client and a character.", "info");
   }
 }
-
-start();
