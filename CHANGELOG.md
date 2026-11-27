@@ -2,6 +2,10 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.41.0 — 2026-11-27
+
+- "Add a dungeon" leaves out dungeons more than 10 levels below you. Dungeons you've already added stay.
+
 ## v0.40.0 — 2026-11-27
 
 - The dungeon list and dungeon levels now come from the game's own dungeon finder data instead of a website: every WoW Forever dungeon plus the four classic raids, each from the level the game gives it. New dungeons appear by themselves after a data update.
