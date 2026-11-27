@@ -6,12 +6,10 @@ import { clearSourceCache } from "./sources.ts";
 import { loadState, selectedCharacter, setStatus, state } from "./state.ts";
 import { queueTooltipChecks, runTooltipChecks } from "./tooltip-checks.ts";
 import type { PairedUpgradeOptions, UpgradeOptions } from "./types.ts";
-import { refreshVue } from "./ui/render-tick.ts";
 import { craftedUpgradePicks, questUpgradePicks } from "./ui/upgrade-picks.ts";
 import { blockQuestPicks, compareUpgradeOptions, emptyBlockList, observeRanking, pairedUpgradeOptions, upgradeOptions } from "./upgrades.ts";
 
 export function render(): void {
-  refreshVue();
   clearSourceCache();
   const character = selectedCharacter();
   if (character === null || !state.snapshots[character.slug]) {

@@ -120,3 +120,14 @@ test("totals add up shopping, what to take from alts and the professions", () =>
   assert.equal(totals.missing, false);
   assert.equal(run("state.inventory.characters.Alt.bags[" + LEATHER + "]"), 5);
 });
+
+test("changing the Bartering rank updates the plan without a manual redraw", async () => {
+  const { computed } = await import("vue");
+  setUp({ entries: [{ itemId: ARMOR, quantity: 1 }], prices: { [LEATHER]: auction(50), [ARMOR]: auction(5000) } });
+  const total = computed(function planTotal() {
+    return aggregatePlans(planList()).total;
+  });
+  assert.equal(total.value, 4 * 50 + 2 * 10);
+  crafting.list.barteringRank = 2;
+  assert.equal(total.value, 4 * 50 + 2 * 9);
+});

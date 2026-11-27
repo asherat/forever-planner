@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { resetPlanner } from "./helpers/realm.mjs";
-import { formatMoney, iconUrlForItem, isVendorSoldFor, preferredOffer, vendorDiscountRate, wowheadUrl } from "../web/src/prices.ts";
+import { formatMoney, iconUrlForItem, isVendorSoldFor, preferredOffer, savedBarteringRank, vendorDiscountRate, wowheadUrl } from "../web/src/prices.ts";
 
 test("formats copper as gold, silver and copper", () => {
   assert.equal(formatMoney(0), "0c");
@@ -19,11 +19,13 @@ test("prefers the vendor unless the auction house is clearly cheaper", () => {
   assert.equal(preferredOffer(vendor, null).where, "vendor");
 });
 
-test("applies five percent per Bartering rank", () => {
+test("applies five percent per Bartering rank, the gear page using the saved rank", () => {
   localStorage.clear();
-  assert.equal(vendorDiscountRate(), 0);
+  assert.equal(vendorDiscountRate(0), 0);
+  assert.equal(Math.round(vendorDiscountRate(2) * 100), 10);
+  assert.equal(savedBarteringRank(), 0);
   localStorage.setItem("foreverPlanner.crafting", JSON.stringify({ barteringRank: 2 }));
-  assert.equal(Math.round(vendorDiscountRate() * 100), 10);
+  assert.equal(savedBarteringRank(), 2);
   localStorage.clear();
 });
 

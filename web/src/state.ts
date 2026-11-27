@@ -1,3 +1,4 @@
+import { markRaw, reactive, shallowRef } from "vue";
 import type { Inventory } from "./crafting-plan.ts";
 import type { QuestieDetails } from "./questie.ts";
 import type { TsmPrices } from "./tsm.ts";
@@ -58,24 +59,24 @@ export function defaultSettings(): Settings {
   };
 }
 
-export const state: PlannerState = {
+export const state: PlannerState = reactive({
   credentials: { clientId: "", clientSecret: "" },
   settings: defaultSettings(),
   snapshots: {},
   accessToken: null,
   accessTokenExpiresAt: 0,
-  tsm: null,
-  questie: null,
-  inventory: null,
+  tsm: shallowRef(null),
+  questie: shallowRef(null),
+  inventory: shallowRef(null),
   wowFolderConnected: false,
   folderErrors: {},
   tooltipRequirements: {},
   craftingCart: [],
-  upgradeOptions: [],
-  upgradesBySlot: {},
-  craftedUpgradePicks: [],
-  questUpgradePicks: []
-};
+  upgradeOptions: shallowRef([]),
+  upgradesBySlot: shallowRef({}),
+  craftedUpgradePicks: shallowRef([]),
+  questUpgradePicks: shallowRef([])
+}) as unknown as PlannerState;
 
 export function setStatus(message: string, kind: string): void {
   const statusLine = document.getElementById("status-line") as HTMLElement;
@@ -123,10 +124,17 @@ function moveSharedHiddenItemsToCharacters(): void {
   saveSettings();
 }
 
+function rawSnapshots(snapshots: Record<string, Snapshot>): Record<string, Snapshot> {
+  for (const slug of Object.keys(snapshots)) {
+    snapshots[slug] = markRaw(snapshots[slug]);
+  }
+  return snapshots;
+}
+
 export function loadState(): void {
   state.credentials = readStorage(STORAGE_KEYS.credentials, { clientId: "", clientSecret: "" });
   state.settings = Object.assign(defaultSettings(), readStorage(STORAGE_KEYS.settings, {}));
-  state.snapshots = readStorage(STORAGE_KEYS.snapshots, {});
+  state.snapshots = rawSnapshots(readStorage(STORAGE_KEYS.snapshots, {}));
   state.tooltipRequirements = readStorage(STORAGE_KEYS.tooltipRequirements, {});
   state.craftingCart = readStorage(STORAGE_KEYS.craftingCart, []);
   moveSharedHiddenItemsToCharacters();

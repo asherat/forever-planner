@@ -1,3 +1,4 @@
+import { markRaw, reactive } from "vue";
 import "./legacy.ts";
 import type { TsmInventoryCharacter } from "./tsm.ts";
 import { isVendorSoldFor, preferredOffer, unitCost, vendorDiscountRate } from "./prices.ts";
@@ -118,11 +119,11 @@ export function defaultCraftingList(): CraftingList {
   return { entries: [], overrides: {}, useInventory: true, excludedCharacters: [], scope: null, barteringRank: 0 };
 }
 
-export const crafting: { list: CraftingList; recipesByItem: Map<number, Recipe[]>; marketCache: Map<number, MarketCost> } = {
+export const crafting: { list: CraftingList; recipesByItem: Map<number, Recipe[]>; marketCache: Map<number, MarketCost> } = reactive({
   list: defaultCraftingList(),
-  recipesByItem: new Map(),
-  marketCache: new Map()
-};
+  recipesByItem: markRaw(new Map<number, Recipe[]>()),
+  marketCache: markRaw(new Map<number, MarketCost>())
+}) as { list: CraftingList; recipesByItem: Map<number, Recipe[]>; marketCache: Map<number, MarketCost> };
 
 export function loadCraftingList(): void {
   crafting.list = Object.assign(defaultCraftingList(), readStorage(STORAGE_KEYS.crafting, {}));
@@ -216,7 +217,7 @@ export function isInScope(ruleset: string, faction: string): boolean {
 export function vendorOffer(itemId: number): Offer | null {
   const item = craftingItem(itemId);
   if (item.vendorPrice > 0 && isVendorSoldFor(itemId, ownFactionLetter())) {
-    return { price: item.vendorPrice * (1 - vendorDiscountRate()), where: "vendor" };
+    return { price: item.vendorPrice * (1 - vendorDiscountRate(crafting.list.barteringRank)), where: "vendor" };
   }
   return null;
 }

@@ -89,9 +89,12 @@ export function isVendorSoldFor(itemId: number, factionLetter: string): boolean 
   return false;
 }
 
-export function vendorDiscountRate(): number {
-  const rank = Number(readStorage<{ barteringRank?: number }>(STORAGE_KEYS.crafting, {}).barteringRank) || 0;
-  return rank * BARTERING_DISCOUNT_PER_RANK;
+export function savedBarteringRank(): number {
+  return Number(readStorage<{ barteringRank?: number }>(STORAGE_KEYS.crafting, {}).barteringRank) || 0;
+}
+
+export function vendorDiscountRate(barteringRank: number): number {
+  return (Number(barteringRank) || 0) * BARTERING_DISCOUNT_PER_RANK;
 }
 
 export function preferredOffer<Offer extends { price: number }>(vendorOffer: Offer | null, auctionOffer: Offer | null): Offer | null {

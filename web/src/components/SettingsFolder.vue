@@ -1,16 +1,13 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import "../legacy.ts";
-import { renderTick } from "../ui/render-tick.ts";
 import { connectWowFolder, disconnectWowFolder, folderStatusText, sourceStatuses } from "../ui/settings.ts";
 
 const folderStatus = computed(function folderStatusView() {
-  renderTick.value;
   return folderStatusText();
 });
 
 const statuses = computed(function statusRows() {
-  renderTick.value;
   return sourceStatuses().map(function withClass(status) {
     let className = "";
     if (status.found) {

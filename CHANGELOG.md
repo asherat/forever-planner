@@ -2,6 +2,10 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.69.0 — 2026-11-27
+
+- Behind the scenes: the page now updates itself from its data (a Vue reactive store) instead of redrawing everything after each click. This finishes the move to TypeScript and Vue. Everything works the same; a full re-rank takes about 30 ms.
+
 ## v0.68.0 — 2026-11-27
 
 - Behind the scenes: the last old-style script (loading your character from Battle.net, the Wowhead reputation checks and the gear ranking run) is rewritten in TypeScript, with tests for reading the character profile. All of the planner's code is TypeScript and Vue now. Everything works the same.

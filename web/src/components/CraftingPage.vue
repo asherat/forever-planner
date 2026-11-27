@@ -2,7 +2,6 @@
 import { computed, ref } from "vue";
 import "../legacy.ts";
 import { aggregatePlans, planList } from "../crafting-plan.ts";
-import { renderTick } from "../ui/render-tick.ts";
 import { addByName, connectCraftingFolder, dataStatusText, searchNames } from "../ui/crafting-page.ts";
 import CraftingEntry from "./CraftingEntry.vue";
 import CraftingSummary from "./CraftingSummary.vue";
@@ -13,7 +12,6 @@ const searchQuantity = ref("1");
 const names = searchNames();
 
 const plans = computed(function currentPlans() {
-  renderTick.value;
   return planList().map(function entryOf(plan, index) {
     return { key: index + ":" + plan.entry.itemId, index: index, plan: plan };
   });
@@ -30,7 +28,6 @@ const hasPlans = computed(function anyPlans() {
 });
 
 const status = computed(function folderStatus() {
-  renderTick.value;
   return { text: dataStatusText(), isConnected: Boolean(state.wowFolderConnected) };
 });
 

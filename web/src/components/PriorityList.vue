@@ -2,12 +2,10 @@
 import { computed } from "vue";
 import "../legacy.ts";
 import type { Character, PairedUpgradeOptions, Snapshot, UpgradeOptions } from "../types.ts";
-import { renderTick } from "../ui/render-tick.ts";
 import PriorityEntry from "./PriorityEntry.vue";
 import { selectedCharacter, state } from "../state.ts";
 
 const view = computed(function upgradeView(): { character: Character; snapshot: Snapshot; entries: { key: string; options: UpgradeOptions | PairedUpgradeOptions }[] } | null {
-  renderTick.value;
   const character = selectedCharacter();
   if (character === null || !state.snapshots[character.slug]) {
     return null;

@@ -2,7 +2,6 @@
 import { computed } from "vue";
 import "../legacy.ts";
 import { activeSpec, specLabel } from "../scoring.ts";
-import { renderTick } from "../ui/render-tick.ts";
 import CraftingCart from "./CraftingCart.vue";
 import NotInterested from "./NotInterested.vue";
 import PlayControls from "./PlayControls.vue";
@@ -14,7 +13,6 @@ import UndoNotice from "./UndoNotice.vue";
 import { selectedCharacter, state } from "../state.ts";
 
 const header = computed(function headerView() {
-  renderTick.value;
   const character = selectedCharacter();
   if (character === null || !state.snapshots[character.slug]) {
     return null;
@@ -45,7 +43,6 @@ const isWaiting = computed(function nothingLoaded() {
 });
 
 const lookahead = computed(function lookaheadLevels() {
-  renderTick.value;
   return String(state.settings.lookaheadLevels);
 });
 
