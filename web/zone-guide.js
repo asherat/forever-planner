@@ -1,5 +1,5 @@
 window.ZONE_GUIDE = {
-  credit: "Tiers from the \"Every Zone in WoW Forever RANKED WORST to BEST\" video. Level ranges from Icy Veins' \"Every Zone from 1 to 60\" guide.",
+  credit: "Tiers from the \"Every Zone in WoW Forever RANKED WORST to BEST\" video. Level ranges from Icy Veins' \"Every Zone from 1 to 60\" guide and dungeon ranges from its \"Dungeons Overview\".",
   tierOrder: ["S", "A", "B", "C", "D"],
   zones: [
     { name: "Mount Hyjal", tier: "S", minLevel: 55, maxLevel: 60, faction: "both", note: "Best max-level zone: dense quests, elite quests with blue rewards." },
@@ -7,14 +7,14 @@ window.ZONE_GUIDE = {
     { name: "Stranglethorn Vale", tier: "S", minLevel: 30, maxLevel: 45, faction: "both", note: "Most quests of any zone; Booty Bay; the Drowned City dungeon.", dungeons: [{ name: "The Drowned City" }] },
     { name: "Duskwood", tier: "S", minLevel: 18, maxLevel: 30, faction: "alliance", note: "Quest-dense and iconic; Darkshire is far from the west side." },
     { name: "Redridge Mountains", tier: "S", minLevel: 15, maxLevel: 25, faction: "alliance", note: "One of the most quest-dense zones, small and compact." },
-    { name: "Riverglades", tier: "S", minLevel: 35, maxLevel: 45, faction: "both", note: "New zone with story-driven chains; arrive at 38-39.", dungeons: [{ name: "Krol'dok Stronghold", minLevel: 40, maxLevel: 45 }] },
+    { name: "Riverglades", tier: "S", minLevel: 35, maxLevel: 45, faction: "both", note: "New zone with story-driven chains; arrive at 38-39.", dungeons: [{ name: "Krol'dok Stronghold" }] },
     { name: "Tanaris", tier: "S", minLevel: 40, maxLevel: 50, faction: "both", note: "Dozens of quests on arrival, easy to ride around; port to the Riverglades.", dungeons: [{ name: "Zul'Farrak" }] },
     { name: "Un'Goro Crater", tier: "S", minLevel: 48, maxLevel: 55, faction: "both", note: "Lots of fast kill and loot quests; watch out for roaming devilsaurs." },
     { name: "Westfall", tier: "S", minLevel: 10, maxLevel: 20, faction: "alliance", note: "Tons of quests and the Deadmines prequests.", dungeons: [{ name: "The Deadmines" }] },
     { name: "Darkshore", tier: "S", minLevel: 10, maxLevel: 20, faction: "alliance", note: "Around 15 quests on arrival, mostly in the northern half." },
     { name: "The Hinterlands", tier: "S", minLevel: 40, maxLevel: 50, faction: "both", note: "A dozen quests with no prerequisites, great for Horde; Jintha'Alor is elite-heavy." },
     { name: "Thousand Needles", tier: "A", minLevel: 25, maxLevel: 35, faction: "both", note: "The Shimmering Flats: about eight quests in one area, very fast." },
-    { name: "Wetlands", tier: "A", minLevel: 20, maxLevel: 30, faction: "alliance", note: "More quests in Forever and a new dungeon, but some long walks.", dungeons: [{ name: "Excavation Site", minLevel: 24, maxLevel: 29 }] },
+    { name: "Wetlands", tier: "A", minLevel: 20, maxLevel: 30, faction: "alliance", note: "More quests in Forever and a new dungeon, but some long walks.", dungeons: [{ name: "Excavation Site" }] },
     { name: "Loch Modan", tier: "A", minLevel: 10, maxLevel: 20, faction: "alliance", note: "Fast troll and Kobold areas; can get crowded." },
     { name: "Hillsbrad Foothills", tier: "A", minLevel: 20, maxLevel: 30, faction: "both", note: "Great for Horde: lots of quests near Tarren Mill and the Undercity." },
     { name: "Searing Gorge", tier: "A", minLevel: 45, maxLevel: 50, faction: "both", note: "Compact, every quest a few minutes away; Blackrock Depths prequests.", dungeons: [{ name: "Blackrock Depths" }] },
