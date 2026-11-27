@@ -1887,6 +1887,16 @@ legend {
   font-size: 0.85rem;
 }
 
+.guide-step-craft-first {
+  margin: 2px 0 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.guide-stage-taking {
+  margin-top: 10px;
+}
+
 .guide-step-done .guide-step-body {
   opacity: 0.55;
 }
@@ -1917,11 +1927,6 @@ legend {
   display: inline-flex;
   min-width: 0;
   justify-content: flex-start;
-}
-
-.guide-material-how {
-  display: block;
-  font-size: 0.8rem;
 }
 
 @media (max-width: 480px) {
