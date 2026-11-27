@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import "../legacy.ts";
-import { connectCraftingFolder, dataStatusText, recipeSource } from "../ui/crafting-page.ts";
-import { stepName } from "../profession-guide.ts";
+import { connectFolder, dataStatusText } from "../ui/folder-controls.ts";
 import { saveSettings, selectedCharacter, state } from "../state.ts";
-import { MAX_SKILL, PROFESSIONS, characterProfessions, characterSkill, chooseProfession, discardGuide, guideForm, isStepDone, makeGuide, materialsLeft, recipeById, savedGuide, startGuidePage, toggleBought, toggleStep } from "../ui/profession-page.ts";
+import { MAX_SKILL, characterSkill, chooseProfession, costStillToBuy, discardGuide, guideForm, guideSummary, lessonRows, makeGuide, materialRows, professionChoices, savedGuide, skillLine, startGuidePage, stepRows, toggleBought, toggleStep } from "../ui/profession-page.ts";
 import CraftingItemLabel from "./CraftingItemLabel.vue";
 import MoneyAmount from "./MoneyAmount.vue";
 import ProfessionGuideStep from "./ProfessionGuideStep.vue";
@@ -23,27 +22,16 @@ const selectedSlug = computed(function selectedSlugView() {
   return state.settings.selectedCharacterSlug || "";
 });
 
-const professions = computed(function professionChoices() {
-  const own = characterProfessions(selectedCharacter());
-  const others = PROFESSIONS.filter(function isNotOwn(name) {
-    return own.indexOf(name) === -1;
-  });
-  return own.map(function ownOption(name) {
-    return { name: name, label: name + " (yours)" };
-  }).concat(others.map(function otherOption(name) {
-    return { name: name, label: name };
-  }));
+const professions = computed(function professionOptions() {
+  return professionChoices(selectedCharacter());
 });
 
 const skill = computed(function currentSkill() {
   return characterSkill(selectedCharacter(), guideForm.profession);
 });
 
-const skillText = computed(function skillLine() {
-  if (skill.value === null) {
-    return "";
-  }
-  return "Your " + guideForm.profession + " skill on Battle.net: " + skill.value + ". Steps up to it are ticked by themselves after a Refresh.";
+const skillText = computed(function skillTextView() {
+  return skillLine(guideForm.profession, skill.value);
 });
 
 const saved = computed(function savedPlan() {
@@ -61,71 +49,36 @@ const makeLabel = computed(function makeButtonLabel() {
   return "Make a plan";
 });
 
-const steps = computed(function stepRows() {
+const steps = computed(function stepsView() {
   if (saved.value === null) {
     return [];
   }
-  const plan = saved.value;
-  return plan.guide.steps.map(function rowOf(step, index) {
-    return { key: index + ":" + step.recipeId, index: index, step: step, done: isStepDone(plan, step, index, skill.value) };
-  });
+  return stepRows(saved.value, skill.value);
 });
 
-const summary = computed(function planSummary() {
+const summary = computed(function summaryView() {
   if (saved.value === null) {
     return null;
   }
-  const guide = saved.value.guide;
-  let stuck = "";
-  if (guide.stuckAt !== null) {
-    stuck = "No recipe with known prices gives skill at " + guide.stuckAt + ". Connect your WoW folder for more prices, or check the auction house for patterns.";
-  }
-  const done = steps.value.filter(function isDone(row) {
-    return row.done;
-  }).length;
-  return {
-    title: guide.profession + " " + guide.from + " → " + guide.to,
-    made: "Planned on " + new Date(saved.value.createdAt).toLocaleString() + " with that day's prices. Make a new plan to use today's.",
-    progress: done + " of " + guide.steps.length + " steps done",
-    total: guide.total,
-    stuck: stuck
-  };
+  return guideSummary(saved.value, steps.value);
 });
 
-const lessons = computed(function lessonRows() {
+const lessons = computed(function lessonsView() {
   if (saved.value === null) {
     return [];
   }
-  return saved.value.guide.lessons.map(function rowOf(lesson) {
-    const recipe = recipeById(lesson.recipeId);
-    let source = null;
-    if (recipe !== null && recipe.teachingItemId) {
-      source = recipeSource(recipe);
-    }
-    let where = "At a trainer, at skill " + lesson.learnAt;
-    if (lesson.teachingItemId !== null) {
-      where = "Pattern, usable at skill " + lesson.learnAt;
-    }
-    return { key: lesson.recipeId, name: stepName(lesson.recipeId, lesson.itemId), where: where, cost: lesson.cost, hasCost: lesson.cost > 0, source: source };
-  });
+  return lessonRows(saved.value);
 });
 
 const hasLessons = computed(function anyLessons() {
   return lessons.value.length > 0;
 });
 
-const materials = computed(function materialRows() {
+const materials = computed(function materialsView() {
   if (saved.value === null) {
     return [];
   }
-  const plan = saved.value;
-  return materialsLeft(plan, skill.value).map(function rowOf(material) {
-    let label = "";
-    if (material.craft) {
-      label = "Cheaper to craft";
-    }
-    return { key: material.itemId, itemId: material.itemId, quantity: material.quantity + "×", cost: material.cost, bought: plan.boughtItemIds.indexOf(material.itemId) !== -1, how: label, inputId: "material-" + material.itemId };
-  });
+  return materialRows(saved.value, skill.value);
 });
 
 const hasMaterials = computed(function anyMaterials() {
@@ -133,11 +86,7 @@ const hasMaterials = computed(function anyMaterials() {
 });
 
 const materialsCost = computed(function costLeft() {
-  return materials.value.filter(function notBought(row) {
-    return !row.bought;
-  }).reduce(function addCost(total, row) {
-    return total + row.cost;
-  }, 0);
+  return costStillToBuy(materials.value);
 });
 
 function characterChosen(event: Event): void {
@@ -173,7 +122,7 @@ function discard(): void {
     <p class="muted">The cheapest way to level a profession with today's auction house and vendor prices. Orange recipes always give a point; yellow and green ones give one less often, so the plan counts the extra crafts. Train the next rank at your trainer at 50, 125 and 200.</p>
     <p class="muted">{{ status.text }}</p>
     <div class="inline-fields">
-      <button type="button" :hidden="status.isConnected" @click="connectCraftingFolder">Connect WoW folder</button>
+      <button type="button" :hidden="status.isConnected" @click="connectFolder">Connect WoW folder</button>
     </div>
   </section>
 

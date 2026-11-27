@@ -168,14 +168,29 @@ function bestCandidate(candidates: Candidate[], skill: number, learned: Set<numb
   return best;
 }
 
-function addMaterials(materials: Map<number, GuideMaterial>, step: GuideStep): void {
-  for (const reagent of step.reagents) {
-    const material = materials.get(reagent[0]) || { itemId: reagent[0], quantity: 0, cost: 0, craft: isCheaperToCraft(reagent[0]) };
-    material.quantity += reagent[1] * step.crafts;
-    material.cost += (marketCost(reagent[0]) || 0) * reagent[1] * step.crafts;
-    materials.set(reagent[0], material);
-  }
+export interface MaterialPricing {
+  unitCost: (itemId: number) => number;
+  isCrafted: (itemId: number) => boolean;
 }
+
+export function sumMaterials(steps: GuideStep[], pricing: MaterialPricing): GuideMaterial[] {
+  const materials = new Map<number, GuideMaterial>();
+  for (const step of steps) {
+    for (const reagent of step.reagents) {
+      const material = materials.get(reagent[0]) || { itemId: reagent[0], quantity: 0, cost: 0, craft: pricing.isCrafted(reagent[0]) };
+      material.quantity += reagent[1] * step.crafts;
+      material.cost += pricing.unitCost(reagent[0]) * reagent[1] * step.crafts;
+      materials.set(reagent[0], material);
+    }
+  }
+  return Array.from(materials.values()).sort(compareByCost);
+}
+
+function marketUnitCost(itemId: number): number {
+  return marketCost(itemId) || 0;
+}
+
+const MARKET_PRICING: MaterialPricing = { unitCost: marketUnitCost, isCrafted: isCheaperToCraft };
 
 function finishStep(step: GuideStep, expectedCrafts: number): GuideStep {
   step.crafts = Math.ceil(expectedCrafts - 0.0001);
@@ -219,14 +234,12 @@ export function buildGuide(profession: string, from: number, to: number, knownRe
   if (step !== null) {
     guide.steps.push(finishStep(step, expectedCrafts));
   }
-  const materials = new Map<number, GuideMaterial>();
   for (const finished of guide.steps) {
-    addMaterials(materials, finished);
     guide.total += finished.cost;
   }
   for (const lesson of guide.lessons) {
     guide.total += lesson.cost;
   }
-  guide.materials = Array.from(materials.values()).sort(compareByCost);
+  guide.materials = sumMaterials(guide.steps, MARKET_PRICING);
   return guide;
 }
