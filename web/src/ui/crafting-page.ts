@@ -8,7 +8,8 @@ import type { MapAttributes } from "./map-target.ts";
 import { inventoryStatusText, questieStatusText, readWowFolder, tsmStatusText } from "../folder-data.ts";
 import { placeForSource } from "../map-popover.ts";
 import { WOWHEAD_URL } from "../prices.ts";
-import { setStatus, state } from "../state.ts";
+import { selectedCharacter, setStatus, state } from "../state.ts";
+import type { PlanPick } from "./gear-plan.ts";
 import { WOW_FOLDER } from "../wow-folder.ts";
 
 const RECIPE_SOURCES_SHOWN = 2;
@@ -537,20 +538,23 @@ export function chooseScope(key: string): void {
   refreshCraftingData();
 }
 
-function entriesFromCart(): CraftingEntry[] {
-  const entries: CraftingEntry[] = [];
-  for (const entry of (state.craftingCart || []) as CraftingEntry[]) {
-    if (Number(entry.itemId) > 0) {
-      entries.push({ itemId: Number(entry.itemId), quantity: Math.max(1, Number(entry.quantity) || 1) });
-    }
+function entriesFromPlan(): CraftingEntry[] {
+  const character = selectedCharacter();
+  if (character === null) {
+    return [];
   }
-  return entries;
+  const picks = Object.values((character.plan || {}) as Record<string, PlanPick>);
+  return picks.filter(function hasRecipe(pick) {
+    return crafting.recipesByItem.has(pick.itemId);
+  }).map(function entryOf(pick) {
+    return { itemId: pick.itemId, quantity: 1 };
+  });
 }
 
 export function addFromLocationHash(): void {
   const match = /^#items=([\d:,]+)$/.exec(window.location.hash);
   if (match === null) {
-    crafting.list.entries = entriesFromCart();
+    crafting.list.entries = entriesFromPlan();
     return;
   }
   const entries: CraftingEntry[] = [];

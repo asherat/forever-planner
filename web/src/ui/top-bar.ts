@@ -1,9 +1,8 @@
 import { ref } from "vue";
 import "../legacy.ts";
 import { routeEditor } from "../route.ts";
-import { pruneCraftingCart } from "./crafting-cart.ts";
 import { pruneNotInterested } from "./not-interested.ts";
-import { pruneQuestList } from "./quest-list.ts";
+import { pruneGearPlan } from "./gear-plan.ts";
 import { readWowFolder } from "../folder-data.ts";
 import { saveSettings, selectedCharacter, setStatus, state } from "../state.ts";
 import { handleTsmStartupError, render } from "../gear.ts";
@@ -55,7 +54,7 @@ export async function refreshSelectedCharacter(): Promise<void> {
     await refreshCharacter(character);
     await readWowFolder(true);
     const snapshot = state.snapshots[character.slug];
-    const removedNames = pruneQuestList(character, snapshot).concat(pruneCraftingCart(snapshot));
+    const removedNames = pruneGearPlan(character, snapshot);
     const message = refreshMessage(removedNames, pruneNotInterested(character, snapshot));
     if (message !== null) {
       setStatus(message, "success");

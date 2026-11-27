@@ -3,8 +3,6 @@ import type { Inventory } from "./crafting-plan.ts";
 import type { QuestieDetails } from "./questie.ts";
 import type { TsmPrices } from "./tsm.ts";
 import type { Character, PairedUpgradeOptions, ReputationRequirement, Settings, Snapshot, UpgradeOptions } from "./types.ts";
-import type { CartEntry } from "./ui/crafting-cart.ts";
-import type { QuestListEntry } from "./ui/quest-list.ts";
 
 export const STORAGE_KEYS = {
   credentials: "foreverPlanner.credentials",
@@ -42,11 +40,8 @@ export interface PlannerState {
   wowFolderConnected: boolean;
   folderErrors: Record<string, string>;
   tooltipRequirements: Record<string, TooltipRequirement>;
-  craftingCart: CartEntry[];
   upgradeOptions: (UpgradeOptions | PairedUpgradeOptions)[];
   upgradesBySlot: Record<string, UpgradeOptions>;
-  craftedUpgradePicks: number[];
-  questUpgradePicks: QuestListEntry[];
 }
 
 export function defaultSettings(): Settings {
@@ -71,11 +66,8 @@ export const state: PlannerState = reactive({
   wowFolderConnected: false,
   folderErrors: {},
   tooltipRequirements: {},
-  craftingCart: [],
   upgradeOptions: shallowRef([]),
-  upgradesBySlot: shallowRef({}),
-  craftedUpgradePicks: shallowRef([]),
-  questUpgradePicks: shallowRef([])
+  upgradesBySlot: shallowRef({})
 }) as unknown as PlannerState;
 
 export function setStatus(message: string, kind: string): void {
@@ -136,7 +128,6 @@ export function loadState(): void {
   state.settings = Object.assign(defaultSettings(), readStorage(STORAGE_KEYS.settings, {}));
   state.snapshots = rawSnapshots(readStorage(STORAGE_KEYS.snapshots, {}));
   state.tooltipRequirements = readStorage(STORAGE_KEYS.tooltipRequirements, {});
-  state.craftingCart = readStorage(STORAGE_KEYS.craftingCart, []);
   moveSharedHiddenItemsToCharacters();
 }
 

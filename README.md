@@ -24,15 +24,17 @@ It runs entirely in your browser. There is no server: your browser talks to Batt
 **Maps**
 
 - Hover a zone in the leveling path, a vendor, drop, quest giver or dungeon entrance, or a recipe source to see where it is: the game's own continent map with the zone marked, and the zone map with a pin at the exact coordinates.
-- Click coordinates in the quest list to copy a `/way` command for Questie or TomTom.
+- Click coordinates in your gear plan to copy a `/way` command for Questie or TomTom.
 
-**Quest list**
+**Your gear plan**
 
-- Add quest rewards to the quest list. It shows the next step of each quest chain you haven't completed and who gives it.
+- Click the upgrade cards you want (one per slot); picked cards are highlighted. Click again to unpick.
+- The plan on the right lists your picks grouped by where to get them, following your leveling path: each zone in order, then other places and dungeons, then things to buy and to craft. Quests show their next step, who gives it and the chain progress; drops and vendors show who and where.
+- Refresh drops picks you've equipped or outgrown.
 
 **Crafting**
 
-- Collect crafted items in the crafting list and open them all in the crafting tool.
+- "Craft all" in your gear plan opens your crafted picks in the crafting tool.
 - The crafting tool expands each recipe and lets you choose per material: use what your characters have, buy from a vendor, buy on the auction house, or craft it. It shows the total, a shopping list, who has which materials and who can craft.
 
 ## Setup

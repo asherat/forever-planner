@@ -6,7 +6,7 @@ import { clearSourceCache } from "./sources.ts";
 import { loadState, selectedCharacter, setStatus, state } from "./state.ts";
 import { queueTooltipChecks, runTooltipChecks } from "./tooltip-checks.ts";
 import type { PairedUpgradeOptions, UpgradeOptions } from "./types.ts";
-import { craftedUpgradePicks, questUpgradePicks } from "./ui/upgrade-picks.ts";
+import { moveOldListsIntoPlans } from "./ui/gear-plan.ts";
 import { blockQuestPicks, compareUpgradeOptions, emptyBlockList, observeRanking, pairedUpgradeOptions, upgradeOptions } from "./upgrades.ts";
 
 export function render(): void {
@@ -56,8 +56,6 @@ export function render(): void {
   state.upgradesBySlot = optionsBySlot;
   allOptions.sort(compareUpgradeOptions);
   state.upgradeOptions = allOptions;
-  state.craftedUpgradePicks = craftedUpgradePicks(allOptions, snapshot);
-  state.questUpgradePicks = questUpgradePicks(allOptions, snapshot);
   runTooltipChecks();
 }
 
@@ -104,6 +102,7 @@ export function startGearPage(): void {
   observeRanking(queueTooltipChecks);
   enableMapPopovers();
   loadState();
+  moveOldListsIntoPlans();
   if (!window.FOREVER_ITEMS) {
     setStatus("Game data is missing (web/data/items.js). Pull the latest version of the planner.", "error");
     return;

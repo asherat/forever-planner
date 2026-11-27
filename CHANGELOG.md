@@ -2,6 +2,12 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.77.0 — 2026-11-27
+
+- New: your gear plan. Click the upgrade cards you want (one per slot) and they're highlighted; click again to unpick. The plan on the right lists your picks by where to get them, along your leveling path: each zone in order, then other places and dungeons, then things to buy and to craft, with the next quest step, quest giver, mob or vendor for each. Remove a pick there with ×.
+- It replaces the quest list and the crafting list; what you had in them was moved into your plan. "Craft all" in the plan opens your crafted picks in the crafting tool.
+- Refresh removes picks you've equipped or outgrown.
+
 ## v0.76.0 — 2026-11-27
 
 - New "On your way" pick: when a slot's best and quicker picks aren't free on your leveling path, the card also shows the best upgrade you'll get anyway from a quest or a named mob in your planned zones, like the Corrupted Riverglades Pendant from Mad Marrius. These count even when they're under 1%.
