@@ -415,8 +415,12 @@ function mainStatWeight(weights) {
 }
 
 function characterWeights(character) {
+  return weightsForSpec(character, activeSpec(character));
+}
+
+function weightsForSpec(character, specKey) {
   const playstyle = window.GAME_RULES.playstyles[characterPlaystyle(character)];
-  const weights = Object.assign({}, specPreset(activeSpec(character)).weights);
+  const weights = Object.assign({}, specPreset(specKey).weights);
   for (const statKey of Object.keys(playstyle.multipliers)) {
     if (weights[statKey]) {
       weights[statKey] = weights[statKey] * playstyle.multipliers[statKey];
@@ -631,7 +635,7 @@ function rankedCandidatesForSlot(slotDefinition, snapshot, character) {
 
 function itemDungeons(item, snapshot) {
   const names = new Set();
-  for (const source of obtainableSources(item, snapshot)) {
+  for (const source of gettableSources(item, snapshot)) {
     if (source.type !== "drop" && source.type !== "quest") {
       continue;
     }
@@ -657,39 +661,6 @@ function bestGainAnySlot(item, snapshot, weights) {
     best = Math.max(best, gain);
   }
   return best;
-}
-
-function dungeonUpgradeCounts(character, snapshot) {
-  if (state.questie === null) {
-    return null;
-  }
-  const weights = characterWeights(character);
-  const skippedIds = equippedItemIds(snapshot);
-  for (const itemId of character.hiddenItemIds || []) {
-    skippedIds.add(itemId);
-  }
-  const counts = {};
-  for (const item of window.FOREVER_ITEMS) {
-    if (skippedIds.has(item.id) || !canUseItem(item, snapshot) || !isReputationWithinReach(item, snapshot)) {
-      continue;
-    }
-    const dungeons = itemDungeons(item, snapshot);
-    if (dungeons.size === 0 || !isWithinGoldLimit(cheapestCost(item, snapshot))) {
-      continue;
-    }
-    const gain = bestGainAnySlot(item, snapshot, weights);
-    if (gain <= 0) {
-      continue;
-    }
-    for (const name of dungeons) {
-      if (!counts[name]) {
-        counts[name] = { count: 0, bestGain: 0 };
-      }
-      counts[name].count += 1;
-      counts[name].bestGain = Math.max(counts[name].bestGain, Math.round(gain));
-    }
-  }
-  return counts;
 }
 
 function routeAvailability(item, snapshot, character) {
@@ -944,8 +915,31 @@ function isObtainableSource(source) {
   return source.type !== "world-drop" && source.type !== "object";
 }
 
-function obtainableSources(item, snapshot) {
+function gettableSources(item, snapshot) {
   return sourcesForCharacter(item, snapshot).filter(isObtainableSource);
+}
+
+function skippedDungeons() {
+  const character = selectedCharacter();
+  if (character === null || !character.skippedDungeons) {
+    return [];
+  }
+  return character.skippedDungeons;
+}
+
+function isFromSkippedDungeon(source) {
+  const dungeon = dungeonForArea(source.zone);
+  return dungeon !== null && skippedDungeons().indexOf(dungeon.name) !== -1;
+}
+
+function obtainableSources(item, snapshot) {
+  const sources = [];
+  for (const source of gettableSources(item, snapshot)) {
+    if (!isFromSkippedDungeon(source)) {
+      sources.push(source);
+    }
+  }
+  return sources;
 }
 
 function isListedOnAuctionHouse(item) {
@@ -1509,7 +1503,9 @@ function renderOption(label, candidate, snapshot, character, slotDefinition) {
   if (item.suffix) {
     option.appendChild(createElement("div", "option-note", "Comes with random stats. Best for you: " + item.suffix.name + "."));
   }
-  if (candidate.routeLeg) {
+  if (candidate.routeLeg && candidate.routeLeg.dungeon) {
+    option.appendChild(createElement("div", "route-badge tier-grey", "Dungeon: " + candidate.routeLeg.zone + ", from level " + candidate.routeLeg.fromLevel));
+  } else if (candidate.routeLeg) {
     const zone = guideZone(candidate.routeLeg.zone);
     let tierClass = "tier-grey";
     if (zone !== null) {
@@ -1558,6 +1554,12 @@ function renderOption(label, candidate, snapshot, character, slotDefinition) {
   hideButton.type = "button";
   hideButton.dataset.hideItemId = String(item.id);
   actions.appendChild(hideButton);
+  for (const dungeonName of itemDungeons(item, snapshot)) {
+    const skipButton = createElement("button", "link", "Skip " + dungeonName);
+    skipButton.type = "button";
+    skipButton.dataset.skipDungeon = dungeonName;
+    actions.appendChild(skipButton);
+  }
   option.appendChild(actions);
   return option;
 }
@@ -1799,6 +1801,49 @@ function pruneQuestList(character, snapshot) {
   return removedNames;
 }
 
+function isUpgradeForAnySpec(item, character, snapshot) {
+  for (const specKey of characterSpecs(character, snapshot)) {
+    if (bestGainAnySlot(item, snapshot, weightsForSpec(character, specKey)) > 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function dungeonHasUpgrades(dungeonName, character, snapshot) {
+  for (const item of window.FOREVER_ITEMS) {
+    if (canUseItem(item, snapshot) && itemDungeons(item, snapshot).has(dungeonName) && isUpgradeForAnySpec(item, character, snapshot)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function pruneNotInterested(character, snapshot) {
+  const removedNames = [];
+  const keptItems = [];
+  for (const itemId of character.hiddenItemIds || []) {
+    const item = itemById(itemId);
+    if (item !== null && isUpgradeForAnySpec(item, character, snapshot)) {
+      keptItems.push(itemId);
+    } else {
+      removedNames.push(itemName(itemId));
+    }
+  }
+  const keptDungeons = [];
+  for (const dungeonName of character.skippedDungeons || []) {
+    if (state.questie === null || dungeonHasUpgrades(dungeonName, character, snapshot)) {
+      keptDungeons.push(dungeonName);
+    } else {
+      removedNames.push(dungeonName);
+    }
+  }
+  character.hiddenItemIds = keptItems;
+  character.skippedDungeons = keptDungeons;
+  saveSettings();
+  return removedNames;
+}
+
 function pruneCraftingCart(snapshot) {
   const equipped = equippedItemIds(snapshot);
   const kept = [];
@@ -2020,7 +2065,69 @@ function hideItem(itemId) {
     character.hiddenItemIds.push(itemId);
     saveSettings();
   }
+  state.undo = { kind: "item", value: itemId, text: "Hid " + itemName(itemId) + "." };
   render();
+}
+
+function skipDungeon(dungeonName) {
+  const character = selectedCharacter();
+  if (character === null) {
+    return;
+  }
+  if (!character.skippedDungeons) {
+    character.skippedDungeons = [];
+  }
+  if (character.skippedDungeons.indexOf(dungeonName) === -1) {
+    character.skippedDungeons.push(dungeonName);
+    saveSettings();
+  }
+  state.undo = { kind: "dungeon", value: dungeonName, text: "Skipped " + dungeonName + ": its drops and quests no longer count." };
+  render();
+}
+
+function restoreDungeon(dungeonName) {
+  const character = selectedCharacter();
+  if (character === null) {
+    return;
+  }
+  character.skippedDungeons = (character.skippedDungeons || []).filter(function isOtherDungeon(name) {
+    return name !== dungeonName;
+  });
+  saveSettings();
+  render();
+}
+
+function undoLastHide() {
+  const undo = state.undo;
+  state.undo = null;
+  if (undo === null) {
+    return;
+  }
+  if (undo.kind === "item") {
+    restoreItem(undo.value);
+  } else {
+    restoreDungeon(undo.value);
+  }
+}
+
+function renderUndoNotice() {
+  const notice = document.getElementById("undo-notice");
+  notice.replaceChildren();
+  notice.hidden = state.undo === null;
+  if (state.undo === null) {
+    return;
+  }
+  notice.append(state.undo.text + " ");
+  const undoButton = createElement("button", "link", "Undo");
+  undoButton.type = "button";
+  undoButton.dataset.undo = "true";
+  notice.appendChild(undoButton);
+}
+
+function handleUndoClick(event) {
+  if (event.target.dataset.undo !== undefined) {
+    undoLastHide();
+  }
 }
 
 function restoreItem(itemId) {
@@ -2139,6 +2246,7 @@ function render() {
   renderRoutePanel(character, snapshot);
   document.getElementById("route-credit").textContent = window.ZONE_GUIDE.credit;
   renderHiddenItems(character);
+  renderUndoNotice();
   allOptions.sort(compareUpgradeOptions);
   const priorityList = document.getElementById("priority-list");
   priorityList.replaceChildren();
@@ -2235,7 +2343,17 @@ function renderHiddenItems(character) {
   const list = document.getElementById("hidden-item-list");
   list.replaceChildren();
   const hiddenIds = character.hiddenItemIds || [];
-  container.hidden = hiddenIds.length === 0;
+  const skipped = character.skippedDungeons || [];
+  container.hidden = hiddenIds.length === 0 && skipped.length === 0;
+  for (const dungeonName of skipped) {
+    const entry = createElement("li", "hidden-item");
+    entry.appendChild(createElement("span", null, dungeonName + " (dungeon)"));
+    const restoreButton = createElement("button", "link", "Bring back");
+    restoreButton.type = "button";
+    restoreButton.dataset.restoreDungeon = dungeonName;
+    entry.appendChild(restoreButton);
+    list.appendChild(entry);
+  }
   for (const itemId of hiddenIds) {
     const item = itemById(itemId);
     const entry = createElement("li", "hidden-item");
@@ -2584,8 +2702,16 @@ async function handleRefreshClick() {
     await readWowFolder(true);
     const snapshot = state.snapshots[character.slug];
     const removedNames = pruneQuestList(character, snapshot).concat(pruneCraftingCart(snapshot));
+    const outgrownNames = pruneNotInterested(character, snapshot);
+    const messages = [];
     if (removedNames.length > 0) {
-      setStatus("Updated. Removed from your lists because you finished or equipped them: " + Array.from(new Set(removedNames)).join(", ") + ".", "success");
+      messages.push("Removed from your lists because you finished or equipped them: " + Array.from(new Set(removedNames)).join(", ") + ".");
+    }
+    if (outgrownNames.length > 0) {
+      messages.push("No longer upgrades, so dropped from your not-interested list: " + outgrownNames.join(", ") + ".");
+    }
+    if (messages.length > 0) {
+      setStatus("Updated. " + messages.join(" "), "success");
     }
     render();
   } catch (error) {
@@ -2773,6 +2899,10 @@ function handlePriorityListClick(event) {
     addToCart(Number(event.target.dataset.cartAdd));
     return;
   }
+  if (event.target.dataset.skipDungeon !== undefined) {
+    skipDungeon(event.target.dataset.skipDungeon);
+    return;
+  }
   const itemId = event.target.dataset.hideItemId;
   if (itemId !== undefined) {
     hideItem(Number(itemId));
@@ -2816,6 +2946,10 @@ function handlePlayControlsChange(event) {
 }
 
 function handleHiddenItemsClick(event) {
+  if (event.target.dataset.restoreDungeon !== undefined) {
+    restoreDungeon(event.target.dataset.restoreDungeon);
+    return;
+  }
   const itemId = event.target.dataset.restoreItemId;
   if (itemId !== undefined) {
     restoreItem(Number(itemId));
@@ -2847,6 +2981,7 @@ function bindEvents() {
   document.getElementById("import-input").addEventListener("change", handleImportChange);
   document.getElementById("character-select").addEventListener("change", handleCharacterSelectChange);
   document.getElementById("priority-list").addEventListener("click", handlePriorityListClick);
+  document.getElementById("undo-notice").addEventListener("click", handleUndoClick);
   document.getElementById("character-list").addEventListener("click", handleCharacterListClick);
   document.getElementById("play-controls").addEventListener("change", handlePlayControlsChange);
   document.getElementById("hidden-items").addEventListener("click", handleHiddenItemsClick);

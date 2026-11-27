@@ -68,45 +68,19 @@ test("closing a gap with a filler zone inserts it before the chosen zone", () =>
   assert.equal(legs[1].toLevel, 50);
 });
 
-test("a dungeon counts only once it is in the dungeon list", () => {
-  const { context, character, snapshot } = freshRoute();
-  context.chooseZone(character, snapshot, "Tanaris");
-  const drop = { type: "drop", zone: "Zul'Farrak" };
-  assert.equal(context.legForSource(character, snapshot, drop), null);
-  context.addDungeon(context.characterRoute(character), "Zul'Farrak");
-  assert.equal(context.legForSource(character, snapshot, drop).fromLevel, 42);
-});
-
-test("a dungeon outside the path counts, and its quests only when included", () => {
+test("a dungeon on or off the path counts from its game level", () => {
   const { context, character, snapshot } = freshRoute();
   context.chooseZone(character, snapshot, "Riverglades");
-  const route = context.characterRoute(character);
-  context.addDungeon(route, "Zul'Farrak");
-  const quest = { type: "quest", zone: "Zul'Farrak" };
-  assert.notEqual(context.legForSource(character, snapshot, quest), null);
-  route.dungeons[0].quests = false;
-  assert.equal(context.legForSource(character, snapshot, quest), null);
-  assert.notEqual(context.legForSource(character, snapshot, { type: "drop", zone: "Zul'Farrak" }), null);
+  assert.equal(context.legForSource(character, snapshot, { type: "drop", zone: "Zul'Farrak" }).fromLevel, 42);
+  assert.equal(context.legForSource(character, snapshot, { type: "quest", zone: "Zul'Farrak" }).fromLevel, 42);
+  assert.equal(context.legForSource(character, snapshot, { type: "drop", zone: "Feralas" }), null);
 });
 
-test("the zone checkbox and the dungeon list are the same thing", () => {
-  const { context, character, snapshot } = freshRoute();
-  context.chooseZone(character, snapshot, "Tanaris");
-  const route = context.characterRoute(character);
-  const tanaris = context.guideZone("Tanaris");
-  context.setZoneDungeons(route, tanaris, true);
-  assert.equal(route.dungeons[0].name, "Zul'Farrak");
-  assert.equal(context.zoneDungeonsChosen(route, tanaris), true);
-  context.removeDungeon(route, "Zul'Farrak");
-  assert.equal(context.zoneDungeonsChosen(route, tanaris), false);
-});
-
-test("dungeons ticked on a zone move into the dungeon list", () => {
+test("old dungeon choices are cleared from saved routes", () => {
   const { context, character } = freshRoute();
-  character.route = { startLevel: 42, legs: [{ zone: "Tanaris", toLevel: 50, dungeons: true }] };
+  character.route = { startLevel: 42, legs: [{ zone: "Tanaris", toLevel: 50, dungeons: true }], dungeons: [{ name: "Zul'Farrak", quests: true }] };
   const route = context.characterRoute(character);
-  assert.equal(route.dungeons[0].name, "Zul'Farrak");
-  assert.equal(route.dungeons[0].quests, true);
+  assert.equal(route.dungeons, undefined);
   assert.equal(route.legs[0].dungeons, undefined);
 });
 
@@ -181,9 +155,3 @@ test("removing the last zone leaves no empty levels behind", () => {
   assert.deepEqual(Array.from(legs, function zoneOf(leg) { return leg.zone; }), ["Riverglades", "Tanaris"]);
 });
 
-test("the dungeon menu leaves out dungeons more than 5 levels below you", () => {
-  const { context, snapshot } = freshRoute();
-  assert.equal(context.isDungeonWorthRunning({ minLevel: 37 }, snapshot), true);
-  assert.equal(context.isDungeonWorthRunning({ minLevel: 36 }, snapshot), false);
-  assert.equal(context.isDungeonWorthRunning({ minLevel: 55 }, snapshot), true);
-});
