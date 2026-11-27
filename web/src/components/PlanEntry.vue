@@ -79,7 +79,7 @@ function remove(): void {
     </div>
     <QuestSteps v-if="quest" :quest-id="quest.questId" :quest-name="quest.name" :snapshot="snapshot" />
     <ul v-else-if="sourceLine" class="sources"><SourceLine :source="sourceLine" /></ul>
-    <div v-if="hasPrice" class="plan-entry-price">{{ priceLabel }}<MoneyAmount :copper="price" />{{ entry.priceNote }}</div>
+    <div v-if="hasPrice" class="plan-entry-price">{{ priceLabel }}<MoneyAmount :copper="price" /></div>
     <div v-if="unknownText" class="muted">{{ unknownText }}</div>
   </li>
 </template>

@@ -334,13 +334,12 @@ test("gear you already have counts as a free source; soulbound gear on alts and 
   assert.equal(head.best.availableLevel, 40);
 });
 
-test("materials you already have don't count toward a craft's cost", () => {
+test("a craft's cost counts every material at market price, even ones you have", () => {
   const { context, snapshot, state } = loadPlanner([]);
   globalThis.FOREVER_CRAFTING_ITEMS = {};
   snapshot.faction = "Horde";
   state.tsm = { prices: { 2318: tsmPrice(100, 100, 5), 2320: tsmPrice(20, 20, 5) } };
   const craft = { type: "craft", profession: "Leatherworking", recipeId: 1, reagents: [{ id: 2318, name: "Light Leather", quantity: 6 }, { id: 2320, name: "Coarse Thread", quantity: 2 }] };
-  assert.deepEqual(context.averageMaterialCost(craft, snapshot), { total: 640, missing: 0, usesOwned: false });
   state.inventory = { characters: { "Test Hero": inventoryCharacter("Test Hero", "Horde", "Normal", { bags: { 2318: 4 }, bank: { 2320: 5 } }) }, modifiedAt: 0, accountCount: 1 };
-  assert.deepEqual(context.averageMaterialCost(craft, snapshot), { total: 200, missing: 0, usesOwned: true });
+  assert.deepEqual(context.averageMaterialCost(craft, snapshot), { total: 640, missing: 0 });
 });
