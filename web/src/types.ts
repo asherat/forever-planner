@@ -131,6 +131,7 @@ export interface SpecDefinition {
   label: string;
   preset: string;
   talentTree?: string;
+  armorTypes?: string[];
 }
 
 export interface Playstyle {
