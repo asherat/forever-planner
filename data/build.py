@@ -57,6 +57,38 @@ GAME_STAT_NAMES = {
     "88": "BONUS_STAT_SHADOW_DAMAGE_DONE", "89": "BONUS_STAT_ARCANE_DAMAGE_DONE",
 }
 
+SIMULATOR_DATABASE_URL = "https://raw.githubusercontent.com/wowsims/forever/master/assets/database/db.json"
+SIMULATOR_CURRENT_PHASE = 1
+SIMULATOR_HEALING_POWER = "4"
+SIMULATOR_SPELL_DAMAGE = "5"
+SIMULATOR_ARMOR = "27"
+SIMULATOR_STAT_NAMES = {
+    "0": "STRENGTH", "1": "AGILITY", "2": "STAMINA", "3": "INTELLECT",
+    "6": "BONUS_STAT_ARCANE_DAMAGE_DONE", "7": "BONUS_STAT_FIRE_DAMAGE_DONE", "8": "BONUS_STAT_FROST_DAMAGE_DONE",
+    "9": "BONUS_STAT_HOLY_DAMAGE_DONE", "10": "BONUS_STAT_NATURE_DAMAGE_DONE", "11": "BONUS_STAT_SHADOW_DAMAGE_DONE",
+    "12": "SPELL_PENETRATION", "13": "SPIRIT", "14": "ATTACK_POWER", "15": "RANGED_ATTACK_POWER", "16": "FERAL_ATTACK_POWER",
+    "17": "HIT_RATING", "18": "CRIT_RATING", "19": "HASTE_RATING", "21": "EXPERTISE_RATING", "22": "DEFENSE_SKILL_RATING",
+    "23": "BLOCK_RATING", "24": "BLOCK_VALUE", "25": "DODGE_RATING", "26": "PARRY_RATING", "28": "EXTRA_ARMOR",
+    "31": "MANA_REGENERATION", "32": "ARCANE_RESISTANCE", "33": "FIRE_RESISTANCE", "34": "FROST_RESISTANCE",
+    "35": "NATURE_RESISTANCE", "36": "SHADOW_RESISTANCE",
+}
+SIMULATOR_QUALITIES = {1: "COMMON", 2: "UNCOMMON", 3: "RARE", 4: "EPIC", 5: "LEGENDARY"}
+SIMULATOR_ARMOR_SLOTS = {
+    1: "HEAD", 2: "NECK", 3: "SHOULDER", 4: "CLOAK", 5: "CHEST", 6: "WRIST", 7: "HAND",
+    8: "WAIST", 9: "LEGS", 10: "FEET", 11: "FINGER", 12: "TRINKET",
+}
+SIMULATOR_ARMOR_TYPES = {1: "Cloth", 2: "Leather", 3: "Mail", 4: "Plate"}
+SIMULATOR_WEAPON_TYPES = {1: "Axe", 2: "Dagger", 3: "Fist Weapon", 4: "Mace", 6: "Polearm", 8: "Staff", 9: "Sword"}
+SIMULATOR_HAND_SLOTS = {1: "WEAPONMAINHAND", 2: "WEAPON", 3: "WEAPONOFFHAND", 4: "TWOHWEAPON"}
+SIMULATOR_RANGED_TYPES = {
+    1: ("RANGED", "Weapon", "Bow"), 2: ("RANGEDRIGHT", "Weapon", "Crossbow"), 3: ("RANGEDRIGHT", "Weapon", "Gun"),
+    4: ("THROWN", "Weapon", "Thrown"), 5: ("RANGEDRIGHT", "Weapon", "Wand"), 6: ("RELIC", "Armor", "Idol"),
+    7: ("RELIC", "Armor", "Libram"), 8: ("RELIC", "Armor", "Totem"),
+}
+SIMULATOR_CLASSES = {1: "Warrior", 2: "Paladin", 3: "Hunter", 4: "Rogue", 5: "Priest", 7: "Shaman", 8: "Mage", 9: "Warlock", 11: "Druid"}
+SIMULATOR_FACTIONS = {1: "ALLIANCE", 2: "HORDE"}
+REPUTATION_TIER_NAMES = ["Hated", "Hostile", "Unfriendly", "Neutral", "Friendly", "Honored", "Revered", "Exalted"]
+
 token_lock = threading.Lock()
 access_token = None
 
@@ -633,6 +665,185 @@ def build_random_suffixes():
     return suffixes_by_item
 
 
+def simulator_database():
+    cache_file = CACHE_DIR / "wowsims" / "db.json"
+    if not cache_file.exists():
+        request = urllib.request.Request(SIMULATOR_DATABASE_URL, headers={"User-Agent": WAGO_USER_AGENT})
+        with urllib.request.urlopen(request, timeout=120) as response:
+            text = response.read().decode("utf-8")
+        cache_file.parent.mkdir(parents=True, exist_ok=True)
+        cache_file.write_text(text)
+    return json.loads(cache_file.read_text())
+
+
+def simulator_stats(raw_stats, budget=None):
+    stats = {}
+    for stat_index, value in raw_stats.items():
+        if budget is not None:
+            value = suffix_stat_value(budget, value)
+        stat_name = SIMULATOR_STAT_NAMES.get(stat_index)
+        if stat_name is not None and value:
+            stats[stat_name] = stats.get(stat_name, 0) + value
+    healing = raw_stats.get(SIMULATOR_HEALING_POWER, 0)
+    damage = raw_stats.get(SIMULATOR_SPELL_DAMAGE, 0)
+    if budget is not None:
+        healing = suffix_stat_value(budget, healing)
+        damage = suffix_stat_value(budget, damage)
+    if healing and healing == damage:
+        stats["SPELL_POWER"] = healing
+    else:
+        if healing:
+            stats["SPELL_HEALING_DONE"] = healing
+        if damage:
+            stats["SPELL_DAMAGE_DONE"] = damage
+    return stats
+
+
+def simulator_slot(item):
+    item_type = item.get("type", 0)
+    if item_type in SIMULATOR_ARMOR_SLOTS:
+        subclass = SIMULATOR_ARMOR_TYPES.get(item.get("armorType"), "Miscellaneous")
+        return SIMULATOR_ARMOR_SLOTS[item_type], "Armor", subclass
+    if item_type == 14:
+        return SIMULATOR_RANGED_TYPES.get(item.get("rangedWeaponType"))
+    if item_type != 13:
+        return None
+    weapon_type = item.get("weaponType")
+    if weapon_type == 7:
+        return "SHIELD", "Armor", "Shield"
+    if weapon_type == 5:
+        return "HOLDABLE", "Armor", "Miscellaneous"
+    if weapon_type not in SIMULATOR_WEAPON_TYPES or item.get("handType") not in SIMULATOR_HAND_SLOTS:
+        return None
+    return SIMULATOR_HAND_SLOTS[item["handType"]], "Weapon", SIMULATOR_WEAPON_TYPES[weapon_type]
+
+
+def simulator_sources(item, zone_names_by_id):
+    sources = []
+    for source in item.get("sources", []):
+        quest = source.get("quest")
+        if quest is None:
+            continue
+        record = {"type": "quest", "questId": quest["id"], "quest": quest["name"], "zone": quest_zone_name(quest, zone_names_by_id)}
+        if quest.get("faction") in SIMULATOR_FACTIONS:
+            record["faction"] = SIMULATOR_FACTIONS[quest["faction"]]
+        sources.append(record)
+    return sources
+
+
+def quest_zone_name(quest, zone_names_by_id):
+    battle_net_quest = cached_get(f"quest/{quest['id']}", f"/data/wow/quest/{quest['id']}")
+    if battle_net_quest is not None and battle_net_quest.get("area", {}).get("name"):
+        return battle_net_quest["area"]["name"]
+    return zone_names_by_id.get(quest.get("zoneId"), "")
+
+
+def simulator_reputation(item, reputation_names_by_id):
+    for source in item.get("sources", []):
+        reputation = source.get("rep")
+        if reputation is None or reputation.get("repFactionId") not in reputation_names_by_id:
+            continue
+        tier = reputation["repLevel"] - 1
+        faction = reputation_names_by_id[reputation["repFactionId"]]
+        requirement = {"factionId": reputation["repFactionId"], "tier": tier}
+        return requirement, f"Requires {faction['name']} - {REPUTATION_TIER_NAMES[tier]}", faction["side"]
+    return None, None, None
+
+
+def simulator_suffixes(item, suffixes_by_id, budget):
+    suffixes = []
+    for suffix_id in item.get("randomSuffixOptions", []):
+        suffix = suffixes_by_id.get(suffix_id)
+        if suffix is None or EXCLUDED_NAME_PATTERN.search(suffix["name"]):
+            continue
+        allocations = {}
+        for stat_index, allocation in enumerate(suffix["stats"]):
+            if allocation:
+                allocations[str(stat_index)] = allocation
+        suffixes.append({"bonusId": suffix_id, "name": suffix["name"], "stats": simulator_stats(allocations, budget)})
+    return suffixes
+
+
+def compact_simulator_item(item, zone_names_by_id, reputation_names_by_id, suffixes_by_id):
+    slot = simulator_slot(item)
+    if slot is None or item.get("phase") != SIMULATOR_CURRENT_PHASE or item.get("quality") not in SIMULATOR_QUALITIES:
+        return None
+    if EXCLUDED_NAME_PATTERN.search(item["name"]) or item.get("reqLvl", 0) > MAX_REQUIRED_LEVEL:
+        return None
+    scaling = next(iter(item["scalingOptions"].values()))
+    raw_stats = scaling.get("stats", {})
+    record = {
+        "id": item["id"],
+        "name": item["name"],
+        "quality": SIMULATOR_QUALITIES[item["quality"]],
+        "slot": slot[0],
+        "itemClass": slot[1],
+        "itemSubclass": slot[2],
+        "itemLevel": scaling.get("ilvl", 0),
+        "requiredLevel": item.get("reqLvl", 0),
+        "binding": "",
+        "armor": raw_stats.get(SIMULATOR_ARMOR, 0),
+        "stats": simulator_stats(raw_stats),
+        "effects": [],
+        "iconName": item.get("icon", ""),
+        "fromSimulator": True,
+    }
+    for effect in item.get("itemEffects", []):
+        if "proc" in effect:
+            record["effects"].append("Chance on hit: " + re.sub(r" \(\d+\)$", "", effect.get("buffName", "")))
+    if record["requiredLevel"] > 0:
+        record["usableLevel"] = record["requiredLevel"]
+    else:
+        record["usableLevel"] = min(MAX_REQUIRED_LEVEL, max(1, record["itemLevel"] - ESTIMATED_LEVEL_OFFSET))
+        record["levelEstimated"] = True
+    if "weaponDamageMin" in scaling:
+        record["weapon"] = {
+            "minimumDamage": scaling["weaponDamageMin"],
+            "maximumDamage": scaling["weaponDamageMax"],
+            "speed": item.get("weaponSpeed", 0),
+            "damagePerSecond": round(scaling.get("unroundedDps", 0), 2),
+        }
+    classes = []
+    for class_id in item.get("classAllowlist", []):
+        if class_id in SIMULATOR_CLASSES:
+            classes.append(SIMULATOR_CLASSES[class_id])
+    if classes:
+        record["classes"] = classes
+    if item.get("factionRestriction") in SIMULATOR_FACTIONS:
+        record["faction"] = SIMULATOR_FACTIONS[item["factionRestriction"]]
+    sources = simulator_sources(item, zone_names_by_id)
+    if sources:
+        record["sources"] = sources
+    requirement, requirement_text, side = simulator_reputation(item, reputation_names_by_id)
+    if requirement is not None:
+        record["reputationRequirement"] = requirement
+        record["reputation"] = requirement_text
+        if side is not None:
+            record["faction"] = side
+    suffixes = simulator_suffixes(item, suffixes_by_id, scaling.get("randPropPoints", 0))
+    if suffixes:
+        record["randomSuffixes"] = suffixes
+    return record
+
+
+def simulator_items(known_item_ids, reputation_names_by_id):
+    database = simulator_database()
+    zone_names_by_id = {}
+    for zone in database.get("zones", []):
+        zone_names_by_id[zone["id"]] = zone["name"]
+    suffixes_by_id = {}
+    for suffix in database.get("randomSuffixes", []):
+        suffixes_by_id[suffix["id"]] = suffix
+    records = []
+    for item in database["items"]:
+        if item["id"] in known_item_ids:
+            continue
+        record = compact_simulator_item(item, zone_names_by_id, reputation_names_by_id, suffixes_by_id)
+        if record is not None:
+            records.append(record)
+    return records
+
+
 def zone_names():
     area_index = cached_get("quest-area-index", "/data/wow/quest/area/index")
     names = {}
@@ -683,6 +894,11 @@ def main():
         if faction is not None:
             record["faction"] = faction
         compact_items.append(record)
+    reputation_names_by_id = {}
+    for name, faction in reputation_names().items():
+        reputation_names_by_id[int(faction["id"])] = {"name": name, "side": faction["side"]}
+    known_item_ids = set(record["id"] for record in compact_items)
+    compact_items.extend(simulator_items(known_item_ids, reputation_names_by_id))
     compact_items.sort(key=record_id)
 
     write_javascript_global("items.js", "FOREVER_ITEMS", compact_items)

@@ -1,5 +1,6 @@
 import importlib.util
 import unittest
+from unittest import mock
 from pathlib import Path
 
 BUILD_PATH = Path(__file__).resolve().parent.parent / "data" / "build.py"
@@ -108,3 +109,40 @@ class RandomSuffixTest(unittest.TestCase):
         self.assertEqual(build.item_budget({"OverallQualityID": "2", "InventoryType": "1", "ItemLevel": "45"}, budgets), 19)
         self.assertEqual(build.item_budget({"OverallQualityID": "2", "InventoryType": "3", "ItemLevel": "45"}, budgets), 14)
         self.assertEqual(build.item_budget({"OverallQualityID": "3", "InventoryType": "1", "ItemLevel": "45"}, budgets), 26)
+
+
+class SimulatorItemTest(unittest.TestCase):
+    def sample(self, **overrides):
+        item = {
+            "id": 279480, "name": "Bigger Rock on Bigger Stick", "type": 13, "weaponType": 4, "handType": 4,
+            "weaponSpeed": 3.4, "reqLvl": 1, "phase": 1, "quality": 3,
+            "sources": [{"quest": {"id": 94968, "name": "Eye of Mugg", "faction": 2, "zoneId": 16842}}],
+            "scalingOptions": {"0": {"randPropPoints": 27, "weaponDamageMin": 112, "weaponDamageMax": 168, "unroundedDps": 41.197216, "stats": {"0": 14}, "ilvl": 47}},
+            "itemEffects": [{"buffName": "Bigger Rock to the Face (1306816)", "proc": {"ppm": 1.5}}],
+        }
+        item.update(overrides)
+        return item
+
+    @mock.patch.object(build, "cached_get", return_value=None)
+    def test_converts_a_quest_weapon(self, cached_get):
+        record = build.compact_simulator_item(self.sample(), {16842: "Krol'dok Stronghold"}, {}, {})
+        self.assertEqual(record["slot"], "TWOHWEAPON")
+        self.assertEqual(record["itemSubclass"], "Mace")
+        self.assertEqual(record["stats"], {"STRENGTH": 14})
+        self.assertEqual(record["weapon"]["damagePerSecond"], 41.2)
+        self.assertEqual(record["effects"], ["Chance on hit: Bigger Rock to the Face"])
+        self.assertEqual(record["sources"], [{"type": "quest", "questId": 94968, "quest": "Eye of Mugg", "zone": "Krol'dok Stronghold", "faction": "HORDE"}])
+
+    def test_skips_items_from_later_phases(self):
+        self.assertIsNone(build.compact_simulator_item(self.sample(phase=2), {}, {}, {}))
+
+    def test_equal_healing_and_damage_is_spell_power(self):
+        self.assertEqual(build.simulator_stats({"4": 36, "5": 36}), {"SPELL_POWER": 36})
+        self.assertEqual(build.simulator_stats({"4": 22, "5": 7}), {"SPELL_HEALING_DONE": 22, "SPELL_DAMAGE_DONE": 7})
+
+    def test_reads_reputation_requirements(self):
+        item = self.sample(sources=[{"rep": {"repFactionId": 530, "repLevel": 6}}])
+        record = build.compact_simulator_item(item, {}, {530: {"name": "Darkspear Trolls", "side": "HORDE"}}, {})
+        self.assertEqual(record["reputationRequirement"], {"factionId": 530, "tier": 5})
+        self.assertEqual(record["reputation"], "Requires Darkspear Trolls - Honored")
+        self.assertEqual(record["faction"], "HORDE")
