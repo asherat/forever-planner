@@ -2,6 +2,10 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.70.0 — 2026-11-27
+
+- The quest list now leads with the quest: each entry shows the next quest to do, its level and where to pick it up, then the chain progress and any other quests you can take now. The item it rewards is a small line at the bottom.
+
 ## v0.69.0 — 2026-11-27
 
 - Behind the scenes: the page now updates itself from its data (a Vue reactive store) instead of redrawing everything after each click. This finishes the move to TypeScript and Vue. Everything works the same; a full re-rank takes about 30 ms.

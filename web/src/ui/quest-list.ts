@@ -149,3 +149,13 @@ export async function copyWaypoint(text: string): Promise<void> {
     setStatus(text, "info");
   }
 }
+
+export function savedQuestName(entry: QuestListEntry): string {
+  const item = itemById(entry.itemId);
+  for (const source of (item && item.sources) || []) {
+    if (source.type === "quest" && source.questId === entry.questId && source.quest) {
+      return source.quest as string;
+    }
+  }
+  return "Quest " + entry.questId;
+}

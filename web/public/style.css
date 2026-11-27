@@ -1662,20 +1662,39 @@ legend {
 
 .quest-entry-header {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
   font-size: 0.95rem;
 }
 
-.quest-entry-header a {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.quest-title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.quest-title .muted {
+  font-weight: 400;
 }
 
 .quest-step {
-  font-weight: 600;
+  margin-top: 4px;
+}
+
+.quest-reward {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.quest-reward a {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .quest-step-place {
