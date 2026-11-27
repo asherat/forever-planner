@@ -1,5 +1,6 @@
 import "../legacy.ts";
 import type { GuideZone } from "../types.ts";
+import { dungeonEntrance, mapZone } from "../map-popover.ts";
 
 export type MapAttributes = Record<string, string>;
 

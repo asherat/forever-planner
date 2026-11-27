@@ -5,9 +5,13 @@ import { currentPriceScope, indexRecipes, loadCraftingList } from "./crafting-pl
 import { exposeToLegacy } from "./legacy.ts";
 import { QUESTIE } from "./questie.ts";
 import { TSM } from "./tsm.ts";
-import { WOW_FOLDER } from "./wow-folder.ts";
 import { addFromLocationHash, handleHashChange } from "./ui/crafting-page.ts";
 import { refreshVue } from "./ui/render-tick.ts";
+import { readWowFolder } from "./folder-data.ts";
+import { enableMapPopovers } from "./map-popover.ts";
+import * as plannerState from "./state.ts";
+import { loadState, setStatus } from "./state.ts";
+import { WOW_FOLDER } from "./wow-folder.ts";
 
 function questieItemIds(): number[] {
   return Object.keys(window.FOREVER_CRAFTING_ITEMS).map(Number);
@@ -23,7 +27,8 @@ function handleStartupError(error: Error): void {
 
 window.TSM = TSM;
 window.QUESTIE = QUESTIE;
-window.WOW_FOLDER = WOW_FOLDER;
+exposeToLegacy(plannerState);
+exposeToLegacy({ WOW_FOLDER: WOW_FOLDER, readWowFolder: readWowFolder });
 exposeToLegacy({ currentPriceScope: currentPriceScope, questieItemIds: questieItemIds, questieQuestIds: questieQuestIds, refreshVue: refreshVue });
 enableMapPopovers();
 loadState();

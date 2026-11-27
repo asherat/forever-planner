@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import "../legacy.ts";
+import { formatMoney } from "../prices.ts";
 
 const props = defineProps<{ copper: number }>();
 

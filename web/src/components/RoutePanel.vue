@@ -9,6 +9,7 @@ import EmptyLevels from "./EmptyLevels.vue";
 import GapResolver from "./GapResolver.vue";
 import RouteLegView from "./RouteLeg.vue";
 import ZoneChoice from "./ZoneChoice.vue";
+import { selectedCharacter, state } from "../state.ts";
 
 const SUGGESTED_READY_ZONES = 4;
 const SUGGESTED_LATER_ZONES = 2;

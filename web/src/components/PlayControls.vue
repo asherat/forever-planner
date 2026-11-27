@@ -4,6 +4,7 @@ import "../legacy.ts";
 import { renderTick } from "../ui/render-tick.ts";
 import { changeGoldLimit, chooseFeralForm, chooseGearFor, choosePlaystyle, feralFormGroup, gearForGroup, goldLimitText, playstyleGroup } from "../ui/play-controls.ts";
 import ChoiceGroup from "./ChoiceGroup.vue";
+import { selectedCharacter, state } from "../state.ts";
 
 const view = computed(function controlsView() {
   renderTick.value;

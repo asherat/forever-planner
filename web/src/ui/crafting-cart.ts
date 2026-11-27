@@ -2,6 +2,7 @@ import "../legacy.ts";
 import { equippedItemIds, itemName } from "../sources.ts";
 import type { Snapshot } from "../types.ts";
 import { refreshVue } from "./render-tick.ts";
+import { STORAGE_KEYS, state, writeStorage } from "../state.ts";
 
 export interface CartEntry {
   itemId: number;

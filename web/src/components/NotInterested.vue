@@ -7,6 +7,7 @@ import { renderTick } from "../ui/render-tick.ts";
 import type { Item } from "../types.ts";
 import ItemIcon from "./ItemIcon.vue";
 import WowheadLink from "./WowheadLink.vue";
+import { selectedCharacter } from "../state.ts";
 
 interface HiddenEntry {
   key: string;

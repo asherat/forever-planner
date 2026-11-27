@@ -4,6 +4,9 @@ import { activeSpec, characterWeights, isTwoHanded, specLabel, specPreset, weapo
 import { averageMaterialCost, averagePrice, isLevelEstimated, itemUsableLevel } from "../sources.ts";
 import type { Candidate, Character, CraftSource, Item, ItemSource, SlotDefinition, Snapshot, Stats } from "../types.ts";
 import { tierColor } from "./tiers.ts";
+import { placeForSource } from "../map-popover.ts";
+import { qualityClass } from "../prices.ts";
+import { state } from "../state.ts";
 
 const CREATURE_RANKS: Record<string, string> = { 1: "elite", 2: "rare elite", 3: "boss", 4: "rare" };
 
