@@ -2,6 +2,10 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.57.0 — 2026-11-27
+
+- Behind the scenes: the character's gear slots and their hover tooltips now run on Vue. They look and work the same.
+
 ## v0.56.0 — 2026-11-27
 
 - Behind the scenes: the upgrade cards ("What to get next") now run on Vue. They look and work the same, comparison tooltips, prices and hover maps included.
