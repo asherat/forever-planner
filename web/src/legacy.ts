@@ -1,6 +1,6 @@
 import type { QUESTIE } from "./questie.ts";
 import type { TSM } from "./tsm.ts";
-import type { Character, GameRules, GuideDungeon, Item, QuestieData, ReputationRequirement, Snapshot, ZoneGuide } from "./types.ts";
+import type { Character, GameRules, GuideDungeon, Item, QuestieData, ReputationRequirement, Settings, Snapshot, ZoneGuide } from "./types.ts";
 import type { TsmPrices } from "./tsm.ts";
 
 declare global {
@@ -12,13 +12,21 @@ declare global {
     FOREVER_CRAFTING_ITEMS: Record<string, { vendorPrice?: number }>;
     FOREVER_DUNGEONS: GuideDungeon[];
     ZONE_GUIDE: ZoneGuide;
+    WOW_FOLDER: {
+      folderKey: string;
+      legacyTsmFileKey: string;
+      addonsDirectory(folder: FileSystemDirectoryHandle): Promise<FileSystemDirectoryHandle | null>;
+      storeHandle(key: string, handle: FileSystemHandle): Promise<void>;
+      forgetHandle(key: string): Promise<void>;
+    };
+    showDirectoryPicker?: (options: { id: string; mode: string }) => Promise<FileSystemDirectoryHandle>;
     start: () => void;
     startCrafting: () => void;
   }
 
   const state: {
     snapshots: Record<string, Snapshot>;
-    settings: { characters: Character[]; selectedCharacterSlug: string | null; lookaheadLevels: number; [field: string]: unknown };
+    settings: Settings;
     tsm: TsmPrices | null;
     questie: QuestieData | null;
     tooltipRequirements: Record<string, { reputations?: ReputationRequirement[] }>;
@@ -39,6 +47,17 @@ declare global {
   function mapZone(zoneName: string): unknown;
   function dungeonEntrance(dungeonName: string): { zone: string; x: number; y: number } | null;
   function render(): void;
+  function defaultSettings(): Settings;
+  const DEFAULT_LOOKAHEAD_LEVELS: number;
+  const MAX_LOOKAHEAD_LEVELS: number;
+  const REGIONS: string[];
+  function saveSnapshots(): void;
+  function characterSlug(name: string, surname: string): string;
+  function findCharacter(slug: string): Character | null;
+  function readWowFolder(askPermission: boolean): Promise<void>;
+  function questieStatusText(): string;
+  function tsmStatusText(): string;
+  function inventoryStatusText(): string;
   function qualityClass(quality: string): string;
   function iconUrlForItem(item: Item): string;
   function wowheadUrl(item: Item): string;

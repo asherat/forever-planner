@@ -34,6 +34,7 @@ Object.assign(globalThis, await import("../../web/src/route.ts"));
 Object.assign(globalThis, await import("../../web/src/sources.ts"));
 Object.assign(globalThis, await import("../../web/src/scoring.ts"));
 Object.assign(globalThis, await import("../../web/src/upgrades.ts"));
+Object.assign(globalThis, await import("../../web/src/settings.ts"));
 
 export const planner = globalThis;
 

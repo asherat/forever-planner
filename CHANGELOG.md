@@ -2,6 +2,10 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.60.0 — 2026-11-27
+
+- Behind the scenes: the Settings dialog (characters, Battle.net, WoW folder, backup) now runs on Vue. It looks and works the same.
+
 ## v0.59.0 — 2026-11-27
 
 - Behind the scenes: the crafting list now runs on Vue. It works the same; the empty list lost a few pixels of stray space.
