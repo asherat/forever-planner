@@ -2,6 +2,11 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.92.0 — 2026-11-27
+
+- Professions: a tick box chooses what to do about recipes with a cooldown (transmutes, Mooncloth). Off, as before: the plan never crafts them and buys what they make. On: it crafts them itself, and every step that has such crafts says how many and about how long the waiting adds up to ("Cooldowns: 49 crafts here have one, about 190 days of waiting in all"). "Compare professions" follows the same choice.
+- A later step only counts on an earlier step's products when enough of them were made.
+
 ## v0.91.2 — 2026-11-27
 
 - "Copy for TSM" searches by item id ("i:2318/x101;…"), which TSM's own search parser reads directly, so an item with an unusual name can't be missed.
