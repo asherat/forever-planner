@@ -1278,41 +1278,25 @@ legend {
   gap: 4px 16px;
 }
 
-.crafting-cart {
-  display: grid;
-  gap: 8px;
-  margin: 12px 0;
-  padding: 12px 16px;
+.option {
+  cursor: pointer;
 }
 
-.crafting-cart h3 {
-  margin: 0;
+.option.picked {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent);
 }
 
-#crafting-cart-content {
-  display: grid;
-  gap: 8px;
+.pick-button {
+  padding: 2px 12px;
+  font-size: 0.9rem;
 }
 
-.crafting-cart-items {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 6px;
-}
-
-.crafting-cart-row {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: 8px;
-}
-
-.crafting-cart-row a {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.pick-button[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
+  font-weight: 600;
 }
 
 .cart-remove {
@@ -1320,11 +1304,6 @@ legend {
   line-height: 1.6;
   font-size: 1rem;
   color: var(--muted);
-}
-
-.cart-quantity {
-  width: 3.6em;
-  padding: 2px 6px;
 }
 
 .button-link {
@@ -1374,15 +1353,6 @@ legend {
   font-size: 1.1rem;
 }
 
-.crafting-cart {
-  margin: 0;
-}
-
-.crafting-cart p {
-  margin: 0;
-  font-size: 0.9rem;
-}
-
 @media (max-width: 1080px) {
   .planner-layout {
     grid-template-columns: 1fr;
@@ -1412,10 +1382,6 @@ legend {
 
 .priority-part:target .option {
   border-color: var(--accent);
-}
-
-#add-crafted-button, #add-quest-upgrades-button {
-  justify-self: start;
 }
 
 .zone-dungeons {
@@ -1624,30 +1590,46 @@ legend {
   }
 }
 
-.quest-list-panel {
+.gear-plan-panel {
   display: grid;
-  gap: 8px;
+  gap: 10px;
   padding: 14px 16px;
 }
 
-.quest-list-panel h2 {
+.gear-plan-panel h2 {
   margin: 0;
 }
 
-.quest-list-panel p {
+.gear-plan-panel p {
   margin: 0;
   font-size: 0.9rem;
 }
 
-.quest-list-items {
+.plan-group {
+  display: grid;
+  gap: 6px;
+}
+
+.plan-group .button-link {
+  justify-self: start;
+  font-size: 0.95rem;
+}
+
+.plan-group-title {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--accent);
+}
+
+.plan-entries {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
-.quest-entry {
+.plan-entry {
   display: grid;
   gap: 3px;
   padding-bottom: 8px;
@@ -1655,46 +1637,35 @@ legend {
   font-size: 0.85rem;
 }
 
-.quest-entry:last-child {
+.plan-entry:last-child {
   border-bottom: none;
   padding-bottom: 0;
 }
 
-.quest-entry-header {
+.plan-entry-header {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
   font-size: 0.95rem;
 }
 
-.quest-title {
+.plan-entry-name {
   font-weight: 600;
   overflow-wrap: anywhere;
 }
 
-.quest-title .muted {
+.plan-entry-name .muted {
   font-weight: 400;
+  font-size: 0.85rem;
+}
+
+.plan-entry .sources {
+  margin: 0;
 }
 
 .quest-step {
-  margin-top: 4px;
-}
-
-.quest-reward {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
   margin-top: 2px;
-  color: var(--muted);
-  font-size: 0.8rem;
-}
-
-.quest-reward a {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .quest-step-place {
@@ -1703,10 +1674,6 @@ legend {
 
 .quest-done {
   color: var(--gain-positive);
-}
-
-.quest-off-path {
-  color: var(--gain-negative);
 }
 
 .waypoint {

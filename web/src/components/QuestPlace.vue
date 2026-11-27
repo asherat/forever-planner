@@ -4,7 +4,7 @@ import "../legacy.ts";
 import type { Place } from "../questie.ts";
 import { hasMap, mapTargetAttributes } from "../ui/map-target.ts";
 import type { MapAttributes } from "../ui/map-target.ts";
-import { copyWaypoint, waypointText } from "../ui/quest-list.ts";
+import { copyWaypoint, waypointText } from "../ui/quest-steps.ts";
 import { placeForSource } from "../map-popover.ts";
 
 const props = defineProps<{ place: Place | null }>();
