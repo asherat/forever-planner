@@ -5,7 +5,6 @@ import { cheapestCost, earliestSourceLevel, equippedItemIds, hasEasySource, hasK
 import type { BlockList, Candidate, Character, Item, PairedUpgradeOptions, RouteLeg, SlotDefinition, Snapshot, UpgradeOptions } from "./types.ts";
 import { state } from "./state.ts";
 
-const FUTURE_UPGRADE_WEIGHT = 0.5;
 const QUICKER_PASSES = ["easy-now", "easy-soon", "own-profession", "usable-now"];
 
 type RankingObserver = (candidates: Candidate[], snapshot: Snapshot) => void;
@@ -124,13 +123,6 @@ export function quickerOption(best: Candidate, candidates: Candidate[], snapshot
   return null;
 }
 
-function candidatePriority(candidate: Candidate, snapshot: Snapshot): number {
-  if (isUsableNow(candidate, snapshot)) {
-    return candidate.gain;
-  }
-  return candidate.gain * FUTURE_UPGRADE_WEIGHT;
-}
-
 function questOnlyIds(item: Item, snapshot: Snapshot): number[] | null {
   if (isBuyableOnAuctionHouse(item)) {
     return null;
@@ -206,11 +198,7 @@ export function upgradeOptions(slotDefinition: SlotDefinition, snapshot: Snapsho
   }
   const best = candidates[0];
   const quicker = quickerOption(best, candidates, snapshot);
-  let priority = candidatePriority(best, snapshot);
-  if (quicker !== null) {
-    priority = Math.max(priority, candidatePriority(quicker, snapshot));
-  }
-  return { slotDefinition: slotDefinition, best: best, quicker: quicker, priority: priority };
+  return { slotDefinition: slotDefinition, best: best, quicker: quicker, priority: best.gain };
 }
 
 export function pairedUpgradeOptions(slotDefinition: SlotDefinition, snapshot: Snapshot, character: Character): PairedUpgradeOptions {

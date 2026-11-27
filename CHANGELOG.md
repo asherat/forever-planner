@@ -2,6 +2,10 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.74.0 — 2026-11-27
+
+- "What to get next" is now ordered by the biggest improvement. Upgrades you can wear in a level or two no longer count for half, so a big helmet upgrade at your next level no longer sits below small ones.
+
 ## v0.73.0 — 2026-11-27
 
 - Physical specs only get their class's best armor type: leather for rogues and ferals, mail from level 40 for hunters and Enhancement shamans, plate from level 40 for Arms, Fury, Protection and Retribution. Casters and healers can still get lighter armor with good stats.
