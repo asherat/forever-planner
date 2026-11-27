@@ -1,12 +1,12 @@
-const test = require("node:test");
-const assert = require("node:assert/strict");
-const { loadScripts, evaluate } = require("./helpers/load");
+import test from "node:test";
+import assert from "node:assert/strict";
+import { planner, resetPlanner, run } from "./helpers/realm.mjs";
 
 function freshRoute() {
-  const context = loadScripts(["data/dungeons.js", "zone-guide.js", "route.js"]);
-  const character = { slug: "test-character" };
-  const snapshot = { level: 42, factionType: "HORDE" };
-  return { context, character, snapshot };
+  const reset = resetPlanner([]);
+  run("routeEditor.pendingGap = null;");
+  reset.snapshot.level = 42;
+  return { context: planner, character: { slug: "route-test", displayName: "Route Test" }, snapshot: reset.snapshot };
 }
 
 function zoneNames(zones) {
@@ -41,7 +41,7 @@ test("a zone that starts too late asks how to close the gap", () => {
   const { context, character, snapshot } = freshRoute();
   context.chooseZone(character, snapshot, "Riverglades");
   context.chooseZone(character, snapshot, "Burning Steppes");
-  const gap = evaluate(context, "routeEditor.pendingGap");
+  const gap = planner.routeEditor.pendingGap;
   assert.equal(gap.zone, "Burning Steppes");
   assert.equal(gap.fromLevel, 45);
   assert.equal(gap.startLevel, 50);

@@ -1,4 +1,5 @@
 import "./legacy.ts";
+import { isRouteActive, legsForSource } from "./route.ts";
 import { bestGainAnySlot, bestSuffixVariant, canUseItem, characterSpecs, characterWeights, comparisonBaseline, isTwoHanded, itemScore, slotDefinitionByKey, slotItemTypes, weightsForSpec } from "./scoring.ts";
 import { cheapestCost, earliestSourceLevel, equippedItemIds, hasEasySource, hasKnownSource, hasOwnProfessionCraft, isBuyableOnAuctionHouse, isReputationWithinReach, isWithinGoldLimit, itemDungeons, itemUsableLevel, obtainableSources, sourcesForCharacter } from "./sources.ts";
 import type { BlockList, Candidate, Character, Item, PairedUpgradeOptions, RouteLeg, SlotDefinition, Snapshot, UpgradeOptions } from "./types.ts";
