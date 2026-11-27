@@ -14,6 +14,7 @@ export interface PlanPick {
 export type PlanKind = "quest" | "drop" | "vendor" | "craft" | "auction" | "unknown";
 
 export interface PlanEntry {
+  key: string;
   slotKey: string;
   slotLabel: string;
   item: Item;
@@ -32,21 +33,48 @@ interface Placement {
   key: string;
   title: string;
   order: number;
+  sortName: string;
   kind: PlanKind;
   source: ItemSource | null;
 }
 
-const ROUTE_ORDER = 0;
-const ELSEWHERE_ORDER = 1000;
-const BUY_ORDER = 2000;
-const CRAFT_ORDER = 3000;
+const CRAFT_ORDER = 0;
+const ROUTE_ORDER = 1000;
+const ELSEWHERE_ORDER = 2000;
+const BUY_ORDER = 3000;
 const OTHER_ORDER = 4000;
+const DUNGEON_AFTER_ZONE = 0.5;
 
-export function characterPlan(character: Character): Record<string, PlanPick> {
+type StoredPlan = Record<string, PlanPick[] | PlanPick>;
+
+export function characterPlan(character: Character): Record<string, PlanPick[]> {
   if (!character.plan) {
     character.plan = {};
   }
-  return character.plan as Record<string, PlanPick>;
+  return character.plan as Record<string, PlanPick[]>;
+}
+
+export function slotPicks(plan: StoredPlan, slotKey: string): PlanPick[] {
+  const picks = plan[slotKey];
+  if (!picks) {
+    return [];
+  }
+  if (Array.isArray(picks)) {
+    return picks;
+  }
+  return [picks];
+}
+
+function entryKey(slotKey: string, item: Item): string {
+  let suffixName = "";
+  if (item.suffix) {
+    suffixName = item.suffix.name;
+  }
+  return slotKey + ":" + item.id + ":" + suffixName;
+}
+
+function isSamePick(pick: PlanPick, item: Item): boolean {
+  return pick.itemId === item.id && (pick.suffixName || "") === ((item.suffix && item.suffix.name) || "");
 }
 
 function pickOf(item: Item): PlanPick {
@@ -57,11 +85,23 @@ function pickOf(item: Item): PlanPick {
 }
 
 export function isPicked(character: Character, slotKey: string, item: Item): boolean {
-  const pick = characterPlan(character)[slotKey];
-  if (!pick || pick.itemId !== item.id) {
-    return false;
+  return slotPicks(characterPlan(character), slotKey).some(function matches(pick) {
+    return isSamePick(pick, item);
+  });
+}
+
+function setSlotPicks(plan: Record<string, PlanPick[]>, slotKey: string, picks: PlanPick[]): void {
+  if (picks.length === 0) {
+    delete plan[slotKey];
+  } else {
+    plan[slotKey] = picks;
   }
-  return (pick.suffixName || "") === ((item.suffix && item.suffix.name) || "");
+}
+
+function withoutItem(picks: PlanPick[], item: Item): PlanPick[] {
+  return picks.filter(function isOther(pick) {
+    return !isSamePick(pick, item);
+  });
 }
 
 export function togglePick(slotKey: string, item: Item): void {
@@ -70,20 +110,22 @@ export function togglePick(slotKey: string, item: Item): void {
     return;
   }
   const plan = characterPlan(character);
+  const picks = slotPicks(plan, slotKey);
   if (isPicked(character, slotKey, item)) {
-    delete plan[slotKey];
+    setSlotPicks(plan, slotKey, withoutItem(picks, item));
   } else {
-    plan[slotKey] = pickOf(item);
+    setSlotPicks(plan, slotKey, picks.concat([pickOf(item)]));
   }
   saveSettings();
 }
 
-export function removePick(slotKey: string): void {
+export function removePick(slotKey: string, item: Item): void {
   const character = selectedCharacter();
   if (character === null) {
     return;
   }
-  delete characterPlan(character)[slotKey];
+  const plan = characterPlan(character);
+  setSlotPicks(plan, slotKey, withoutItem(slotPicks(plan, slotKey), item));
   saveSettings();
 }
 
@@ -147,22 +189,59 @@ function routePlacement(item: Item, snapshot: Snapshot, character: Character, so
     key: "route:" + leg.zone + ":" + leg.fromLevel,
     title: leg.zone + " (" + leg.fromLevel + "–" + leg.toLevel + ")",
     order: ROUTE_ORDER + routeLegIndex(character, snapshot, leg),
+    sortName: leg.zone as string,
     kind: source.type as PlanKind,
     source: source
   };
 }
 
-function freePlacement(sources: ItemSource[]): Placement | null {
+function zoneOfDungeon(dungeonName: string): string | null {
+  for (const zone of window.ZONE_GUIDE.zones) {
+    for (const dungeon of zone.dungeons || []) {
+      if (dungeon.name === dungeonName) {
+        return zone.name;
+      }
+    }
+  }
+  return null;
+}
+
+function routeLegOfZone(character: Character, snapshot: Snapshot, zoneName: string): RouteLeg | null {
+  if (!isRouteActive(character)) {
+    return null;
+  }
+  for (const leg of routeLegs(character, snapshot)) {
+    if (leg.zone === zoneName) {
+      return leg;
+    }
+  }
+  return null;
+}
+
+function dungeonPlacement(dungeonName: string, source: ItemSource, snapshot: Snapshot, character: Character): Placement {
+  const zoneName = zoneOfDungeon(dungeonName);
+  const key = "dungeon:" + dungeonName;
+  if (zoneName === null) {
+    return { key: key, title: dungeonName + " (dungeon)", order: ELSEWHERE_ORDER, sortName: dungeonName, kind: source.type as PlanKind, source: source };
+  }
+  const title = dungeonName + " (dungeon in " + zoneName + ")";
+  const leg = routeLegOfZone(character, snapshot, zoneName);
+  if (leg === null) {
+    return { key: key, title: title, order: ELSEWHERE_ORDER, sortName: zoneName + " ~" + dungeonName, kind: source.type as PlanKind, source: source };
+  }
+  return { key: key, title: title, order: ROUTE_ORDER + routeLegIndex(character, snapshot, leg) + DUNGEON_AFTER_ZONE, sortName: title, kind: source.type as PlanKind, source: source };
+}
+
+function freePlacement(sources: ItemSource[], snapshot: Snapshot, character: Character): Placement | null {
   const source = firstOfType(sources, "quest") || firstOfType(sources, "drop");
   if (source === null || !source.zone) {
     return null;
   }
   const dungeon = dungeonForArea(source.zone);
-  let title = source.zone;
   if (dungeon !== null) {
-    title = dungeon.name + " (dungeon)";
+    return dungeonPlacement(dungeon.name, source, snapshot, character);
   }
-  return { key: "place:" + title, title: title, order: ELSEWHERE_ORDER, kind: source.type as PlanKind, source: source };
+  return { key: "place:" + source.zone, title: source.zone, order: ELSEWHERE_ORDER, sortName: source.zone, kind: source.type as PlanKind, source: source };
 }
 
 function placement(item: Item, snapshot: Snapshot, character: Character): Placement {
@@ -171,22 +250,22 @@ function placement(item: Item, snapshot: Snapshot, character: Character): Placem
   if (onRoute !== null) {
     return onRoute;
   }
-  const free = freePlacement(sources);
+  const free = freePlacement(sources, snapshot, character);
   if (free !== null) {
     return free;
   }
   const vendor = firstOfType(sources, "vendor");
   if (vendor !== null) {
-    return { key: "buy", title: "Buy", order: BUY_ORDER, kind: "vendor", source: vendor };
+    return { key: "buy", title: "Buy", order: BUY_ORDER, sortName: "Buy", kind: "vendor", source: vendor };
   }
   const craft = firstCraftSource(sources);
   if (craft !== null) {
-    return { key: "craft", title: "Craft", order: CRAFT_ORDER, kind: "craft", source: craft };
+    return { key: "craft", title: "Craft", order: CRAFT_ORDER, sortName: "Craft", kind: "craft", source: craft };
   }
   if (isBuyableOnAuctionHouse(item)) {
-    return { key: "buy", title: "Buy", order: BUY_ORDER, kind: "auction", source: null };
+    return { key: "buy", title: "Buy", order: BUY_ORDER, sortName: "Buy", kind: "auction", source: null };
   }
-  return { key: "other", title: "Other", order: OTHER_ORDER, kind: "unknown", source: null };
+  return { key: "other", title: "Other", order: OTHER_ORDER, sortName: "Other", kind: "unknown", source: null };
 }
 
 function entryPrice(kind: PlanKind, item: Item, source: ItemSource | null, snapshot: Snapshot): number | null {
@@ -205,26 +284,33 @@ function entryPrice(kind: PlanKind, item: Item, source: ItemSource | null, snaps
   return null;
 }
 
-function compareGroups(first: PlanGroup & { order: number }, second: PlanGroup & { order: number }): number {
+type SortedGroup = PlanGroup & { order: number; sortName: string };
+
+function compareGroups(first: SortedGroup, second: SortedGroup): number {
   if (first.order !== second.order) {
     return first.order - second.order;
   }
-  return first.title.localeCompare(second.title);
+  return first.sortName.localeCompare(second.sortName);
 }
 
 export function planGroups(character: Character, snapshot: Snapshot): PlanGroup[] {
-  const groups = new Map<string, PlanGroup & { order: number }>();
+  const groups = new Map<string, SortedGroup>();
   const plan = characterPlan(character);
   for (const slotKey of Object.keys(plan)) {
-    const item = pickedItem(plan[slotKey]);
     const slotDefinition = slotDefinitionByKey(slotKey);
-    if (item === null || slotDefinition === null) {
+    if (slotDefinition === null) {
       continue;
     }
-    const place = placement(item, snapshot, character);
-    const group = groups.get(place.key) || { key: place.key, title: place.title, order: place.order, entries: [] };
-    group.entries.push({ slotKey: slotKey, slotLabel: slotDefinition.label, item: item, kind: place.kind, source: place.source, price: entryPrice(place.kind, item, place.source, snapshot) });
-    groups.set(place.key, group);
+    for (const pick of slotPicks(plan, slotKey)) {
+      const item = pickedItem(pick);
+      if (item === null) {
+        continue;
+      }
+      const place = placement(item, snapshot, character);
+      const group = groups.get(place.key) || { key: place.key, title: place.title, order: place.order, sortName: place.sortName, entries: [] };
+      group.entries.push({ key: entryKey(slotKey, item), slotKey: slotKey, slotLabel: slotDefinition.label, item: item, kind: place.kind, source: place.source, price: entryPrice(place.kind, item, place.source, snapshot) });
+      groups.set(place.key, group);
+    }
   }
   return Array.from(groups.values()).sort(compareGroups);
 }
@@ -261,21 +347,24 @@ export function pruneGearPlan(character: Character, snapshot: Snapshot): string[
   const equipped = equippedItemIds(snapshot);
   const removedNames: string[] = [];
   for (const slotKey of Object.keys(plan)) {
-    const item = pickedItem(plan[slotKey]);
-    if (item === null || equipped.has(item.id) || !isStillAnUpgrade(slotKey, item, character, snapshot)) {
-      if (item !== null) {
+    const kept: PlanPick[] = [];
+    for (const pick of slotPicks(plan, slotKey)) {
+      const item = pickedItem(pick);
+      if (item !== null && !equipped.has(item.id) && isStillAnUpgrade(slotKey, item, character, snapshot)) {
+        kept.push(pick);
+      } else if (item !== null) {
         removedNames.push(item.name);
       }
-      delete plan[slotKey];
     }
+    setSlotPicks(plan, slotKey, kept);
   }
   saveSettings();
   return removedNames;
 }
 
-function freeSlotFor(item: Item, plan: Record<string, PlanPick>, snapshot: Snapshot): string | null {
+function slotFor(item: Item, snapshot: Snapshot): string | null {
   for (const slotDefinition of window.GAME_RULES.equipmentSlots) {
-    if (!slotDefinition.cosmetic && !plan[slotDefinition.key] && slotItemTypes(slotDefinition, snapshot).indexOf(item.slot) !== -1) {
+    if (!slotDefinition.cosmetic && slotItemTypes(slotDefinition, snapshot).indexOf(item.slot) !== -1) {
       return slotDefinition.key;
     }
   }
@@ -289,17 +378,30 @@ function addOldEntries(character: Character, snapshot: Snapshot, itemIds: number
     if (item === null) {
       continue;
     }
-    const slotKey = freeSlotFor(item, plan, snapshot);
-    if (slotKey !== null) {
-      plan[slotKey] = { itemId: itemId };
+    const slotKey = slotFor(item, snapshot);
+    if (slotKey !== null && !isPicked(character, slotKey, item)) {
+      setSlotPicks(plan, slotKey, slotPicks(plan, slotKey).concat([{ itemId: itemId }]));
     }
   }
+}
+
+function listEveryPlanSlot(character: Character): boolean {
+  const plan = (character.plan || {}) as StoredPlan;
+  let changed = false;
+  for (const slotKey of Object.keys(plan)) {
+    if (!Array.isArray(plan[slotKey])) {
+      plan[slotKey] = slotPicks(plan, slotKey);
+      changed = true;
+    }
+  }
+  return changed;
 }
 
 export function moveOldListsIntoPlans(): void {
   let changed = false;
   const cart = readStorage<{ itemId: number }[]>(STORAGE_KEYS.craftingCart, []);
   for (const character of state.settings.characters) {
+    changed = listEveryPlanSlot(character) || changed;
     const snapshot = state.snapshots[character.slug];
     const questList = (character.questList || []) as { itemId: number }[];
     if (character.plan || !snapshot) {

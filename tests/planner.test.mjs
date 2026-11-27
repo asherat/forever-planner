@@ -252,7 +252,7 @@ test("slots are ordered by their biggest improvement, even if it needs a level o
   assert.deepEqual([feet, head].sort(context.compareUpgradeOptions).map(function slotOf(options) { return options.slotDefinition.key; }), ["HEAD", "FEET"]);
 });
 
-test("upgrades under 1% of the whole gear's worth are not suggested", () => {
+test("upgrades under 2% of the whole gear's worth are not suggested", () => {
   const quest = function questSource(questId) { return [{ type: "quest", questId: questId, quest: "Quest " + questId, zone: "Stranglethorn Vale" }]; };
   const tinyLegs = sampleItem({ id: 110, name: "Tiny Legs", slot: "LEGS", stats: { AGILITY: 11 }, sources: quest(990) });
   const realLegs = sampleItem({ id: 111, name: "Real Legs", slot: "LEGS", stats: { AGILITY: 13 }, sources: quest(991) });
@@ -262,16 +262,17 @@ test("upgrades under 1% of the whole gear's worth are not suggested", () => {
   const weights = context.characterWeights(character);
   const whole = context.gearScore(snapshot, weights);
   assert.equal(whole, context.itemScore(snapshot.equipment.MAIN_HAND, weights, "MAIN_HAND") + context.itemScore(snapshot.equipment.LEGS, weights, "LEGS"));
-  assert.equal(context.isWorthwhileGain(whole * 0.009, snapshot, weights), false);
-  assert.equal(context.isWorthwhileGain(whole * 0.011, snapshot, weights), true);
+  assert.equal(context.isWorthwhileGain(whole * 0.019, snapshot, weights), false);
+  assert.equal(context.isWorthwhileGain(whole * 0.021, snapshot, weights), true);
   const names = context.rankedCandidatesForSlot(context.slotDefinitionByKey("LEGS"), snapshot, character).map(function nameOf(candidate) { return candidate.item.name; });
   assert.deepEqual(names, ["Real Legs"]);
   assert.equal(context.isUpgradeForAnySpec(tinyLegs, character, snapshot), false);
 });
 
 test("a small upgrade still shows when it is free in a zone on your leveling path", () => {
-  const pendant = sampleItem({ id: 120, name: "Corrupted Riverglades Pendant", slot: "NECK", itemSubclass: "Miscellaneous", requiredLevel: 36, usableLevel: 36, stats: { AGILITY: 1 }, sources: [{ type: "drop", npcId: 7, npc: "Mad Marrius", zone: "Stranglethorn Vale" }] });
-  const { context, character, snapshot } = loadPlanner([pendant]);
+  const pendant = sampleItem({ id: 120, name: "Corrupted Riverglades Pendant", slot: "NECK", itemSubclass: "Miscellaneous", requiredLevel: 36, usableLevel: 36, stats: { AGILITY: 3 }, sources: [{ type: "drop", npcId: 7, npc: "Mad Marrius", zone: "Stranglethorn Vale" }] });
+  const tinyCharm = sampleItem({ id: 122, name: "Tiny Charm", slot: "NECK", itemSubclass: "Miscellaneous", requiredLevel: 36, usableLevel: 36, stats: { AGILITY: 1 }, sources: [{ type: "drop", npcId: 8, npc: "Small Rare", zone: "Stranglethorn Vale" }] });
+  const { context, character, snapshot } = loadPlanner([pendant, tinyCharm]);
   snapshot.equipment.MAIN_HAND = sampleItem({ id: 121, slot: "TWOHWEAPON", itemClass: "Weapon", itemSubclass: "Mace", stats: { STRENGTH: 300 } });
   const neck = context.slotDefinitionByKey("NECK");
   const names = function candidateNames() {
@@ -282,12 +283,13 @@ test("a small upgrade still shows when it is free in a zone on your leveling pat
   character.route = { startLevel: 43, legs: [{ zone: "Stranglethorn Vale", toLevel: 45 }] };
   assert.deepEqual(names(), ["Corrupted Riverglades Pendant"]);
   assert.equal(context.isUpgradeForAnySpec(pendant, character, snapshot), true);
+  assert.equal(context.isUpgradeForAnySpec(tinyCharm, character, snapshot), false);
   character.route = { startLevel: 43, legs: [{ zone: "Tanaris", toLevel: 48 }] };
   assert.deepEqual(names(), []);
 });
 
 test("a free upgrade on your leveling path shows as 'On your way' when the other picks aren't", () => {
-  const pendant = sampleItem({ id: 130, name: "Path Pendant", slot: "NECK", itemSubclass: "Miscellaneous", requiredLevel: 36, usableLevel: 36, stats: { AGILITY: 1 }, sources: [{ type: "drop", npcId: 7, npc: "Mad Marrius", zone: "Stranglethorn Vale" }] });
+  const pendant = sampleItem({ id: 130, name: "Path Pendant", slot: "NECK", itemSubclass: "Miscellaneous", requiredLevel: 36, usableLevel: 36, stats: { AGILITY: 3 }, sources: [{ type: "drop", npcId: 7, npc: "Mad Marrius", zone: "Stranglethorn Vale" }] });
   const bigPendant = sampleItem({ id: 131, name: "Big Pendant", slot: "NECK", itemSubclass: "Miscellaneous", requiredLevel: 40, usableLevel: 40, stats: { AGILITY: 20 }, sources: [] });
   const { context, character, snapshot, state } = loadPlanner([pendant, bigPendant]);
   state.tsm = { prices: { 131: tsmPrice(50000, 50000, 3) } };

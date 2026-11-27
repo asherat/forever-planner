@@ -83,14 +83,14 @@ const routeCredit = window.ZONE_GUIDE.credit;
     </div>
 
     <aside id="planner-sidebar" class="planner-sidebar" :hidden="isWaiting">
-      <section id="gear-plan-panel" class="gear-plan-panel panel" aria-labelledby="gear-plan-title">
-        <h2 id="gear-plan-title">Your gear plan</h2>
-        <div id="gear-plan"><GearPlan /></div>
-      </section>
       <section id="route-panel" class="route-panel panel" aria-labelledby="route-title">
         <h2 id="route-title">Leveling path</h2>
         <div id="route-content"><RoutePanel /></div>
         <p id="route-credit" class="muted route-credit">{{ routeCredit }}</p>
+      </section>
+      <section id="gear-plan-panel" class="gear-plan-panel panel" aria-labelledby="gear-plan-title">
+        <h2 id="gear-plan-title">Your gear plan</h2>
+        <div id="gear-plan"><GearPlan /></div>
       </section>
     </aside>
   </div>

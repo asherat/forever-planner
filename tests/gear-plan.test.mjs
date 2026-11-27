@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { planner, resetPlanner } from "./helpers/realm.mjs";
-import { characterPlan, isPicked, moveOldListsIntoPlans, planGroups, pruneGearPlan, togglePick } from "../web/src/ui/gear-plan.ts";
+import { characterPlan, isPicked, moveOldListsIntoPlans, planGroups, pruneGearPlan, removePick, togglePick } from "../web/src/ui/gear-plan.ts";
 
 function sampleItem(overrides) {
   return Object.assign({
@@ -10,17 +10,28 @@ function sampleItem(overrides) {
   }, overrides);
 }
 
-test("clicking a card picks it, clicking again unpicks it, and one pick per slot", () => {
+test("clicking a card picks it, clicking again unpicks it, and a slot can hold several picks", () => {
   const helm = sampleItem({ id: 1, name: "Helm A" });
   const otherHelm = sampleItem({ id: 2, name: "Helm B" });
-  const { character } = resetPlanner([helm, otherHelm]);
+  const { character, snapshot } = resetPlanner([helm, otherHelm]);
   togglePick("HEAD", helm);
-  assert.equal(isPicked(character, "HEAD", helm), true);
   togglePick("HEAD", otherHelm);
+  assert.equal(isPicked(character, "HEAD", helm), true);
+  assert.equal(isPicked(character, "HEAD", otherHelm), true);
+  assert.equal(planGroups(character, snapshot).flatMap(function entriesOf(group) { return group.entries; }).length, 2);
+  togglePick("HEAD", helm);
   assert.equal(isPicked(character, "HEAD", helm), false);
   assert.equal(isPicked(character, "HEAD", otherHelm), true);
-  togglePick("HEAD", otherHelm);
+  removePick("HEAD", otherHelm);
   assert.deepEqual(Object.keys(characterPlan(character)), []);
+});
+
+test("a plan saved with one pick per slot is read as lists", () => {
+  const helm = sampleItem({ id: 4, name: "Old Helm" });
+  const { character } = resetPlanner([helm], { plan: { HEAD: { itemId: 4 } } });
+  assert.equal(isPicked(character, "HEAD", helm), true);
+  moveOldListsIntoPlans();
+  assert.deepEqual(characterPlan(character).HEAD, [{ itemId: 4 }]);
 });
 
 test("a random-suffix pick remembers its suffix", () => {
@@ -33,26 +44,27 @@ test("a random-suffix pick remembers its suffix", () => {
   assert.equal(planGroups(character, snapshot)[0].entries[0].item.name, "Wild Cloak of the Tiger");
 });
 
-test("the plan is grouped by where: path zones in order, then elsewhere, buy and craft", () => {
+test("the plan is grouped by where: crafts first, path zones in order with their dungeons, then elsewhere and buy", () => {
   const items = [
     sampleItem({ id: 10, name: "Tanaris Helm", slot: "HEAD", sources: [{ type: "quest", questId: 100, quest: "Desert Quest", zone: "Tanaris" }] }),
     sampleItem({ id: 11, name: "Vale Boots", slot: "FEET", sources: [{ type: "drop", npcId: 5, npc: "Named Raptor", zone: "Stranglethorn Vale" }] }),
     sampleItem({ id: 12, name: "Far Belt", slot: "WAIST", sources: [{ type: "quest", questId: 101, quest: "Far Quest", zone: "Desolace" }] }),
     sampleItem({ id: 13, name: "Vendor Gloves", slot: "HAND", sources: [{ type: "vendor", npcId: 6, npc: "Trader", zone: "Orgrimmar", price: 5000 }] }),
-    sampleItem({ id: 14, name: "Crafted Bracers", slot: "WRIST", sources: [{ type: "craft", profession: "Leatherworking", recipeId: 1, reagents: [] }] })
+    sampleItem({ id: 14, name: "Crafted Bracers", slot: "WRIST", sources: [{ type: "craft", profession: "Leatherworking", recipeId: 1, reagents: [] }] }),
+    sampleItem({ id: 15, name: "Troll Ring", slot: "FINGER", itemSubclass: "Miscellaneous", sources: [{ type: "drop", npcId: 9, npc: "Troll Boss", zone: "Zul'Farrak" }] })
   ];
   const { character, snapshot } = resetPlanner(items, { route: { startLevel: 40, legs: [{ zone: "Stranglethorn Vale", toLevel: 44 }, { zone: "Tanaris", toLevel: 48 }] } });
   snapshot.level = 40;
-  for (const [slotKey, item] of [["HEAD", items[0]], ["FEET", items[1]], ["WAIST", items[2]], ["HANDS", items[3]], ["WRIST", items[4]]]) {
+  for (const [slotKey, item] of [["HEAD", items[0]], ["FEET", items[1]], ["WAIST", items[2]], ["HANDS", items[3]], ["WRIST", items[4]], ["FINGER_1", items[5]]]) {
     togglePick(slotKey, item);
   }
   const groups = planGroups(character, snapshot);
-  assert.deepEqual(groups.map(function titleOf(group) { return group.title; }), ["Stranglethorn Vale (40–44)", "Tanaris (44–48)", "Desolace", "Buy", "Craft"]);
-  assert.equal(groups[0].entries[0].kind, "drop");
-  assert.equal(groups[1].entries[0].kind, "quest");
-  assert.equal(groups[3].entries[0].kind, "vendor");
-  assert.equal(groups[3].entries[0].price, 5000);
-  assert.equal(groups[4].entries[0].kind, "craft");
+  assert.deepEqual(groups.map(function titleOf(group) { return group.title; }), ["Craft", "Stranglethorn Vale (40–44)", "Tanaris (44–48)", "Zul'Farrak (dungeon in Tanaris)", "Desolace", "Buy"]);
+  assert.equal(groups[0].entries[0].kind, "craft");
+  assert.equal(groups[1].entries[0].kind, "drop");
+  assert.equal(groups[2].entries[0].kind, "quest");
+  assert.equal(groups[5].entries[0].kind, "vendor");
+  assert.equal(groups[5].entries[0].price, 5000);
 });
 
 test("Refresh drops picks you equipped or outgrew", () => {
@@ -77,7 +89,7 @@ test("the old quest list and crafting list become picks once", () => {
   localStorage.setItem("foreverPlanner.craftingCart", JSON.stringify([{ itemId: 31, quantity: 1 }]));
   moveOldListsIntoPlans();
   const plan = characterPlan(character);
-  assert.deepEqual(Object.values(plan).map(function idOf(pick) { return pick.itemId; }).sort(), [30, 31]);
+  assert.deepEqual(Object.values(plan).flat().map(function idOf(pick) { return pick.itemId; }).sort(), [30, 31]);
   assert.equal(character.questList, undefined);
   moveOldListsIntoPlans();
   assert.equal(Object.keys(plan).length, 2);

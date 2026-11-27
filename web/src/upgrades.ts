@@ -1,6 +1,6 @@
 import "./legacy.ts";
 import { isRouteActive, legsForSource } from "./route.ts";
-import { activeSpec, bestGainAnySlot, bestSuffixVariant, canUseItem, characterSpecs, characterWeights, comparisonBaseline, isTwoHanded, isWorthwhileGain, itemScore, slotDefinitionByKey, slotItemTypes, suitsSpec, weightsForSpec } from "./scoring.ts";
+import { activeSpec, bestGainAnySlot, bestSuffixVariant, canUseItem, characterSpecs, characterWeights, comparisonBaseline, FREE_ON_PATH_GEAR_SHARE, hasGearShare, isTwoHanded, isWorthwhileGain, itemScore, slotDefinitionByKey, slotItemTypes, suitsSpec, weightsForSpec } from "./scoring.ts";
 import { cheapestCost, earliestSourceLevel, equippedItemIds, hasEasySource, hasKnownSource, hasOwnProfessionCraft, isBuyableOnAuctionHouse, isReputationWithinReach, isWithinGoldLimit, itemDungeons, itemUsableLevel, obtainableSources, sourcesForCharacter } from "./sources.ts";
 import type { BlockList, Candidate, Character, Item, ItemSource, PairedUpgradeOptions, RouteLeg, SlotDefinition, Snapshot, UpgradeOptions } from "./types.ts";
 import { state } from "./state.ts";
@@ -87,7 +87,7 @@ export function rankedCandidatesForSlot(slotDefinition: SlotDefinition, snapshot
     if (gain <= 0 || !hasKnownSource(variant, snapshot) || !isWithinGoldLimit(cheapestCost(variant, snapshot))) {
       continue;
     }
-    if (!isWorthwhileGain(gain, snapshot, weights) && !(routeActive && isFreeOnRoute(variant, snapshot, character))) {
+    if (!isWorthwhileGain(gain, snapshot, weights) && !(routeActive && hasGearShare(gain, snapshot, weights, FREE_ON_PATH_GEAR_SHARE) && isFreeOnRoute(variant, snapshot, character))) {
       continue;
     }
     let availableLevel = Math.max(itemUsableLevel(item, snapshot), earliestSourceLevel(variant, snapshot));
@@ -269,7 +269,7 @@ export function isUpgradeForAnySpec(item: Item, character: Character, snapshot: 
   for (const specKey of characterSpecs(character, snapshot)) {
     const weights = weightsForSpec(character, specKey);
     const gain = bestGainAnySlot(item, snapshot, weights);
-    const counts = isWorthwhileGain(gain, snapshot, weights) || (gain > 0 && isRouteActive(character) && isFreeOnRoute(item, snapshot, character));
+    const counts = isWorthwhileGain(gain, snapshot, weights) || (isRouteActive(character) && hasGearShare(gain, snapshot, weights, FREE_ON_PATH_GEAR_SHARE) && isFreeOnRoute(item, snapshot, character));
     if (suitsSpec(item, specKey, snapshot) && counts) {
       return true;
     }
