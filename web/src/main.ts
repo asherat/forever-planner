@@ -9,6 +9,7 @@ import * as scoring from "./scoring.ts";
 import * as settings from "./settings.ts";
 import * as sources from "./sources.ts";
 import { TSM } from "./tsm.ts";
+import { WOW_FOLDER } from "./wow-folder.ts";
 import * as notInterested from "./ui/not-interested.ts";
 import * as questList from "./ui/quest-list.ts";
 import * as upgradePicks from "./ui/upgrade-picks.ts";
@@ -18,6 +19,7 @@ import * as upgrades from "./upgrades.ts";
 
 window.TSM = TSM;
 window.QUESTIE = QUESTIE;
+window.WOW_FOLDER = WOW_FOLDER;
 exposeToLegacy(scoring);
 exposeToLegacy(sources);
 exposeToLegacy(upgrades);
