@@ -1138,7 +1138,6 @@ function render() {
 
   document.getElementById("lookahead-label").textContent = String(state.settings.lookaheadLevels);
   renderPlayControls(character, snapshot);
-  renderRoutePanel(character, snapshot);
   document.getElementById("route-credit").textContent = window.ZONE_GUIDE.credit;
   allOptions.sort(compareUpgradeOptions);
   const priorityList = document.getElementById("priority-list");
@@ -1834,14 +1833,12 @@ function bindEvents() {
   document.getElementById("priority-list").addEventListener("click", handlePriorityListClick);
   document.getElementById("character-list").addEventListener("click", handleCharacterListClick);
   document.getElementById("play-controls").addEventListener("change", handlePlayControlsChange);
-  document.getElementById("route-panel").addEventListener("click", handleRouteClick);
   document.getElementById("found-characters").addEventListener("click", handleFoundCharacterClick);
   document.querySelector(".settings-tabs").addEventListener("click", handleSettingsTabClick);
   document.getElementById("quest-list-panel").addEventListener("click", handleQuestListClick);
   document.getElementById("settings-form").addEventListener("keydown", handleSettingsKeydown);
   document.getElementById("crafting-cart").addEventListener("click", handleCartClick);
   document.getElementById("crafting-cart").addEventListener("change", handleCartChange);
-  document.getElementById("route-panel").addEventListener("change", handleRouteChange);
 }
 
 function handleTsmStartupError(error) {

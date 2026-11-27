@@ -1,5 +1,6 @@
 import { createApp } from "vue";
 import NotInterested from "./components/NotInterested.vue";
+import RoutePanel from "./components/RoutePanel.vue";
 import UndoNotice from "./components/UndoNotice.vue";
 import { exposeToLegacy } from "./legacy.ts";
 import { QUESTIE } from "./questie.ts";
@@ -9,6 +10,7 @@ import * as sources from "./sources.ts";
 import { TSM } from "./tsm.ts";
 import * as notInterested from "./ui/not-interested.ts";
 import { refreshVue } from "./ui/render-tick.ts";
+import { TIER_COLORS } from "./ui/tiers.ts";
 import * as upgrades from "./upgrades.ts";
 
 window.TSM = TSM;
@@ -18,7 +20,8 @@ exposeToLegacy(sources);
 exposeToLegacy(upgrades);
 exposeToLegacy(route);
 exposeToLegacy(notInterested);
-exposeToLegacy({ refreshVue: refreshVue });
+exposeToLegacy({ refreshVue: refreshVue, TIER_COLORS: TIER_COLORS });
 window.start();
 createApp(UndoNotice).mount("#undo-notice");
 createApp(NotInterested).mount("#not-interested");
+createApp(RoutePanel).mount("#route-content");
