@@ -46,6 +46,7 @@ const single = computed(function singleView() {
       <div class="option-row">
         <UpgradeCard label="Best upgrade" :candidate="part.options.best" :character="character" :snapshot="snapshot" :slot-definition="part.options.slotDefinition" />
         <UpgradeCard v-if="part.options.quicker" label="Quicker option" :candidate="part.options.quicker" :character="character" :snapshot="snapshot" :slot-definition="part.options.slotDefinition" />
+        <UpgradeCard v-if="part.options.onTheWay" label="On your way" :candidate="part.options.onTheWay" :character="character" :snapshot="snapshot" :slot-definition="part.options.slotDefinition" />
       </div>
     </div>
   </li>
@@ -57,6 +58,7 @@ const single = computed(function singleView() {
     <div class="option-row">
       <UpgradeCard label="Best upgrade" :candidate="single.options.best" :character="character" :snapshot="snapshot" :slot-definition="single.options.slotDefinition" />
       <UpgradeCard v-if="single.options.quicker" label="Quicker option" :candidate="single.options.quicker" :character="character" :snapshot="snapshot" :slot-definition="single.options.slotDefinition" />
+      <UpgradeCard v-if="single.options.onTheWay" label="On your way" :candidate="single.options.onTheWay" :character="character" :snapshot="snapshot" :slot-definition="single.options.slotDefinition" />
     </div>
   </li>
 </template>

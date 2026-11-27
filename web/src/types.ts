@@ -235,6 +235,7 @@ export interface UpgradeOptions {
   slotDefinition: SlotDefinition;
   best: Candidate;
   quicker: Candidate | null;
+  onTheWay: Candidate | null;
   priority: number;
 }
 
