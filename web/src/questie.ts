@@ -36,6 +36,12 @@ export interface QuestieDetails extends QuestieData {
   modifiedAt?: number;
   dungeonEntrances?: Record<string, { zone: string; x: number; y: number }>;
   starterCache?: Map<number, Place | null>;
+  trainers?: Trainer[];
+}
+
+export interface Trainer extends Place {
+  npcId: number;
+  friendlyTo: string;
 }
 
 interface NpcInfo {
@@ -489,6 +495,36 @@ function collectChain(reader: QuestieReader, questId: number, ordered: number[],
   }
 }
 
+const RANKED_TRAINER_TITLE = /^(Journeyman|Expert|Artisan) [A-Za-z]+$/;
+const NPC_SCALARS_KEY = /^Npc-(\d+)-S$/;
+
+function rankedTrainers(reader: QuestieReader, zones: Zones): Trainer[] {
+  const trainers: Trainer[] = [];
+  for (const key of reader.entries.keys()) {
+    const match = NPC_SCALARS_KEY.exec(key);
+    const raw = rawTocValue(reader, key);
+    if (match === null || raw === null) {
+      continue;
+    }
+    const row = asKeyedTable(decodeCbor(base64Bytes(raw)));
+    if (row === null || !RANKED_TRAINER_TITLE.test(asText(row[NPC_FIELDS.title], ""))) {
+      continue;
+    }
+    const npcId = Number(match[1]);
+    trainers.push(Object.assign(npcLocation(reader, zones, npcId), { npcId: npcId, friendlyTo: asText(row[NPC_FIELDS.friendlyTo], "") }));
+  }
+  return trainers;
+}
+
+export function trainersTitled(details: QuestieDetails, title: string): Trainer[] {
+  if (!details.trainers) {
+    details.trainers = rankedTrainers(details.reader, details.zones);
+  }
+  return details.trainers.filter(function hasTitle(trainer) {
+    return trainer.title === title;
+  });
+}
+
 export function questStarterFor(details: QuestieDetails, questId: number): Place | null {
   if (!details.starterCache) {
     details.starterCache = new Map();
@@ -598,6 +634,7 @@ export const QUESTIE = {
   questChain: questChain,
   availableSteps: availableSteps,
   questStarterFor: questStarterFor,
+  trainersTitled: trainersTitled,
   parseDungeonEntrances: parseDungeonEntrances,
   decodeCbor: decodeCbor
 };

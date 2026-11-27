@@ -1868,7 +1868,28 @@ legend {
 }
 
 .guide-stage-training {
+  display: grid;
+  gap: 2px;
+}
+
+.guide-stage-training p {
   margin: 0;
+}
+
+.recipe-hover {
+  position: relative;
+  display: inline-flex;
+}
+
+.recipe-hover .tooltip {
+  left: 0;
+  transform: none;
+  min-width: 220px;
+}
+
+.recipe-hover:hover .tooltip,
+.recipe-hover:focus-within .tooltip {
+  display: flex;
 }
 
 .guide-stage-prep {
