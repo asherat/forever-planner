@@ -2,6 +2,10 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.91.1 — 2026-11-27
+
+- "Copy for TSM" now copies a search for TSM's Shopping tab, with the amounts ("Light Leather/exact/x101;…"), instead of a group to import. Your own groups stay as they are.
+
 ## v0.91.0 — 2026-11-27
 
 - Every shopping list can be copied: "Copy for TSM · Auctionator · as text" under each rank's buy list on Professions, under the full "still to buy" list, and under the Crafting shopping list. TSM gets an importable item list, Auctionator a shopping list named after the plan, and text has the amounts. Things you buy from a vendor are left out of the two auction house formats, and so is anything you've ticked as bought.
