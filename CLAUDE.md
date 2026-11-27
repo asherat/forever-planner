@@ -17,7 +17,7 @@ Its users are an experienced player and a brand-new player, so **simplicity beat
 
 A static site built with Vite from `web/` and served by GitHub Pages. There is no server.
 
-- **Migration to TypeScript + Vue 3 is in progress** (chosen 2026-11-27). Plan: (1) Vite pipeline with the old code unchanged — done; (2) logic files become typed modules in `web/src/`, tests with them — done: `tsm.ts`, `lua.ts`, `scoring.ts`, `sources.ts`, `upgrades.ts`, `route.ts` (its panel stays in `route-panel.js` until step 4); `questie.js` is not converted because step 3 replaces it; (3) a loader that fetches QuestieDB's Forever release from GitHub instead of reading the local install; (4) the UI moves into Vue components one piece at a time, then the crafting page. Each step is its own release.
+- **Migration to TypeScript + Vue 3 is in progress** (chosen 2026-11-27). Plan: (1) Vite pipeline with the old code unchanged — done; (2) logic files become typed modules in `web/src/`, tests with them — done: `tsm.ts`, `lua.ts`, `scoring.ts`, `sources.ts`, `upgrades.ts`, `route.ts` (its panel stays in `route-panel.js` until step 4);  (3) the Questie reader becomes a typed module, still reading the player's installed QuestieDB — done; (4) the UI moves into Vue components one piece at a time, then the crafting page. Each step is its own release.
 - Until a file is migrated it stays a plain classic `<script>` in `web/public/` that shares globals; Vite copies `web/public/` as-is (its "can't be bundled" warnings for those tags are expected). Load order is in `index.html` and `crafting.html`. New code goes in `web/src/` (TypeScript, Vue SFCs), entry `web/src/main.ts`.
 - **The browser calls the Battle.net API directly** with the user's own API client. The secret lives only in `localStorage`. Battle.net rejects `Origin: null`, so the site must be served over HTTP, never opened as `file://`.
 - **Local WoW files** are read through the File System Access API, from a picked `World of Warcraft` or `_forever_` folder whose handle is kept in IndexedDB. The files are read, never uploaded.
@@ -43,7 +43,7 @@ A static site built with Vite from `web/` and served by GitHub Pages. There is n
 | `web/public/route-panel.js` | The leveling path panel (rendering and clicks); moves into Vue in step 4 |
 | `web/public/zone-guide.js` | Hand-maintained zone tiers, notes, level ranges, factions and dungeons |
 | `web/public/game-rules.js` | Slots, class proficiencies, spec presets and playstyles |
-| `web/public/questie.js` | CBOR decoder and Questie lookups (sources, quest info, chains, starters, dungeon entrances) |
+| `web/src/questie.ts` | CBOR decoder and Questie lookups from the installed `QuestieDB_Forever.toc` (sources, quest info, chains, starters, dungeon entrances). Questie packs a record whose keys are exactly 1..n as a plain list; `asKeyedTable` reads it as fields 1..n (the old reader got those names, levels and zones wrong) |
 | `web/src/tsm.ts`, `web/public/wow-folder.js` | TSM price and inventory parsers (typed module), folder handle and file access |
 | `web/src/lua.ts` | Reader for Lua table text (TSM saved variables; Questie data next) |
 | `web/src/main.ts`, `web/src/crafting.ts`, `web/src/legacy.ts` | Page entries. They hand typed modules to the classic scripts (`window.TSM` …) and then call the classic `start()` / `startCrafting()`; module scripts run after the classic ones, so starting there guarantees everything exists. `legacy.ts` types the window globals and the classic globals typed modules still use (`state`, `itemById`, …), and `exposeToLegacy` puts a module's exports on `window` for the classic scripts; shrink it as files migrate |
@@ -66,7 +66,7 @@ Battle.net Forever namespaces are `static-forever-{region}`, `profile-forever-{r
 ## Settled decisions (don't reopen without a reason)
 
 - **Hosted on GitHub Pages.** Not an extension, an exe, a `.bat`, a server or a Claude artifact. The players use Chrome on Windows and must not need any tooling.
-- **No QuestieDB data in the repo.** Its licence is unclear, so it is always read from the user's own install.
+- **No QuestieDB data in the repo.** Its licence is unclear, so it is always read from the user's own install. Fetching it from GitHub instead was checked on 2026-11-27 and rejected: the packaged release (`QuestieDB-<version>-Forever.zip`, with the baked `QuestieDB_Forever.toc`) can't be downloaded by a browser (GitHub's release file server sends no CORS header), and the raw source files in the repo lack the new Forever content and Questie's corrections (no Eye of Mugg; about a third of quests with different levels or quest givers). Publishing the release with our site would redistribute it.
 - **Zone level ranges come from Icy Veins' guide, not from Questie quest levels.** Ranges derived from Questie were tried and rejected because they disagree with how people actually level. The one exception, Mount Hyjal, is kept at 55–60.
 - **Reputation items are suggested only within one standing of the current one.** Grinding reputation is slower than levelling to the next item.
 - **Only the selected spec counts.** The main/off selector switches the whole gear page to that spec; the other spec's gains are never shown.
