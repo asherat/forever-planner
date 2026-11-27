@@ -6,7 +6,6 @@ const TIER_COLORS = { S: "tier-orange", A: "tier-yellow", B: "tier-green", C: "t
 
 const routeEditor = {
   pendingGap: null,
-  emptyLevels: null,
   showAllZones: false
 };
 
@@ -43,7 +42,7 @@ function routeLegs(character, snapshot) {
     if (toLevel <= level) {
       toLevel = level + 1;
     }
-    legs.push({ zone: leg.zone, fromLevel: level, toLevel: toLevel, dungeons: Boolean(leg.dungeons) });
+    legs.push({ zone: leg.zone, fromLevel: level, toLevel: toLevel, dungeons: Boolean(leg.dungeons), removedZones: leg.removedZones || [] });
     level = toLevel;
   }
   return legs;
@@ -302,21 +301,23 @@ function renderRoutePanel(character, snapshot) {
   if (legs.length > 0) {
     const list = createElement("ol", "route-legs");
     for (let index = 0; index < legs.length; index += 1) {
-      if (routeEditor.emptyLevels !== null && routeEditor.emptyLevels.index === index) {
-        list.appendChild(renderEmptyLevels(snapshot));
+      if (legs[index].zone === null) {
+        list.appendChild(renderEmptyLevels(legs[index], index, legs[index + 1].zone, snapshot));
+      } else {
+        list.appendChild(renderLeg(legs[index], index, snapshot));
       }
-      list.appendChild(renderLeg(legs[index], index, snapshot));
     }
     container.appendChild(list);
-  }
-  if (routeEditor.emptyLevels !== null) {
-    return;
   }
   if (routeEditor.pendingGap !== null) {
     renderGapResolver(character, snapshot, container);
     return;
   }
   const end = routeEndLevel(character, snapshot);
+  if (end >= MAX_CHARACTER_LEVEL && legs.some(isEmptyLeg)) {
+    container.appendChild(createElement("p", "route-warning", "Your path has empty levels. Choose where to level for them above."));
+    return;
+  }
   if (end >= MAX_CHARACTER_LEVEL) {
     container.appendChild(createElement("p", "route-done", "Your path reaches level 60."));
     return;
@@ -373,33 +374,58 @@ function updateLegEnd(character, snapshot, index, value) {
   route.legs = kept;
 }
 
-function removeLeg(character, snapshot, index) {
-  const route = characterRoute(character);
-  const legs = routeLegs(character, snapshot);
-  routeEditor.emptyLevels = null;
-  if (index < legs.length - 1) {
-    routeEditor.emptyLevels = { index: index, fromLevel: legs[index].fromLevel, toLevel: legs[index].toLevel, removedZone: legs[index].zone, nextZone: legs[index + 1].zone };
+function isEmptyLeg(leg) {
+  return leg !== undefined && leg.zone === null;
+}
+
+function mergeEmptyLegs(route, index) {
+  const next = route.legs[index + 1];
+  if (isEmptyLeg(next)) {
+    route.legs[index].toLevel = next.toLevel;
+    route.legs[index].removedZones = route.legs[index].removedZones.concat(next.removedZones);
+    route.legs.splice(index + 1, 1);
   }
-  route.legs.splice(index, 1);
+  const previous = route.legs[index - 1];
+  if (isEmptyLeg(previous)) {
+    previous.toLevel = route.legs[index].toLevel;
+    previous.removedZones = previous.removedZones.concat(route.legs[index].removedZones);
+    route.legs.splice(index, 1);
+  }
+}
+
+function removeLeg(character, index) {
+  const route = characterRoute(character);
+  const removed = route.legs[index];
+  if (index === route.legs.length - 1) {
+    route.legs.splice(index, 1);
+    while (route.legs.length > 0 && isEmptyLeg(route.legs[route.legs.length - 1])) {
+      route.legs.pop();
+    }
+  } else {
+    route.legs[index] = { zone: null, toLevel: removed.toLevel, removedZones: [removed.zone] };
+    mergeEmptyLegs(route, index);
+  }
   if (route.legs.length === 0) {
     route.startLevel = null;
   }
   routeEditor.pendingGap = null;
 }
 
-function fillEmptyLevels(character, zoneName) {
-  const empty = routeEditor.emptyLevels;
-  characterRoute(character).legs.splice(empty.index, 0, { zone: zoneName, toLevel: empty.toLevel, dungeons: false });
-  routeEditor.emptyLevels = null;
+function fillEmptyLevels(character, index, zoneName) {
+  const route = characterRoute(character);
+  route.legs[index] = { zone: zoneName, toLevel: route.legs[index].toLevel, dungeons: false };
 }
 
-function renderEmptyLevels(snapshot) {
-  const empty = routeEditor.emptyLevels;
+function startNextZoneEarlier(character, index) {
+  characterRoute(character).legs.splice(index, 1);
+}
+
+function renderEmptyLevels(leg, index, nextZone, snapshot) {
   const box = createElement("li", "route-gap");
-  box.appendChild(createElement("p", null, "Levels " + empty.fromLevel + "–" + empty.toLevel + " are empty now that " + empty.removedZone + " is gone. Where do you want to level instead?"));
+  box.appendChild(createElement("p", null, "Levels " + leg.fromLevel + "–" + leg.toLevel + " are empty (you removed " + leg.removedZones.join(" and ") + "). Where do you want to level instead?"));
   const fillers = [];
-  for (const zone of nextZoneSuggestions(empty.fromLevel, snapshot.factionType, empty.nextZone).ready) {
-    if (zone.name !== empty.removedZone) {
+  for (const zone of nextZoneSuggestions(leg.fromLevel, snapshot.factionType, nextZone).ready) {
+    if (leg.removedZones.indexOf(zone.name) === -1) {
       fillers.push(zone);
     }
   }
@@ -407,18 +433,19 @@ function renderEmptyLevels(snapshot) {
     const fill = createElement("button", "route-gap-option " + TIER_COLORS[zone.tier]);
     fill.type = "button";
     fill.dataset.fillEmpty = zone.name;
+    fill.dataset.emptyIndex = String(index);
     fill.appendChild(tierBadge(zone.tier));
-    fill.append(" " + zone.name + " from " + empty.fromLevel + " to " + empty.toLevel);
+    fill.append(" " + zone.name + " from " + leg.fromLevel + " to " + leg.toLevel);
     box.appendChild(fill);
   }
-  let startEarlyText = "Start " + empty.nextZone + " at " + empty.fromLevel;
-  const next = guideZone(empty.nextZone);
-  if (next !== null && next.minLevel > empty.fromLevel + 1) {
+  let startEarlyText = "Start " + nextZone + " at " + leg.fromLevel;
+  const next = guideZone(nextZone);
+  if (next !== null && next.minLevel > leg.fromLevel + 1) {
     startEarlyText += " (quests will be harder)";
   }
   const stretch = createElement("button", "route-gap-option", startEarlyText);
   stretch.type = "button";
-  stretch.dataset.keepStretch = "true";
+  stretch.dataset.startEarlier = String(index);
   box.appendChild(stretch);
   return box;
 }
@@ -442,11 +469,11 @@ function handleRouteClick(event) {
   } else if (target.dataset.toggleZones !== undefined) {
     routeEditor.showAllZones = !routeEditor.showAllZones;
   } else if (target.dataset.removeLeg !== undefined) {
-    removeLeg(character, snapshot, Number(target.dataset.removeLeg));
+    removeLeg(character, Number(target.dataset.removeLeg));
   } else if (target.dataset.fillEmpty !== undefined) {
-    fillEmptyLevels(character, target.dataset.fillEmpty);
-  } else if (target.dataset.keepStretch !== undefined) {
-    routeEditor.emptyLevels = null;
+    fillEmptyLevels(character, Number(target.dataset.emptyIndex), target.dataset.fillEmpty);
+  } else if (target.dataset.startEarlier !== undefined) {
+    startNextZoneEarlier(character, Number(target.dataset.startEarlier));
   } else {
     return;
   }
@@ -461,7 +488,6 @@ function handleRouteChange(event) {
     return;
   }
   const snapshot = state.snapshots[character.slug];
-  routeEditor.emptyLevels = null;
   if (target.dataset.legEnd !== undefined) {
     updateLegEnd(character, snapshot, Number(target.dataset.legEnd), target.value);
   } else if (target.dataset.legDungeons !== undefined) {
