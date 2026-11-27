@@ -17,7 +17,7 @@ Its users are an experienced player and a brand-new player, so **simplicity beat
 
 A static site built with Vite from `web/` and served by GitHub Pages. There is no server.
 
-- **Migration to TypeScript + Vue 3 is in progress** (chosen 2026-11-27). Plan: (1) Vite pipeline with the old code unchanged — done; (2) logic files become typed modules in `web/src/`, tests with them — `tsm.ts`, `lua.ts` and `scoring.ts` done; `questie.js` is not converted because step 3 replaces it; (3) a loader that fetches QuestieDB's Forever release from GitHub instead of reading the local install; (4) the UI moves into Vue components one piece at a time, then the crafting page. Each step is its own release.
+- **Migration to TypeScript + Vue 3 is in progress** (chosen 2026-11-27). Plan: (1) Vite pipeline with the old code unchanged — done; (2) logic files become typed modules in `web/src/`, tests with them — `tsm.ts`, `lua.ts`, `scoring.ts` and `sources.ts` done; `questie.js` is not converted because step 3 replaces it; (3) a loader that fetches QuestieDB's Forever release from GitHub instead of reading the local install; (4) the UI moves into Vue components one piece at a time, then the crafting page. Each step is its own release.
 - Until a file is migrated it stays a plain classic `<script>` in `web/public/` that shares globals; Vite copies `web/public/` as-is (its "can't be bundled" warnings for those tags are expected). Load order is in `index.html` and `crafting.html`. New code goes in `web/src/` (TypeScript, Vue SFCs), entry `web/src/main.ts`.
 - **The browser calls the Battle.net API directly** with the user's own API client. The secret lives only in `localStorage`. Battle.net rejects `Origin: null`, so the site must be served over HTTP, never opened as `file://`.
 - **Local WoW files** are read through the File System Access API, from a picked `World of Warcraft` or `_forever_` folder whose handle is kept in IndexedDB. The files are read, never uploaded.
@@ -33,7 +33,7 @@ A static site built with Vite from `web/` and served by GitHub Pages. There is n
 | `web/index.html`, `web/public/app.js` | Gear page rendering and events: paper doll, upgrade cards, crafting list, quest list, settings dialog |
 | `web/src/scoring.ts` | Specs and weights, item scores, random-suffix variants, proficiencies, slot baselines (typed, no DOM) |
 | `web/src/types.ts` | Shared types: items, sources, snapshot, character, slots, game rules |
-| `web/public/sources.js` | Where an item comes from: sources, quest/reputation rules, trash/container/skipped-dungeon rules, prices, gold limit (no DOM) |
+| `web/src/sources.ts` | Where an item comes from: sources, quest/reputation rules, trash/container/skipped-dungeon rules, prices, gold limit (typed, no DOM; `resetSourceCaches` for tests) |
 | `web/public/upgrades.js` | Ranking candidates per slot, route availability, quicker option, ring/trinket and weapon pairing (no DOM) |
 | `web/src/` | New TypeScript and Vue code (see the migration plan above); `web/src/main.ts` is the module entry |
 | `vite.config.ts`, `tsconfig.json` | Build (`npm run build` → `dist/`) and type check (`npm run typecheck`) |
@@ -101,7 +101,8 @@ Battle.net Forever namespaces are `static-forever-{region}`, `profile-forever-{r
 
 ## Tests and verification
 
-- `npm test` runs `node:test` on `tests/*.test.js` (classic scripts) and `tests/*.test.mjs` (TypeScript modules imported directly; Node strips the types, so modules may only use erasable TypeScript syntax and must import with `.ts` extensions). Classic scripts are loaded into a vm sandbox via `tests/helpers/load.js`, and `tests/helpers/cbor.js` builds Questie fixtures. `tests/planner.test.mjs` uses `tests/helpers/realm.mjs`, which loads the classic gear-page scripts once into the real global scope and imports the typed modules next to them (a module can't be reloaded per test, so `resetPlanner` resets state, caches and `FOREVER_ITEMS` instead) and tests scoring, sources and ranking directly; script-level `const`s such as `state` are read with `evaluate(context, "state")`.
+- `npm test` runs `node:test` on `tests/*.test.js` (classic scripts) and `tests/*.test.mjs` (TypeScript modules imported directly; Node strips the types, so modules may only use erasable TypeScript syntax and must import with `.ts` extensions). Classic scripts are loaded into a vm sandbox via `tests/helpers/load.js`, and `tests/helpers/cbor.js` builds Questie fixtures. `tests/planner.test.mjs` uses `tests/helpers/realm.mjs`, which loads the classic gear-page scripts once into the real global scope and imports the typed modules next to them (a module can't be reloaded per test, so `resetPlanner` resets state, caches and `FOREVER_ITEMS` instead) and tests scoring, sources and ranking directly; script-level `const`s such as `state` are read with `run("state")`.
+- After converting a file, compare the built site with the built `develop` on the same inputs (every slot's picks in questing, dungeons and with a gold limit); a pure conversion must give 0 differences.
 - `python3 -m unittest discover -s tests -p "test_*.py"` tests the data builder.
 - Both run in CI before every deploy.
 - For UI changes, run `npm run dev` (or `npm run build` and serve `dist/`) and check in a real browser. Playwright with a Battle.net client and a local Questie copy works well. Keep those scripts out of the repo.
