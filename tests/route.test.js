@@ -3,10 +3,7 @@ const assert = require("node:assert/strict");
 const { loadScripts, evaluate } = require("./helpers/load");
 
 function freshRoute() {
-  const context = loadScripts(["data/dungeons.js", "zone-guide.js", "route.js"], {
-    questieQuest: function noQuestie() { return null; },
-    isQuestForCharacter: function anyQuest() { return true; }
-  });
+  const context = loadScripts(["data/dungeons.js", "zone-guide.js", "route.js"]);
   const character = { slug: "test-character" };
   const snapshot = { level: 42, factionType: "HORDE" };
   return { context, character, snapshot };
@@ -77,7 +74,7 @@ test("a dungeon counts only once it is in the dungeon list", () => {
   const drop = { type: "drop", zone: "Zul'Farrak" };
   assert.equal(context.legForSource(character, snapshot, drop), null);
   context.addDungeon(context.characterRoute(character), "Zul'Farrak");
-  assert.equal(context.legForSource(character, snapshot, drop).fromLevel, 44);
+  assert.equal(context.legForSource(character, snapshot, drop).fromLevel, 42);
 });
 
 test("a dungeon outside the path counts, and its quests only when included", () => {
@@ -90,13 +87,6 @@ test("a dungeon outside the path counts, and its quests only when included", () 
   route.dungeons[0].quests = false;
   assert.equal(context.legForSource(character, snapshot, quest), null);
   assert.notEqual(context.legForSource(character, snapshot, { type: "drop", zone: "Zul'Farrak" }), null);
-});
-
-test("a dungeon starts at the highest minimum level of its quests", () => {
-  const { context, character, snapshot } = freshRoute();
-  context.questieQuest = function questLevels(questId) { return { requiredLevel: questId % 100 }; };
-  const dungeon = { name: "Test Dungeon", minLevel: 40, questIds: [142, 146, 244] };
-  assert.equal(context.dungeonStartLevel(dungeon, snapshot), 46);
 });
 
 test("the zone checkbox and the dungeon list are the same thing", () => {

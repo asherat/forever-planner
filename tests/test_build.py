@@ -146,3 +146,15 @@ class SimulatorItemTest(unittest.TestCase):
         self.assertEqual(record["reputationRequirement"], {"factionId": 530, "tier": 5})
         self.assertEqual(record["reputation"], "Requires Darkspear Trolls - Honored")
         self.assertEqual(record["faction"], "HORDE")
+
+
+class DungeonNameTest(unittest.TestCase):
+    def test_merges_wings_into_one_instance(self):
+        self.assertEqual(build.instance_name("Dire Maul - East"), "Dire Maul")
+        self.assertEqual(build.instance_name("Lower Blackrock Spire"), "Blackrock Spire")
+        self.assertEqual(build.instance_name("Upper Blackrock Spire"), "Blackrock Spire")
+
+    def test_fixes_the_game_data_spellings(self):
+        self.assertEqual(build.instance_name("Zul'Farak"), "Zul'Farrak")
+        self.assertEqual(build.instance_name("Stormwind Stockades"), "The Stockade")
+        self.assertEqual(build.instance_name("Krol'dok Stronghold"), "Krol'dok Stronghold")

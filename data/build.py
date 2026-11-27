@@ -33,6 +33,20 @@ TEACHING_ITEM_PREFIXES = ["Pattern: ", "Plans: ", "Formula: ", "Recipe: ", "Sche
 EQUIPPABLE_ITEM_CLASSES = {"Armor", "Weapon"}
 EXCLUDED_QUALITIES = {"POOR"}
 EXCLUDED_QUEST_NAME_PATTERN = re.compile(r"^DNT$|^<TXT>")
+DUNGEON_FINDER_INSTANCE_TYPE = "0"
+DUNGEON_WING_PATTERN = re.compile(r"^(Lower|Upper) | - (East|West|North)$")
+DUNGEON_FINDER_NAME_FIXES = {
+    "Zul'Farak": "Zul'Farrak",
+    "Deadmines": "The Deadmines",
+    "Stormwind Stockades": "The Stockade",
+    "Hall of Thanes": "The Hall of Thanes",
+    "Onyxia": "Onyxia's Lair",
+}
+DUNGEON_EXTRA_AREAS = {
+    "The Stockade": ["Stormwind Stockade"],
+    "Sunken Temple": ["The Temple of Atal'Hakkar"],
+    "Excavation Site: Wetlands": ["Excavation Site"],
+}
 EXCLUDED_NAME_PATTERN = re.compile(r"^\[TMP\]|\bTEST\b|^QA|\[PH\]|Monster -|^Deprecated", re.IGNORECASE)
 ICON_FILE_PATTERN = re.compile(r"/icons/\d+/(\d+)\.jpg$")
 FERAL_ATTACK_POWER_PATTERN = re.compile(r"\+(\d+) Attack Power in Cat, Bear, and Dire Bear forms only")
@@ -847,13 +861,29 @@ def simulator_items(known_item_ids, reputation_names_by_id):
     return records
 
 
+def instance_name(dungeon_finder_name):
+    name = DUNGEON_FINDER_NAME_FIXES.get(dungeon_finder_name, dungeon_finder_name)
+    return DUNGEON_WING_PATTERN.sub("", name)
+
+
 def build_dungeons():
-    dungeons = json.loads((ROOT / "data" / "dungeons.json").read_text())
     area_index = cached_get("quest-area-index", "/data/wow/quest/area/index")
     area_ids = {}
     for area in area_index.get("areas", []):
         area_ids[area["name"]] = area["id"]
-    for dungeon in dungeons:
+    tuning_levels = {}
+    for row in wago_table("ContentTuning"):
+        tuning_levels[row["ID"]] = int(row["MinLevelSquish"])
+    dungeons = {}
+    for row in wago_table("LFGDungeons"):
+        if row["TypeID"] != DUNGEON_FINDER_INSTANCE_TYPE:
+            continue
+        name = instance_name(row["Name_lang"])
+        level = tuning_levels.get(row["ContentTuningID"], 0)
+        if name not in dungeons:
+            dungeons[name] = {"name": name, "minLevel": level, "areas": [name] + DUNGEON_EXTRA_AREAS.get(name, [])}
+        dungeons[name]["minLevel"] = min(dungeons[name]["minLevel"], level)
+    for dungeon in dungeons.values():
         quest_ids = []
         for area_name in dungeon["areas"]:
             if area_name not in area_ids:
@@ -863,7 +893,11 @@ def build_dungeons():
                 if not EXCLUDED_QUEST_NAME_PATTERN.search(quest.get("name", "")):
                     quest_ids.append(quest["id"])
         dungeon["questIds"] = sorted(set(quest_ids))
-    return dungeons
+    return sorted(dungeons.values(), key=dungeon_sort_key)
+
+
+def dungeon_sort_key(dungeon):
+    return (dungeon["minLevel"], dungeon["name"])
 
 
 def zone_names():
