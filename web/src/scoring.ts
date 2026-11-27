@@ -1,17 +1,25 @@
+import "./legacy.ts";
+import type { Character, Item, Proficiencies, RandomSuffix, SlotDefinition, Snapshot, TalentSpecializations, Weights } from "./types.ts";
+
+type TalentGroup = NonNullable<TalentSpecializations["specialization_groups"]>[number];
+
 const MAIN_STATS = ["STRENGTH", "AGILITY", "INTELLECT", "ATTACK_POWER", "RANGED_ATTACK_POWER", "SPELL_POWER", "SPELL_HEALING_DONE"];
 
-function specForTalentTree(className, treeName) {
-  const classSpecKeys = window.GAME_RULES.classSpecs[className] || [];
-  for (const specKey of classSpecKeys) {
-    if (window.GAME_RULES.specs[specKey].talentTree === treeName) {
+function rules() {
+  return window.GAME_RULES;
+}
+
+function specForTalentTree(className: string, treeName: string | null): string | null {
+  for (const specKey of rules().classSpecs[className] || []) {
+    if (rules().specs[specKey].talentTree === treeName) {
       return specKey;
     }
   }
   return null;
 }
 
-function mainTreeOfGroup(group) {
-  let bestTree = null;
+function mainTreeOfGroup(group: TalentGroup): string | null {
+  let bestTree: string | null = null;
   let bestPoints = 0;
   for (const specialization of group.specializations || []) {
     if (specialization.spent_points > bestPoints) {
@@ -22,8 +30,12 @@ function mainTreeOfGroup(group) {
   return bestTree;
 }
 
-function detectTalentSpecs(className, specializations) {
-  const detected = [];
+function compareActiveGroupFirst(first: TalentGroup, second: TalentGroup): number {
+  return Number(Boolean(second.is_active)) - Number(Boolean(first.is_active));
+}
+
+export function detectTalentSpecs(className: string, specializations: TalentSpecializations | null): string[] {
+  const detected: string[] = [];
   if (specializations === null) {
     return detected;
   }
@@ -38,20 +50,16 @@ function detectTalentSpecs(className, specializations) {
   return detected;
 }
 
-function compareActiveGroupFirst(first, second) {
-  return Number(Boolean(second.is_active)) - Number(Boolean(first.is_active));
-}
-
-function characterSpecs(character, snapshot) {
+export function characterSpecs(character: Character, snapshot: Snapshot): string[] {
   let specs = snapshot.talentSpecs || [];
   if (specs.length === 0) {
-    const classSpecKeys = window.GAME_RULES.classSpecs[snapshot.className] || ["druid-feral-cat"];
+    const classSpecKeys = rules().classSpecs[snapshot.className] || ["druid-feral-cat"];
     specs = [classSpecKeys[0]];
   }
-  const resolved = [];
+  const resolved: string[] = [];
   for (const specKey of specs) {
-    if (specKey === window.GAME_RULES.feralSpecs.cat && character.feralForm === "bear") {
-      resolved.push(window.GAME_RULES.feralSpecs.bear);
+    if (specKey === rules().feralSpecs.cat && character.feralForm === "bear") {
+      resolved.push(rules().feralSpecs.bear);
     } else {
       resolved.push(specKey);
     }
@@ -59,18 +67,18 @@ function characterSpecs(character, snapshot) {
   return resolved;
 }
 
-function hasFeralSpec(snapshot) {
-  return (snapshot.talentSpecs || []).indexOf(window.GAME_RULES.feralSpecs.cat) !== -1;
+export function hasFeralSpec(snapshot: Snapshot): boolean {
+  return (snapshot.talentSpecs || []).indexOf(rules().feralSpecs.cat) !== -1;
 }
 
-function characterPlaystyle(character) {
-  if (character.playstyle && window.GAME_RULES.playstyles[character.playstyle]) {
+export function characterPlaystyle(character: Character): string {
+  if (character.playstyle && rules().playstyles[character.playstyle]) {
     return character.playstyle;
   }
-  return window.GAME_RULES.defaultPlaystyle;
+  return rules().defaultPlaystyle;
 }
 
-function activeSpec(character) {
+export function activeSpec(character: Character): string {
   const specs = characterSpecs(character, state.snapshots[character.slug]);
   if (character.gearFor === "off" && specs.length > 1) {
     return specs[1];
@@ -78,15 +86,15 @@ function activeSpec(character) {
   return specs[0];
 }
 
-function isPvpRuleset(snapshot) {
-  return snapshot.ruleset === window.GAME_RULES.pvpRuleset;
+export function isPvpRuleset(snapshot: Snapshot): boolean {
+  return snapshot.ruleset === rules().pvpRuleset;
 }
 
-function specPreset(specKey) {
-  return window.GAME_RULES.specPresets[window.GAME_RULES.specs[specKey].preset];
+export function specPreset(specKey: string) {
+  return rules().specPresets[rules().specs[specKey].preset];
 }
 
-function mainStatWeight(weights) {
+function mainStatWeight(weights: Weights): number {
   let strongest = 0;
   for (const statKey of MAIN_STATS) {
     strongest = Math.max(strongest, weights[statKey] || 0);
@@ -94,13 +102,9 @@ function mainStatWeight(weights) {
   return strongest;
 }
 
-function characterWeights(character) {
-  return weightsForSpec(character, activeSpec(character));
-}
-
-function weightsForSpec(character, specKey) {
-  const playstyle = window.GAME_RULES.playstyles[characterPlaystyle(character)];
-  const weights = Object.assign({}, specPreset(specKey).weights);
+export function weightsForSpec(character: Character, specKey: string): Weights {
+  const playstyle = rules().playstyles[characterPlaystyle(character)];
+  const weights: Weights = Object.assign({}, specPreset(specKey).weights);
   for (const statKey of Object.keys(playstyle.multipliers)) {
     if (weights[statKey]) {
       weights[statKey] = weights[statKey] * playstyle.multipliers[statKey];
@@ -112,11 +116,15 @@ function weightsForSpec(character, specKey) {
   return weights;
 }
 
-function isRangedWeapon(item) {
+export function characterWeights(character: Character): Weights {
+  return weightsForSpec(character, activeSpec(character));
+}
+
+export function isRangedWeapon(item: Item): boolean {
   return item.slot === "RANGED" || item.slot === "RANGEDRIGHT" || item.slot === "THROWN";
 }
 
-function weaponDamageWeight(item, weights, slotKey) {
+export function weaponDamageWeight(item: Item, weights: Weights, slotKey: string): number {
   if (isRangedWeapon(item)) {
     return weights.RANGED_DPS || 0;
   }
@@ -126,7 +134,7 @@ function weaponDamageWeight(item, weights, slotKey) {
   return weights.MAIN_HAND_DPS || 0;
 }
 
-function itemArmor(item) {
+function itemArmor(item: Item): number {
   if (item.armor !== undefined) {
     return item.armor;
   }
@@ -137,7 +145,7 @@ function itemArmor(item) {
   return known.armor || 0;
 }
 
-function itemScore(item, weights, slotKey) {
+export function itemScore(item: Item | null | undefined, weights: Weights, slotKey: string): number {
   if (item === null || item === undefined) {
     return 0;
   }
@@ -156,7 +164,7 @@ function itemScore(item, weights, slotKey) {
   return Math.round(score * 10) / 10;
 }
 
-function itemWithSuffix(item, suffix) {
+export function itemWithSuffix(item: Item, suffix: RandomSuffix): Item {
   const stats = Object.assign({}, item.stats);
   for (const statKey of Object.keys(suffix.stats)) {
     stats[statKey] = (stats[statKey] || 0) + suffix.stats[statKey];
@@ -164,7 +172,7 @@ function itemWithSuffix(item, suffix) {
   return Object.assign({}, item, { name: item.name + " " + suffix.name, stats: stats, suffix: suffix });
 }
 
-function bestSuffixVariant(item, weights, slotKey) {
+export function bestSuffixVariant(item: Item, weights: Weights, slotKey: string): Item {
   if (!item.randomSuffixes) {
     return item;
   }
@@ -181,8 +189,21 @@ function bestSuffixVariant(item, weights, slotKey) {
   return best;
 }
 
-function canUseItem(item, snapshot) {
-  const proficiencies = window.GAME_RULES.classProficiencies[snapshot.className];
+function weaponProficiency(proficiencies: Proficiencies, item: Item): string[] {
+  if (item.slot === "TWOHWEAPON") {
+    return proficiencies.twoHand;
+  }
+  if (isRangedWeapon(item)) {
+    return proficiencies.ranged;
+  }
+  if (item.slot === "WEAPONOFFHAND" && !proficiencies.dualWield) {
+    return [];
+  }
+  return proficiencies.oneHand;
+}
+
+export function canUseItem(item: Item, snapshot: Snapshot): boolean {
+  const proficiencies = rules().classProficiencies[snapshot.className];
   if (item.classes && item.classes.indexOf(snapshot.className) === -1) {
     return false;
   }
@@ -205,33 +226,20 @@ function canUseItem(item, snapshot) {
   return false;
 }
 
-function weaponProficiency(proficiencies, item) {
-  if (item.slot === "TWOHWEAPON") {
-    return proficiencies.twoHand;
-  }
-  if (item.slot === "RANGED" || item.slot === "RANGEDRIGHT" || item.slot === "THROWN") {
-    return proficiencies.ranged;
-  }
-  if (item.slot === "WEAPONOFFHAND" && !proficiencies.dualWield) {
-    return [];
-  }
-  return proficiencies.oneHand;
-}
-
-function isTwoHanded(item) {
+export function isTwoHanded(item: Item | null | undefined): boolean {
   return item !== null && item !== undefined && item.slot === "TWOHWEAPON";
 }
 
-function slotItemTypes(slotDefinition, snapshot) {
+export function slotItemTypes(slotDefinition: SlotDefinition, snapshot: Snapshot): string[] {
   const types = slotDefinition.itemSlots.slice();
-  const proficiencies = window.GAME_RULES.classProficiencies[snapshot.className];
+  const proficiencies = rules().classProficiencies[snapshot.className];
   if (slotDefinition.key === "OFF_HAND" && proficiencies && proficiencies.dualWield) {
     types.push("WEAPON", "WEAPONOFFHAND");
   }
   return types;
 }
 
-function comparisonBaseline(slotDefinition, snapshot, item, weights) {
+export function comparisonBaseline(slotDefinition: SlotDefinition, snapshot: Snapshot, item: Item, weights: Weights): number {
   const equipment = snapshot.equipment;
   if (slotDefinition.key === "MAIN_HAND" && isTwoHanded(item)) {
     return itemScore(equipment.MAIN_HAND, weights, "MAIN_HAND") + itemScore(equipment.OFF_HAND, weights, "OFF_HAND");
@@ -239,8 +247,8 @@ function comparisonBaseline(slotDefinition, snapshot, item, weights) {
   return itemScore(equipment[slotDefinition.key], weights, slotDefinition.key);
 }
 
-function slotDefinitionByKey(slotKey) {
-  for (const slotDefinition of window.GAME_RULES.equipmentSlots) {
+export function slotDefinitionByKey(slotKey: string): SlotDefinition | null {
+  for (const slotDefinition of rules().equipmentSlots) {
     if (slotDefinition.key === slotKey) {
       return slotDefinition;
     }
@@ -248,9 +256,9 @@ function slotDefinitionByKey(slotKey) {
   return null;
 }
 
-function bestGainAnySlot(item, snapshot, weights) {
+export function bestGainAnySlot(item: Item, snapshot: Snapshot, weights: Weights): number {
   let best = 0;
-  for (const slotDefinition of window.GAME_RULES.equipmentSlots) {
+  for (const slotDefinition of rules().equipmentSlots) {
     if (slotDefinition.cosmetic || slotItemTypes(slotDefinition, snapshot).indexOf(item.slot) === -1) {
       continue;
     }
@@ -264,6 +272,6 @@ function bestGainAnySlot(item, snapshot, weights) {
   return best;
 }
 
-function specLabel(specKey) {
-  return window.GAME_RULES.specs[specKey].label;
+export function specLabel(specKey: string): string {
+  return rules().specs[specKey].label;
 }
