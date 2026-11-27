@@ -36,7 +36,7 @@ jobs:
       - name: Stamp version and build id
         run: |
           VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo dev)
-          sed -i "s/__BUILD__/${GITHUB_SHA::7}/g; s/__VERSION__/${VERSION}/g" dist/index.html dist/crafting.html
+          sed -i "s/__BUILD__/${GITHUB_SHA::7}/g; s/__VERSION__/${VERSION}/g" dist/*.html
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

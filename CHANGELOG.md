@@ -2,6 +2,13 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.85.0 — 2026-11-27
+
+- Professions: materials your characters already have (bags, bank, mail, from TSM) are used first, stage by stage, so the buy lists only show what's left to buy; each stage lists what to take from whom. "Still to buy" uses today's prices.
+- A material that's cheaper to craft (like Cured Heavy Hide) is listed as its own materials (Heavy Hide and Salt), and the step that needs it says "Craft first: 9× Cured Heavy Hide". Materials from a profession your character doesn't have are bought instead.
+- Fixed: making a plan could break the Professions page for some recipe chains. The same fix keeps the crafting tool from breaking on them.
+- Fixed: the Professions page header didn't show the version, and could load old data after an update.
+
 ## v0.84.0 — 2026-11-27
 
 - Professions: the plan is split into stages by trainer rank (Apprentice, Journeyman, Expert, Artisan), like gw2crafts' tiers. Each stage says when to train the rank and lists its recipes to learn, the materials to buy for it and its cost with a running total. "Tick all" marks a stage's shopping as bought, and the side panel adds up what's still to buy across all stages.

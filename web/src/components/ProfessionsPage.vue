@@ -54,7 +54,7 @@ const stages = computed(function stagesView() {
   if (saved.value === null) {
     return [];
   }
-  return stageRows(saved.value, skill.value);
+  return stageRows(saved.value, skill.value, selectedCharacter());
 });
 
 const summary = computed(function summaryView() {
@@ -152,11 +152,12 @@ function discard(): void {
       </section>
       <section v-if="hasShopping" class="panel">
         <h2>Still to buy</h2>
-        <p class="muted summary-value">Everything not ticked in the stages, added up. Tick materials in each stage as you buy them.</p>
+        <p class="muted summary-value">Everything not ticked in the stages, after what your characters already have, at today's prices.</p>
         <ul class="summary-list">
           <li v-for="row in shopping" :key="row.key" class="guide-shopping">
-            <span class="guide-material-name">{{ row.quantity }} <CraftingItemLabel :item-id="row.itemId" /><span v-if="row.how" class="muted guide-material-how">{{ row.how }}</span></span>
-            <span class="summary-value"><MoneyAmount :copper="row.cost" /></span>
+            <span class="guide-material-name">{{ row.quantity }} <CraftingItemLabel :item-id="row.itemId" /></span>
+            <span v-if="row.hasPrice" class="summary-value"><MoneyAmount :copper="row.cost" /></span>
+            <span v-else class="summary-value muted">no price</span>
           </li>
         </ul>
       </section>
