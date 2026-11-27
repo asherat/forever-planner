@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import "../legacy.ts";
+import { shortDateTime } from "../dates.ts";
 import { activeSpec, specLabel } from "../scoring.ts";
 import GearPlan from "./GearPlan.vue";
 import NotInterested from "./NotInterested.vue";
@@ -26,7 +27,7 @@ const header = computed(function headerView() {
   return {
     name: character.displayName,
     meta: "Level " + snapshot.level + " " + snapshot.raceName + " " + snapshot.className + " · " + snapshot.faction + " · " + snapshot.ruleset,
-    specs: "Comparing for " + specLabel(activeSpec(character)) + " · gear as of your logout on " + new Date(snapshot.lastLogout as number).toLocaleString(),
+    specs: "Comparing for " + specLabel(activeSpec(character)) + " · gear as of your logout on " + shortDateTime(snapshot.lastLogout as number),
     faction: String(snapshot.factionType || "").toLowerCase(),
     renderClass: renderClass,
     renderStyle: renderStyle

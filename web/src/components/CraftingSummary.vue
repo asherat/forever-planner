@@ -35,12 +35,12 @@ const hasNoShopping = computed(function nothingToBuy() {
   return shopping.value.length === 0;
 });
 
-const hasNoTaking = computed(function nothingToTake() {
-  return taking.value.length === 0;
+const hasTaking = computed(function somethingToTake() {
+  return taking.value.length > 0;
 });
 
-const hasNoCrafters = computed(function nothingToCraft() {
-  return crafters.value.length === 0;
+const hasCrafters = computed(function somethingToCraft() {
+  return crafters.value.length > 0;
 });
 
 const settings = computed(function listSettings() {
@@ -85,31 +85,26 @@ function characterToggled(name: string, event: Event): void {
         <li v-for="line in shopping" :key="line.key" class="summary-row"><span class="summary-label"><CraftingItemLabel :item-id="line.itemId" />{{ line.quantity }}</span><span v-if="line.hasPrice" class="summary-value"><MoneyAmount :copper="line.cost" />{{ line.where }}</span><span v-else class="muted">no price</span></li>
       </ul>
     </section>
-    <section class="panel">
+    <section v-if="hasTaking" class="panel">
       <h2>Take from your characters</h2>
       <ul id="take-list" class="summary-list">
-        <li v-if="hasNoTaking" class="muted">Nothing taken from your characters.</li>
         <li v-for="line in taking" :key="line.key" class="summary-row"><span class="summary-label"><CraftingItemLabel :item-id="line.itemId" />{{ line.count }}</span><span class="summary-value muted">{{ line.places }}</span></li>
       </ul>
     </section>
-    <section class="panel">
+    <section v-if="hasCrafters" class="panel">
       <h2>Who can craft</h2>
       <ul id="crafter-list" class="summary-list">
-        <li v-if="hasNoCrafters" class="muted">Nothing to craft.</li>
         <li v-for="row in crafters" :key="row.profession" class="summary-row"><span class="summary-label">{{ row.profession }}</span><span :class="row.classes">{{ row.names }}</span></li>
       </ul>
     </section>
     <section class="panel">
-      <h2>Vendor discount</h2>
-      <label for="bartering-select">Bartering (Legacy perk) on the character who buys</label>
+      <h2>Options</h2>
+      <label for="bartering-select">Vendor discount: Bartering (Legacy perk) on the character who buys</label>
       <select id="bartering-select" :value="settings.bartering" @change="barteringChanged">
         <option value="0">None</option>
         <option value="1">Rank 1 (5% off)</option>
         <option value="2">Rank 2 (10% off)</option>
       </select>
-    </section>
-    <section class="panel">
-      <h2>Whose bags count</h2>
       <label class="checkbox-line"><input id="use-inventory" type="checkbox" :checked="settings.useInventory" @change="inventoryToggled"> Use materials my characters have</label>
       <div id="inventory-characters">
         <p v-if="hasNoInventory" class="muted">Connect your WoW folder to use what your characters have. TSM saves bags and banks when a character logs out.</p>

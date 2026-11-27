@@ -137,6 +137,8 @@ A refactor must not change anything a player sees: compare the built site agains
 - Build DOM with `createElement` and `textContent`, never `innerHTML` with data.
 - English identifiers, descriptive names, no abbreviations.
 - Guard only against real data gaps, such as Questie or TSM not being connected.
+- **Type sizes come from the scale in `:root`** (`--text-xs`, `--text-sm`, `--text-md`, `--text-h3`, `--text-h2`, `--text-h1`); don't add a raw `font-size`. Dates shown to the player go through `shortDateTime` (`dates.ts`).
+- **Say a thing once.** A tool page starts with an `h1` and one muted line (`.page-heading`), not a panel; longer explanations go behind a `<details>`. The top bar holds the folder button (Connect, then Refresh).
 - Every plain data `<script>` and stylesheet URL carries `?build=__BUILD__`; Vite hashes the files it bundles. The deploy workflow builds with Vite, then stamps `__BUILD__` and `__VERSION__` (the latest tag) into `dist/*.html`.
 - In TypeScript and Vue: the same naming and no-comments rules; named functions, no ternaries, logic in computed properties or functions rather than in templates, no watchers. Arrow functions only where Vue's API needs them.
 - Dependencies are pinned exactly and must be at least two weeks old when added. TypeScript stays on 6.x while vue-tsc needs its JavaScript API.

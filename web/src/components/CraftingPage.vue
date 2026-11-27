@@ -5,7 +5,7 @@ import { aggregatePlans, planList } from "../crafting-plan.ts";
 import { crafting } from "../crafting-plan.ts";
 import type { Plan } from "../crafting-plan.ts";
 import { addByName, searchNames, shareMaterials } from "../ui/crafting-page.ts";
-import { connectFolder, dataStatusText } from "../ui/folder-controls.ts";
+import { dataStatusText } from "../ui/folder-controls.ts";
 import CraftingEntry from "./CraftingEntry.vue";
 import CraftingSummary from "./CraftingSummary.vue";
 import { state } from "../state.ts";
@@ -93,13 +93,10 @@ function addSearched(): void {
 </script>
 
 <template>
-  <section class="panel crafting-intro">
+  <header class="page-heading">
     <h1>Crafting</h1>
-    <p id="crafting-data-status" class="muted">{{ status.text }}</p>
-    <div class="inline-fields">
-      <button id="crafting-connect-button" type="button" :hidden="status.isConnected" @click="connectFolder">Connect WoW folder</button>
-    </div>
-  </section>
+    <p id="crafting-data-status" class="muted page-data-status">{{ status.text }}</p>
+  </header>
 
   <section class="crafting-add">
     <label for="crafting-search">Add something to craft</label>

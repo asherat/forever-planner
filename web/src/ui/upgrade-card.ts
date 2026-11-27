@@ -1,6 +1,6 @@
 import "../legacy.ts";
 import { guideZone } from "../route.ts";
-import { activeSpec, characterWeights, gearShare, isTwoHanded, specLabel, specPreset, weaponDamageWeight } from "../scoring.ts";
+import { activeSpec, characterWeights, gearShare, isTwoHanded, specPreset, weaponDamageWeight } from "../scoring.ts";
 import { averageMaterialCost, averagePrice, isBuyableOnAuctionHouse, isLevelEstimated, itemUsableLevel, obtainableSources } from "../sources.ts";
 import type { Candidate, Character, CraftSource, Item, ItemSource, SlotDefinition, Snapshot, Stats } from "../types.ts";
 import { tierColor } from "./tiers.ts";
@@ -219,18 +219,16 @@ export function optionSubtitle(candidate: Candidate, snapshot: Snapshot): string
 }
 
 export function gainText(candidate: Candidate, character: Character): { className: string; text: string } {
-  const spec = activeSpec(character);
-  const label = specLabel(spec);
-  const unit = specPreset(spec).unit;
+  const unit = specPreset(activeSpec(character)).unit;
   if (candidate.gain > 0) {
     const snapshot = state.snapshots[character.slug];
     const share = gearShare(candidate.gain, snapshot, characterWeights(character)) * 100;
-    return { className: "gain gain-positive", text: label + " +" + candidate.gain + " " + unit + " (+" + share.toFixed(1) + "%)" };
+    return { className: "gain gain-positive", text: "+" + candidate.gain + " " + unit + " (+" + share.toFixed(1) + "%)" };
   }
   if (candidate.gain < 0) {
-    return { className: "gain gain-negative", text: label + " " + candidate.gain + " " + unit };
+    return { className: "gain gain-negative", text: candidate.gain + " " + unit };
   }
-  return { className: "gain", text: label + " ±0" };
+  return { className: "gain", text: "±0" };
 }
 
 export function routeBadge(candidate: Candidate): { className: string; text: string } | null {

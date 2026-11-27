@@ -41,21 +41,32 @@ export interface RecipeSourceLine {
   classes: string;
 }
 
-function recipeSourceText(teachingName: string, source: ItemSource): string {
-  if (source.type === "world-drop") {
-    return teachingName + ": world drop";
+function labelled(label: string, text: string): string {
+  if (label === "") {
+    return text.charAt(0).toUpperCase() + text.slice(1);
   }
-  return teachingName + ": " + source.type + " in " + (source.zone || "an unknown place");
+  return label + ": " + text;
+}
+
+function recipeSourceText(label: string, source: ItemSource): string {
+  if (source.type === "world-drop") {
+    return labelled(label, "world drop");
+  }
+  return labelled(label, source.type + " in " + source.zone);
+}
+
+function hasKnownPlace(source: ItemSource): boolean {
+  return source.type === "world-drop" || Boolean(source.zone);
 }
 
 function sourceLine(teachingName: string, source: ItemSource, index: number): RecipeSourceLine {
   const line: RecipeSourceLine = { key: index, prefix: "", npcUrl: "", npcName: "", suffix: "", coordinates: "", mapAttributes: {}, classes: "recipe-source-line" };
   if (source.type === "vendor" || source.type === "drop") {
-    let verb = ": drops from ";
+    let verb = "drops from ";
     if (source.type === "vendor") {
-      verb = ": sold by ";
+      verb = "sold by ";
     }
-    line.prefix = teachingName + verb;
+    line.prefix = labelled(teachingName, verb);
     line.npcUrl = WOWHEAD_URL + "npc=" + source.npcId;
     line.npcName = source.npc as string;
     line.suffix = " in " + source.zone;
@@ -78,19 +89,22 @@ export interface RecipeSourceView {
   lines: RecipeSourceLine[];
 }
 
-export function recipeSource(recipe: Recipe): RecipeSourceView {
+export function recipeSource(recipe: Recipe, namesThePattern: boolean): RecipeSourceView {
   if (!recipe.teachingItemId) {
     return { text: "Learned from a " + recipe.profession + " trainer.", lines: [] };
   }
-  const teachingName = craftingItem(recipe.teachingItemId).name;
-  const sources = teachingSources(recipe.teachingItemId);
+  let label = "";
+  if (namesThePattern) {
+    label = craftingItem(recipe.teachingItemId).name;
+  }
+  const sources = teachingSources(recipe.teachingItemId).filter(hasKnownPlace);
   if (sources.length === 0) {
-    return { text: teachingName + ": source unknown. Check the auction house.", lines: [] };
+    return { text: labelled(label, "source unknown, check the auction house"), lines: [] };
   }
   return {
     text: "",
     lines: sources.slice(0, RECIPE_SOURCES_SHOWN).map(function lineFor(source, index) {
-      return sourceLine(teachingName, source, index);
+      return sourceLine(label, source, index);
     })
   };
 }
