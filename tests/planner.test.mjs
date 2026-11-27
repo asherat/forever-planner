@@ -27,6 +27,14 @@ test("weapon damage counts for the slot the weapon goes in", () => {
   assert.equal(context.itemScore(bow, weights, "RANGED"), 50);
 });
 
+test("plain attack power on an item counts as ranged attack power too", () => {
+  const { context } = loadPlanner();
+  const weights = { RANGED_ATTACK_POWER: 1, AGILITY: 2 };
+  assert.equal(context.itemScore(sampleItem({ stats: { ATTACK_POWER: 20 } }), weights, "HEAD"), 20);
+  assert.equal(context.itemScore(sampleItem({ stats: { ATTACK_POWER: 20, RANGED_ATTACK_POWER: 20 } }), weights, "HEAD"), 20);
+  assert.equal(context.itemScore(sampleItem({ stats: { ATTACK_POWER: 20 } }), { AGILITY: 2 }, "HEAD"), 0);
+});
+
 test("a random-suffix item is scored as its best suffix", () => {
   const { context } = loadPlanner();
   const helmet = sampleItem({

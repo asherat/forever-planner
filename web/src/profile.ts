@@ -65,7 +65,7 @@ async function fetchItemIcon(itemId: number): Promise<string | null> {
   try {
     const media = await fetchFromBattleNet("/data/wow/media/item/" + itemId, "static");
     return mediaAsset(media as { assets?: { key: string; value: string }[] } | null, "icon");
-  } catch (error) {
+  } catch {
     return null;
   }
 }
