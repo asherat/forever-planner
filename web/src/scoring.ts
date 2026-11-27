@@ -282,7 +282,8 @@ export function slotDefinitionByKey(slotKey: string): SlotDefinition | null {
   return null;
 }
 
-const MINIMUM_GEAR_SHARE = 0.01;
+export const WORTHWHILE_GEAR_SHARE = 0.02;
+export const FREE_ON_PATH_GEAR_SHARE = 0.01;
 
 export function gearScore(snapshot: Snapshot, weights: Weights): number {
   let total = 0;
@@ -302,8 +303,12 @@ export function gearShare(gain: number, snapshot: Snapshot, weights: Weights): n
   return gain / total;
 }
 
+export function hasGearShare(gain: number, snapshot: Snapshot, weights: Weights, share: number): boolean {
+  return gain > 0 && gearShare(gain, snapshot, weights) >= share;
+}
+
 export function isWorthwhileGain(gain: number, snapshot: Snapshot, weights: Weights): boolean {
-  return gain > 0 && gearShare(gain, snapshot, weights) >= MINIMUM_GEAR_SHARE;
+  return hasGearShare(gain, snapshot, weights, WORTHWHILE_GEAR_SHARE);
 }
 
 export function bestGainAnySlot(item: Item, snapshot: Snapshot, weights: Weights): number {

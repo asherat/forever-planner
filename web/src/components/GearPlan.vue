@@ -29,7 +29,7 @@ const view = computed(function planView() {
     <section v-for="group in view.groups" :key="group.key" class="plan-group">
       <h3 class="plan-group-title">{{ group.title }}</h3>
       <ol class="plan-entries">
-        <PlanEntry v-for="entry in group.entries" :key="entry.slotKey" :entry="entry" :snapshot="view.snapshot" />
+        <PlanEntry v-for="entry in group.entries" :key="entry.key" :entry="entry" :snapshot="view.snapshot" />
       </ol>
       <a v-if="group.showsCraftAll" class="button-link primary" :href="group.craftAll">Craft all</a>
     </section>
