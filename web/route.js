@@ -444,7 +444,7 @@ function renderDungeonList(character, snapshot) {
   select.appendChild(createElement("option", null, "Add a dungeon…"));
   const upgradeCounts = dungeonUpgradeCounts(character, snapshot);
   for (const dungeon of window.FOREVER_DUNGEONS) {
-    if (chosenDungeon(route, dungeon.name) !== null) {
+    if (chosenDungeon(route, dungeon.name) !== null || !isDungeonWorthRunning(dungeon, snapshot)) {
       continue;
     }
     let label = dungeon.name + " (" + dungeon.minLevel + "+)";
@@ -458,8 +458,6 @@ function renderDungeonList(character, snapshot) {
         label += "s";
       }
       label += ", best +" + upgrades.bestGain;
-    } else if (!isDungeonWorthRunning(dungeon, snapshot)) {
-      continue;
     }
     const option = createElement("option", null, label);
     option.value = dungeon.name;
