@@ -26,7 +26,7 @@ export function routeAvailability(item: Item, snapshot: Snapshot, character: Cha
   }
   let best: { level: number; leg: RouteLeg } | null = null;
   for (const source of sources) {
-    if (source.type === "vendor" || source.type === "craft") {
+    if (source.type === "vendor" || source.type === "craft" || source.type === "owned") {
       return { level: usableLevel, leg: null };
     }
     if (!source.zone) {

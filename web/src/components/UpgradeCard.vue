@@ -34,10 +34,10 @@ const gain = computed(function cardGain() {
 });
 
 const suffixNote = computed(function randomStatsNote() {
-  if (!item.value.suffix) {
+  if (!props.candidate.item.suffix) {
     return "";
   }
-  return "Comes with random stats. Best for you: " + item.value.suffix.name + ".";
+  return "Comes with random stats. Best for you: " + props.candidate.item.suffix.name + ".";
 });
 
 const badge = computed(function pathBadge() {
@@ -45,18 +45,18 @@ const badge = computed(function pathBadge() {
 });
 
 const reputationNote = computed(function reputationText() {
-  if (itemReputationRequirement(item.value, props.snapshot) === null || meetsReputation(item.value, props.snapshot)) {
+  if (itemReputationRequirement(props.candidate.item, props.snapshot) === null || meetsReputation(props.candidate.item, props.snapshot)) {
     return "";
   }
-  return reputationRequirementText(item.value, props.snapshot);
+  return reputationRequirementText(props.candidate.item, props.snapshot);
 });
 
 const sources = computed(function itemSources() {
-  return sourcesForCharacter(item.value, props.snapshot);
+  return sourcesForCharacter(props.candidate.item, props.snapshot);
 });
 
 const auctionOnly = computed(function onlyOnAuctionHouse() {
-  return auctionOnlyText(item.value, props.snapshot);
+  return auctionOnlyText(props.candidate.item, props.snapshot);
 });
 
 function sourceRow(source: (typeof sources.value)[number], index: number) {
@@ -83,15 +83,15 @@ function pricePart(part: ReturnType<typeof priceParts>[number], index: number) {
 }
 
 const prices = computed(function priceLine() {
-  return priceParts(item.value, craftSource.value, props.snapshot, props.candidate.gain, specPreset(activeSpec(props.character)).unit).map(pricePart);
+  return priceParts(props.candidate.item, craftSource.value, props.snapshot, props.candidate.gain, specPreset(activeSpec(props.character)).unit).map(pricePart);
 });
 
 const dungeons = computed(function cardDungeons() {
-  return Array.from(itemDungeons(item.value, props.snapshot));
+  return Array.from(itemDungeons(props.candidate.item, props.snapshot));
 });
 
 const picked = computed(function isThisPicked() {
-  return isPicked(props.character, props.slotDefinition.key, item.value);
+  return isPicked(props.character, props.slotDefinition.key, props.candidate.item);
 });
 
 const cardClasses = computed(function cardClass() {
@@ -109,7 +109,7 @@ const pickLabel = computed(function pickText() {
 });
 
 function pick(): void {
-  togglePick(props.slotDefinition.key, item.value);
+  togglePick(props.slotDefinition.key, props.candidate.item);
 }
 
 function cardClicked(event: MouseEvent): void {
@@ -120,7 +120,7 @@ function cardClicked(event: MouseEvent): void {
 }
 
 function notInterested(): void {
-  hideItem(item.value.id);
+  hideItem(props.candidate.item.id);
 }
 
 function skipperFor(dungeonName: string) {
