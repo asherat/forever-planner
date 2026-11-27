@@ -1,18 +1,10 @@
-import { ref } from "vue";
 import "../legacy.ts";
-import { availableScopes, collectNodes, crafting, craftingItem, currentPriceScope, inventory, isBindOnPickup, isInScope, ownFactionLetter, saveCraftingList, scopeKey } from "../crafting-plan.ts";
+import { collectNodes, crafting, craftingItem, inventory, isBindOnPickup, isInScope, saveCraftingList } from "../crafting-plan.ts";
 import type { CraftingEntry, Plan, PlanMode, PlanNode, Recipe, ShoppingLine, TakingLine } from "../crafting-plan.ts";
-import type { ItemSource } from "../types.ts";
-import { mapTargetAttributes } from "./map-target.ts";
-import type { MapAttributes } from "./map-target.ts";
-import { inventoryStatusText, questieStatusText, readWowFolder, tsmStatusText } from "../folder-data.ts";
-import { placeForSource } from "../map-popover.ts";
-import { WOWHEAD_URL } from "../prices.ts";
-import { selectedCharacter, setStatus, state } from "../state.ts";
+import { knowsRecipe, professionOf, selectedCharacter, setStatus, state } from "../state.ts";
 import { characterPlan, slotPicks } from "./gear-plan.ts";
-import { WOW_FOLDER } from "../wow-folder.ts";
-
-const RECIPE_SOURCES_SHOWN = 2;
+import { recipeSource } from "./recipe-sources.ts";
+import type { RecipeSourceView } from "./recipe-sources.ts";
 type ChoosableMode = Exclude<PlanMode, "buy">;
 
 const CRAFTING_MODES: Record<ChoosableMode, string> = { own: "Have", vendor: "Vendor", ah: "AH", craft: "Craft" };
@@ -23,8 +15,6 @@ const MODE_ICON_PATHS: Record<ChoosableMode, string> = {
   craft: "M14.5 4.5l5 5-2 2-1.5-1.5-8.5 8.5a1.8 1.8 0 0 1-2.5-2.5L13.5 7.5 12 6l2.5-1.5z"
 };
 const PLACE_LABELS: Record<string, string> = { bags: "bags", bank: "bank", mail: "mailbox", auctions: "on the AH" };
-
-export const isReading = ref(false);
 
 export interface ModeChoice {
   mode: ChoosableMode;
@@ -143,93 +133,11 @@ function charactersKnowingRecipe(recipe: Recipe): string[] {
     if (!snapshot || !isInScope(snapshot.ruleset, snapshot.faction as string)) {
       continue;
     }
-    for (const profession of snapshot.professions) {
-      if (profession.name === recipe.profession && (profession.recipeIds || []).indexOf(recipe.id) !== -1) {
-        names.push(character.displayName);
-      }
+    if (knowsRecipe(snapshot, recipe.profession, recipe.id)) {
+      names.push(character.displayName);
     }
   }
   return names;
-}
-
-function teachingSources(itemId: number): ItemSource[] {
-  if (state.questie === null || !state.questie.items[itemId]) {
-    return [];
-  }
-  const letter = ownFactionLetter();
-  const sources: ItemSource[] = [];
-  for (const source of state.questie.items[itemId].sources) {
-    if (source.type === "vendor" && source.friendlyTo && (source.friendlyTo as string).indexOf(letter) === -1) {
-      continue;
-    }
-    sources.push(source);
-  }
-  return sources;
-}
-
-export interface RecipeSourceLine {
-  key: number;
-  prefix: string;
-  npcUrl: string;
-  npcName: string;
-  suffix: string;
-  coordinates: string;
-  mapAttributes: MapAttributes;
-  classes: string;
-}
-
-function recipeSourceText(teachingName: string, source: ItemSource): string {
-  if (source.type === "world-drop") {
-    return teachingName + ": world drop";
-  }
-  return teachingName + ": " + source.type + " in " + (source.zone || "an unknown place");
-}
-
-function sourceLine(teachingName: string, source: ItemSource, index: number): RecipeSourceLine {
-  const line: RecipeSourceLine = { key: index, prefix: "", npcUrl: "", npcName: "", suffix: "", coordinates: "", mapAttributes: {}, classes: "recipe-source-line" };
-  if (source.type === "vendor" || source.type === "drop") {
-    let verb = ": drops from ";
-    if (source.type === "vendor") {
-      verb = ": sold by ";
-    }
-    line.prefix = teachingName + verb;
-    line.npcUrl = WOWHEAD_URL + "npc=" + source.npcId;
-    line.npcName = source.npc as string;
-    line.suffix = " in " + source.zone;
-  } else {
-    line.prefix = recipeSourceText(teachingName, source);
-  }
-  const place = placeForSource(source as unknown as { zone: string; x: number | null; y: number | null });
-  if (place.x !== null && place.y !== null) {
-    line.coordinates = " (" + place.x.toFixed(1) + ", " + place.y.toFixed(1) + ")";
-  }
-  line.mapAttributes = mapTargetAttributes(place.zone, place.x, place.y, place.caption);
-  if (line.mapAttributes["data-map-zone"] !== undefined) {
-    line.classes = "recipe-source-line has-map";
-  }
-  return line;
-}
-
-export interface RecipeSourceView {
-  text: string;
-  lines: RecipeSourceLine[];
-}
-
-export function recipeSource(recipe: Recipe): RecipeSourceView {
-  if (!recipe.teachingItemId) {
-    return { text: "Learned from a " + recipe.profession + " trainer.", lines: [] };
-  }
-  const teachingName = craftingItem(recipe.teachingItemId).name;
-  const sources = teachingSources(recipe.teachingItemId);
-  if (sources.length === 0) {
-    return { text: teachingName + ": source unknown. Check the auction house.", lines: [] };
-  }
-  return {
-    text: "",
-    lines: sources.slice(0, RECIPE_SOURCES_SHOWN).map(function lineFor(source, index) {
-      return sourceLine(teachingName, source, index);
-    })
-  };
 }
 
 export interface RecipeRequirement {
@@ -331,10 +239,9 @@ function knownCrafters(profession: string): Crafter[] {
     if (!snapshot || !isInScope(snapshot.ruleset, snapshot.faction as string)) {
       continue;
     }
-    for (const entry of snapshot.professions) {
-      if (entry.name === profession && !crafterListed(crafters, character.displayName)) {
-        crafters.push({ name: character.displayName, level: (entry as { skillPoints?: number }).skillPoints });
-      }
+    const entry = professionOf(snapshot, profession);
+    if (entry !== null && !crafterListed(crafters, character.displayName)) {
+      crafters.push({ name: character.displayName, level: entry.skillPoints });
     }
   }
   return crafters;
@@ -400,29 +307,6 @@ export function inventoryRows(): InventoryRow[] | null {
     rows.push({ key: name, account: account, name: name, label: " " + name + " ", money: character.money, included: crafting.list.excludedCharacters.indexOf(name) === -1 });
   }
   return rows;
-}
-
-export function dataStatusText(): string {
-  if (!state.wowFolderConnected) {
-    return "Connect your WoW folder for prices, vendor info and your characters' materials.";
-  }
-  return [tsmStatusText(), inventoryStatusText(), questieStatusText()].join(" ");
-}
-
-export interface ScopeOption {
-  key: string;
-  label: string;
-}
-
-export function scopeOptions(): ScopeOption[] {
-  return availableScopes().map(function optionFor(scope) {
-    return { key: scopeKey(scope.ruleset, scope.faction), label: scope.ruleset + " · " + scope.faction };
-  });
-}
-
-export function currentScopeKey(): string {
-  const current = currentPriceScope();
-  return scopeKey(current.ruleset, current.faction);
 }
 
 export function searchNames(): string[] {
@@ -511,45 +395,6 @@ export function includeCharacter(name: string, isIncluded: boolean): void {
   }
   crafting.list.excludedCharacters = remaining;
   saveCraftingList();
-}
-
-export async function refreshCraftingData(): Promise<void> {
-  isReading.value = true;
-  try {
-    setStatus("Reading your WoW folder…", "info");
-    await readWowFolder(true);
-    setStatus("Prices and bags updated.", "success");
-  } catch (error) {
-    setStatus((error as Error).message, "error");
-  } finally {
-    isReading.value = false;
-  }
-}
-
-export async function connectCraftingFolder(): Promise<void> {
-  if (!window.showDirectoryPicker) {
-    setStatus("This browser can't read local folders. Use Chrome.", "error");
-    return;
-  }
-  try {
-    const folder = await window.showDirectoryPicker({ id: "wow-folder", mode: "read" });
-    if ((await WOW_FOLDER.addonsDirectory(folder)) === null) {
-      setStatus("That folder has no Interface/AddOns inside. Pick your World of Warcraft or _forever_ folder.", "error");
-      return;
-    }
-    await WOW_FOLDER.storeHandle(WOW_FOLDER.folderKey, folder);
-    await refreshCraftingData();
-  } catch (error) {
-    if ((error as Error).name !== "AbortError") {
-      setStatus((error as Error).message, "error");
-    }
-  }
-}
-
-export function chooseScope(key: string): void {
-  crafting.list.scope = key;
-  saveCraftingList();
-  refreshCraftingData();
 }
 
 function entriesFromPlan(): CraftingEntry[] {
