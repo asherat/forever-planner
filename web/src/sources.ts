@@ -1,14 +1,46 @@
-const completedQuestCache = { snapshot: null, questIds: new Set() };
-const sourceCache = { snapshot: null, questie: null, entries: new Map() };
-const CLASS_BITS = { Warrior: 1, Paladin: 2, Hunter: 4, Rogue: 8, Priest: 16, Shaman: 64, Mage: 128, Warlock: 256, Druid: 1024 };
+import "./legacy.ts";
+import type { CraftSource, Item, ItemSource, QuestieItemDetail, QuestieQuest, ReputationRequirement, Snapshot } from "./types.ts";
+
+export const CLASS_BITS: Record<string, number> = { Warrior: 1, Paladin: 2, Hunter: 4, Rogue: 8, Priest: 16, Shaman: 64, Mage: 128, Warlock: 256, Druid: 1024 };
+export const REPUTATION_TIER_NAMES = ["Hated", "Hostile", "Unfriendly", "Neutral", "Friendly", "Honored", "Revered", "Exalted"];
 const NEUTRAL_REPUTATION_TIER = 3;
 const REPUTATION_TIERS_WITHIN_REACH = 1;
-const itemIndex = new Map();
-const REPUTATION_TIER_NAMES = ["Hated", "Hostile", "Unfriendly", "Neutral", "Friendly", "Honored", "Revered", "Exalted"];
 const COPPER_PER_GOLD = 10000;
 const FARMABLE_DROP_CREATURE_LIMIT = 3;
 
-function completedQuests(snapshot) {
+const completedQuestCache: { snapshot: Snapshot | null; questIds: Set<number> } = { snapshot: null, questIds: new Set() };
+const sourceCache: { snapshot: Snapshot | null; questie: unknown; entries: Map<number, ItemSource[]> } = { snapshot: null, questie: null, entries: new Map() };
+const itemIndex = new Map<number, Item>();
+
+export function resetSourceCaches(): void {
+  completedQuestCache.snapshot = null;
+  sourceCache.snapshot = null;
+  sourceCache.entries.clear();
+  itemIndex.clear();
+}
+
+export function clearSourceCache(): void {
+  sourceCache.entries.clear();
+}
+
+export function itemById(itemId: number): Item | null {
+  if (itemIndex.size === 0) {
+    for (const item of window.FOREVER_ITEMS) {
+      itemIndex.set(item.id, item);
+    }
+  }
+  return itemIndex.get(itemId) || null;
+}
+
+export function itemName(itemId: number): string {
+  const item = itemById(itemId);
+  if (item === null) {
+    return "item " + itemId;
+  }
+  return item.name;
+}
+
+export function completedQuests(snapshot: Snapshot): Set<number> {
   if (completedQuestCache.snapshot !== snapshot) {
     completedQuestCache.snapshot = snapshot;
     completedQuestCache.questIds = new Set(snapshot.completedQuestIds || []);
@@ -16,14 +48,14 @@ function completedQuests(snapshot) {
   return completedQuestCache.questIds;
 }
 
-function reputationTier(snapshot, factionId) {
+function reputationTier(snapshot: Snapshot, factionId: number): number {
   if (snapshot.reputations && snapshot.reputations[factionId] !== undefined) {
     return snapshot.reputations[factionId];
   }
   return NEUTRAL_REPUTATION_TIER;
 }
 
-function itemReputationRequirement(item, snapshot) {
+export function itemReputationRequirement(item: Item, snapshot: Snapshot): ReputationRequirement | null {
   if (item.reputationRequirement) {
     return { factionId: item.reputationRequirement.factionId, tier: item.reputationRequirement.tier, text: item.reputation };
   }
@@ -39,7 +71,7 @@ function itemReputationRequirement(item, snapshot) {
   return null;
 }
 
-function meetsReputation(item, snapshot) {
+export function meetsReputation(item: Item, snapshot: Snapshot): boolean {
   const requirement = itemReputationRequirement(item, snapshot);
   if (requirement === null) {
     return true;
@@ -47,7 +79,7 @@ function meetsReputation(item, snapshot) {
   return reputationTier(snapshot, requirement.factionId) >= requirement.tier;
 }
 
-function isReputationWithinReach(item, snapshot) {
+export function isReputationWithinReach(item: Item, snapshot: Snapshot): boolean {
   const requirement = itemReputationRequirement(item, snapshot);
   if (requirement === null) {
     return true;
@@ -55,8 +87,11 @@ function isReputationWithinReach(item, snapshot) {
   return reputationTier(snapshot, requirement.factionId) >= requirement.tier - REPUTATION_TIERS_WITHIN_REACH;
 }
 
-function reputationRequirementText(item, snapshot) {
+export function reputationRequirementText(item: Item, snapshot: Snapshot): string {
   const requirement = itemReputationRequirement(item, snapshot);
+  if (requirement === null) {
+    return "";
+  }
   const current = REPUTATION_TIER_NAMES[reputationTier(snapshot, requirement.factionId)];
   if (meetsReputation(item, snapshot)) {
     return requirement.text + " (you have it)";
@@ -64,21 +99,7 @@ function reputationRequirementText(item, snapshot) {
   return requirement.text + " (you're " + current + ")";
 }
 
-function itemDungeons(item, snapshot) {
-  const names = new Set();
-  for (const source of gettableSources(item, snapshot)) {
-    if (source.type !== "drop" && source.type !== "quest") {
-      continue;
-    }
-    const dungeon = dungeonForArea(source.zone);
-    if (dungeon !== null) {
-      names.add(dungeon.name);
-    }
-  }
-  return names;
-}
-
-function hasProfession(snapshot, professionName) {
+function hasProfession(snapshot: Snapshot, professionName: string | undefined): boolean {
   for (const profession of snapshot.professions) {
     if (profession.name === professionName) {
       return true;
@@ -87,37 +108,40 @@ function hasProfession(snapshot, professionName) {
   return false;
 }
 
-function questieDetail(item) {
+function questieDetail(item: Item): QuestieItemDetail | null {
   if (state.questie === null) {
     return null;
   }
   return state.questie.items[item.id] || null;
 }
 
-function factionLetter(factionType) {
+function factionLetter(factionType: string): string {
   if (factionType === "ALLIANCE") {
     return "A";
   }
   return "H";
 }
 
-function questieQuestsForCharacter(detail, snapshot) {
-  const quests = [];
+function isForClass(classes: number, snapshot: Snapshot): boolean {
   const classBit = CLASS_BITS[snapshot.className];
+  return !classes || !classBit || Boolean(classes & classBit);
+}
+
+function questieQuestsForCharacter(detail: QuestieItemDetail, snapshot: Snapshot): QuestieQuest[] {
+  const quests: QuestieQuest[] = [];
   for (const quest of detail.quests) {
     if (completedQuests(snapshot).has(quest.id)) {
       continue;
     }
     const factionMatches = quest.faction === null || quest.faction === snapshot.factionType;
-    const classMatches = !quest.classes || !classBit || Boolean(quest.classes & classBit);
-    if (factionMatches && classMatches) {
+    if (factionMatches && isForClass(quest.classes, snapshot)) {
       quests.push(quest);
     }
   }
   return quests;
 }
 
-function itemFaction(item) {
+export function itemFaction(item: Item): string | null {
   if (item.faction) {
     return item.faction;
   }
@@ -141,13 +165,14 @@ function itemFaction(item) {
   return detail.vendorFaction;
 }
 
-function itemUsableLevel(item, snapshot) {
+export function itemUsableLevel(item: Item, snapshot: Snapshot): number {
+  const usableLevel = item.usableLevel || 1;
   if (!item.levelEstimated) {
-    return item.usableLevel;
+    return usableLevel;
   }
   const detail = questieDetail(item);
   if (detail === null) {
-    return item.usableLevel;
+    return usableLevel;
   }
   let lowestQuestLevel = 0;
   for (const quest of questieQuestsForCharacter(detail, snapshot)) {
@@ -158,21 +183,24 @@ function itemUsableLevel(item, snapshot) {
   if (lowestQuestLevel > 0) {
     return lowestQuestLevel;
   }
-  return item.usableLevel;
+  return usableLevel;
 }
 
-function isLevelEstimated(item, snapshot) {
-  return item.levelEstimated && itemUsableLevel(item, snapshot) === item.usableLevel;
+export function isLevelEstimated(item: Item, snapshot: Snapshot): boolean {
+  return Boolean(item.levelEstimated) && itemUsableLevel(item, snapshot) === item.usableLevel;
 }
 
-function questieQuest(questId) {
-  if (state.questie === null || !state.questie.quests) {
+export function questieQuest(questId: number | undefined): QuestieQuest | null {
+  if (state.questie === null || !state.questie.quests || questId === undefined) {
     return null;
   }
   return state.questie.quests[questId] || null;
 }
 
-function isQuestForCharacter(questId, snapshot) {
+export function isQuestForCharacter(questId: number | undefined, snapshot: Snapshot): boolean {
+  if (questId === undefined) {
+    return false;
+  }
   if (completedQuests(snapshot).has(questId)) {
     return false;
   }
@@ -183,38 +211,32 @@ function isQuestForCharacter(questId, snapshot) {
   if (quest.faction !== null && quest.faction !== snapshot.factionType) {
     return false;
   }
-  const classBit = CLASS_BITS[snapshot.className];
-  if (quest.classes && classBit && !(quest.classes & classBit)) {
-    return false;
-  }
-  return true;
+  return isForClass(quest.classes, snapshot);
 }
 
-function clearSourceCache() {
-  sourceCache.entries.clear();
-}
-
-function sourcesForCharacter(item, snapshot) {
+export function sourcesForCharacter(item: Item, snapshot: Snapshot): ItemSource[] {
   if (sourceCache.snapshot !== snapshot || sourceCache.questie !== state.questie) {
     sourceCache.snapshot = snapshot;
     sourceCache.questie = state.questie;
     sourceCache.entries.clear();
   }
-  if (!sourceCache.entries.has(item.id)) {
-    sourceCache.entries.set(item.id, collectSourcesForCharacter(item, snapshot));
+  let sources = sourceCache.entries.get(item.id);
+  if (sources === undefined) {
+    sources = collectSourcesForCharacter(item, snapshot);
+    sourceCache.entries.set(item.id, sources);
   }
-  return sourceCache.entries.get(item.id);
+  return sources;
 }
 
-function collectSourcesForCharacter(item, snapshot) {
-  const sources = [];
+function collectSourcesForCharacter(item: Item, snapshot: Snapshot): ItemSource[] {
+  const sources: ItemSource[] = [];
   const detail = questieDetail(item);
-  const questLevels = {};
-  const otherFactionQuestIds = new Set();
-  const listedQuestIds = new Set();
+  const questLevels = new Map<number, QuestieQuest>();
+  const otherFactionQuestIds = new Set<number>();
+  const listedQuestIds = new Set<number>();
   if (detail !== null) {
     for (const quest of questieQuestsForCharacter(detail, snapshot)) {
-      questLevels[quest.id] = quest;
+      questLevels.set(quest.id, quest);
     }
     for (const quest of detail.quests) {
       if (quest.faction !== null && quest.faction !== snapshot.factionType) {
@@ -226,31 +248,28 @@ function collectSourcesForCharacter(item, snapshot) {
     if (source.faction && source.faction !== snapshot.factionType) {
       continue;
     }
-    if (source.type === "quest" && otherFactionQuestIds.has(source.questId)) {
+    if (source.type !== "quest" || source.questId === undefined) {
+      sources.push(source);
       continue;
     }
-    if (source.type === "quest" && !isQuestForCharacter(source.questId, snapshot)) {
+    if (otherFactionQuestIds.has(source.questId) || !isQuestForCharacter(source.questId, snapshot)) {
       continue;
     }
-    if (source.type === "quest" && !source.level && !questLevels[source.questId] && questieQuest(source.questId) !== null) {
-      listedQuestIds.add(source.questId);
-      sources.push(Object.assign({}, source, { level: questieQuest(source.questId).questLevel }));
-      continue;
+    listedQuestIds.add(source.questId);
+    const questieLevel = questLevels.get(source.questId);
+    const knownQuest = questieQuest(source.questId);
+    if (!source.level && questieLevel === undefined && knownQuest !== null) {
+      sources.push(Object.assign({}, source, { level: knownQuest.questLevel }));
+    } else if (questieLevel !== undefined) {
+      sources.push(Object.assign({}, source, { level: questieLevel.questLevel }));
+    } else {
+      sources.push(source);
     }
-    if (source.type === "quest") {
-      listedQuestIds.add(source.questId);
-      if (questLevels[source.questId]) {
-        sources.push(Object.assign({}, source, { level: questLevels[source.questId].questLevel }));
-        continue;
-      }
-    }
-    sources.push(source);
   }
   if (detail === null) {
     return sources;
   }
-  for (const questId of Object.keys(questLevels)) {
-    const quest = questLevels[questId];
+  for (const quest of questLevels.values()) {
     if (!listedQuestIds.has(quest.id)) {
       sources.push({ type: "quest", questId: quest.id, quest: quest.name, zone: quest.zone, level: quest.questLevel });
     }
@@ -264,7 +283,8 @@ function collectSourcesForCharacter(item, snapshot) {
     if (dropCreatures > FARMABLE_DROP_CREATURE_LIMIT && isDropSource(source)) {
       continue;
     }
-    if (source.type === "vendor" && source.friendlyTo && source.friendlyTo.indexOf(ownLetter) === -1) {
+    const friendlyTo = source.friendlyTo;
+    if (source.type === "vendor" && typeof friendlyTo === "string" && friendlyTo.indexOf(ownLetter) === -1) {
       continue;
     }
     if (source.type === "vendor" && item.vendorPrice) {
@@ -276,32 +296,46 @@ function collectSourcesForCharacter(item, snapshot) {
   return sources;
 }
 
-function isDropSource(source) {
+function isDropSource(source: ItemSource): boolean {
   return source.type === "drop" || source.type === "more-drops" || source.type === "world-drop";
 }
 
-function dropCreatureCount(sources) {
+function dropCreatureCount(sources: ItemSource[]): number {
   let count = 0;
   for (const source of sources) {
     if (source.type === "drop") {
       count += 1;
     }
     if (source.type === "more-drops" || source.type === "world-drop") {
-      count += source.count;
+      count += source.count || 0;
     }
   }
   return count;
 }
 
-function isObtainableSource(source) {
+function isObtainableSource(source: ItemSource): boolean {
   return source.type !== "world-drop" && source.type !== "object";
 }
 
-function gettableSources(item, snapshot) {
+function gettableSources(item: Item, snapshot: Snapshot): ItemSource[] {
   return sourcesForCharacter(item, snapshot).filter(isObtainableSource);
 }
 
-function skippedDungeons() {
+export function itemDungeons(item: Item, snapshot: Snapshot): Set<string> {
+  const names = new Set<string>();
+  for (const source of gettableSources(item, snapshot)) {
+    if (source.type !== "drop" && source.type !== "quest") {
+      continue;
+    }
+    const dungeon = dungeonForArea(source.zone);
+    if (dungeon !== null) {
+      names.add(dungeon.name);
+    }
+  }
+  return names;
+}
+
+export function skippedDungeons(): string[] {
   const character = selectedCharacter();
   if (character === null || !character.skippedDungeons) {
     return [];
@@ -309,13 +343,13 @@ function skippedDungeons() {
   return character.skippedDungeons;
 }
 
-function isFromSkippedDungeon(source) {
+function isFromSkippedDungeon(source: ItemSource): boolean {
   const dungeon = dungeonForArea(source.zone);
   return dungeon !== null && skippedDungeons().indexOf(dungeon.name) !== -1;
 }
 
-function obtainableSources(item, snapshot) {
-  const sources = [];
+export function obtainableSources(item: Item, snapshot: Snapshot): ItemSource[] {
+  const sources: ItemSource[] = [];
   for (const source of gettableSources(item, snapshot)) {
     if (!isFromSkippedDungeon(source)) {
       sources.push(source);
@@ -324,12 +358,12 @@ function obtainableSources(item, snapshot) {
   return sources;
 }
 
-function isListedOnAuctionHouse(item) {
+function isListedOnAuctionHouse(item: Item): boolean {
   const price = priceFor(item.id);
   return price !== null && price.listed > 0;
 }
 
-function goldLimitInCopper() {
+function goldLimitInCopper(): number | null {
   const character = selectedCharacter();
   if (character === null || character.maxGoldPerUpgrade === undefined || character.maxGoldPerUpgrade === null) {
     return null;
@@ -337,7 +371,7 @@ function goldLimitInCopper() {
   return character.maxGoldPerUpgrade * COPPER_PER_GOLD;
 }
 
-function isWithinGoldLimit(price) {
+export function isWithinGoldLimit(price: number | null | undefined): boolean {
   const limit = goldLimitInCopper();
   if (limit === null || price === null || price === undefined) {
     return true;
@@ -345,21 +379,25 @@ function isWithinGoldLimit(price) {
   return price <= limit;
 }
 
-function isBuyableOnAuctionHouse(item) {
+export function isBuyableOnAuctionHouse(item: Item): boolean {
   if (item.suffix) {
     return false;
   }
   return isListedOnAuctionHouse(item) && isWithinGoldLimit(averagePrice(item.id));
 }
 
-function sourceCost(source, snapshot) {
+function isCraftSource(source: ItemSource): source is CraftSource {
+  return source.type === "craft";
+}
+
+function sourceCost(source: ItemSource, snapshot: Snapshot): number | null {
   if (source.type === "vendor") {
     if (source.price === undefined) {
       return null;
     }
     return source.price;
   }
-  if (source.type === "craft") {
+  if (isCraftSource(source)) {
     const cost = averageMaterialCost(source, snapshot);
     if (cost.missing > 0) {
       return null;
@@ -369,8 +407,8 @@ function sourceCost(source, snapshot) {
   return 0;
 }
 
-function cheapestCost(item, snapshot) {
-  let cheapest = null;
+export function cheapestCost(item: Item, snapshot: Snapshot): number | null {
+  let cheapest: number | null = null;
   if (!item.suffix && isListedOnAuctionHouse(item)) {
     cheapest = averagePrice(item.id);
   }
@@ -383,7 +421,7 @@ function cheapestCost(item, snapshot) {
   return cheapest;
 }
 
-function knowsRecipe(snapshot, source) {
+function knowsRecipe(snapshot: Snapshot, source: CraftSource): boolean {
   for (const profession of snapshot.professions) {
     if (profession.name === source.profession && (profession.recipeIds || []).indexOf(source.recipeId) !== -1) {
       return true;
@@ -392,7 +430,7 @@ function knowsRecipe(snapshot, source) {
   return false;
 }
 
-function isEasySource(source, snapshot) {
+export function isEasySource(source: ItemSource, snapshot: Snapshot): boolean {
   if (source.type === "quest") {
     return true;
   }
@@ -402,13 +440,13 @@ function isEasySource(source, snapshot) {
     }
     return isWithinGoldLimit(source.price);
   }
-  if (source.type === "craft") {
+  if (isCraftSource(source)) {
     return knowsRecipe(snapshot, source);
   }
   return false;
 }
 
-function hasEasySource(item, snapshot) {
+export function hasEasySource(item: Item, snapshot: Snapshot): boolean {
   if (!meetsReputation(item, snapshot)) {
     return false;
   }
@@ -423,22 +461,23 @@ function hasEasySource(item, snapshot) {
   return false;
 }
 
-function sourceLevel(source, usableLevel) {
+function sourceLevel(source: ItemSource, usableLevel: number): number {
   if (source.type === "quest" && source.level) {
     return source.level;
   }
-  if ((source.type === "quest" || source.type === "drop") && source.zone && guideZone(source.zone) !== null) {
-    return Math.max(usableLevel, guideZone(source.zone).minLevel);
+  const zone = guideZone(source.zone);
+  if ((source.type === "quest" || source.type === "drop") && zone !== null) {
+    return Math.max(usableLevel, zone.minLevel);
   }
   return usableLevel;
 }
 
-function earliestSourceLevel(item, snapshot) {
+export function earliestSourceLevel(item: Item, snapshot: Snapshot): number {
   const usableLevel = itemUsableLevel(item, snapshot);
   if (isBuyableOnAuctionHouse(item)) {
     return usableLevel;
   }
-  let earliest = null;
+  let earliest: number | null = null;
   for (const source of obtainableSources(item, snapshot)) {
     const level = sourceLevel(source, usableLevel);
     if (earliest === null || level < earliest) {
@@ -451,20 +490,20 @@ function earliestSourceLevel(item, snapshot) {
   return earliest;
 }
 
-function hasKnownSource(item, snapshot) {
+export function hasKnownSource(item: Item, snapshot: Snapshot): boolean {
   return obtainableSources(item, snapshot).length > 0 || isBuyableOnAuctionHouse(item);
 }
 
-function hasOwnProfessionCraft(item, snapshot) {
+export function hasOwnProfessionCraft(item: Item, snapshot: Snapshot): boolean {
   for (const source of sourcesForCharacter(item, snapshot)) {
-    if (source.type === "craft" && hasProfession(snapshot, source.profession)) {
+    if (isCraftSource(source) && hasProfession(snapshot, source.profession)) {
       return true;
     }
   }
   return false;
 }
 
-function firstQuestSource(sources) {
+export function firstQuestSource(sources: ItemSource[]): ItemSource | null {
   for (const source of sources) {
     if (source.type === "quest") {
       return source;
@@ -473,32 +512,26 @@ function firstQuestSource(sources) {
   return null;
 }
 
-function equippedItemIds(snapshot) {
-  const itemIds = new Set();
-  for (const slotKey of Object.keys(snapshot.equipment)) {
-    itemIds.add(snapshot.equipment[slotKey].id);
-  }
-  return itemIds;
-}
-
-function itemName(itemId) {
-  const item = itemById(itemId);
-  if (item === null) {
-    return "item " + itemId;
-  }
-  return item.name;
-}
-
-function firstCraftSource(sources) {
+export function firstCraftSource(sources: ItemSource[]): CraftSource | null {
   for (const source of sources) {
-    if (source.type === "craft") {
+    if (isCraftSource(source)) {
       return source;
     }
   }
   return null;
 }
 
-function averagePrice(itemId) {
+export function equippedItemIds(snapshot: Snapshot): Set<number> {
+  const itemIds = new Set<number>();
+  for (const equipped of Object.values(snapshot.equipment)) {
+    if (equipped !== undefined) {
+      itemIds.add(equipped.id);
+    }
+  }
+  return itemIds;
+}
+
+export function averagePrice(itemId: number): number | null {
   if (state.tsm === null || !state.tsm.prices[itemId]) {
     return null;
   }
@@ -506,15 +539,16 @@ function averagePrice(itemId) {
   return price.regionMarketValue || price.marketValue || price.marketValueRecent || price.regionSale || null;
 }
 
-function materialUnitPrice(itemId, snapshot) {
-  let vendor = null;
+function materialUnitPrice(itemId: number, snapshot: Snapshot): number | null {
+  let vendor: { price: number } | null = null;
   const known = window.FOREVER_CRAFTING_ITEMS[itemId];
-  if (known && known.vendorPrice > 0 && isVendorSoldFor(itemId, factionLetter(snapshot.factionType))) {
+  if (known && known.vendorPrice && known.vendorPrice > 0 && isVendorSoldFor(itemId, factionLetter(snapshot.factionType))) {
     vendor = { price: known.vendorPrice * (1 - vendorDiscountRate()) };
   }
-  let auction = null;
-  if (unitCost(itemId) !== null) {
-    auction = { price: unitCost(itemId) };
+  let auction: { price: number } | null = null;
+  const auctionPrice = unitCost(itemId);
+  if (auctionPrice !== null) {
+    auction = { price: auctionPrice };
   }
   const offer = preferredOffer(vendor, auction);
   if (offer === null) {
@@ -523,7 +557,7 @@ function materialUnitPrice(itemId, snapshot) {
   return offer.price;
 }
 
-function averageMaterialCost(source, snapshot) {
+export function averageMaterialCost(source: CraftSource, snapshot: Snapshot): { total: number; missing: number } {
   let total = 0;
   let missing = 0;
   for (const reagent of source.reagents) {
@@ -535,13 +569,4 @@ function averageMaterialCost(source, snapshot) {
     }
   }
   return { total: total, missing: missing };
-}
-
-function itemById(itemId) {
-  if (itemIndex.size === 0) {
-    for (const item of window.FOREVER_ITEMS) {
-      itemIndex.set(item.id, item);
-    }
-  }
-  return itemIndex.get(itemId) || null;
 }
