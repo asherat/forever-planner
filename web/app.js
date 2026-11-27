@@ -629,6 +629,69 @@ function rankedCandidatesForSlot(slotDefinition, snapshot, character) {
   return candidates;
 }
 
+function itemDungeons(item, snapshot) {
+  const names = new Set();
+  for (const source of obtainableSources(item, snapshot)) {
+    if (source.type !== "drop" && source.type !== "quest") {
+      continue;
+    }
+    const dungeon = dungeonForArea(source.zone);
+    if (dungeon !== null) {
+      names.add(dungeon.name);
+    }
+  }
+  return names;
+}
+
+function bestGainAnySlot(item, snapshot, weights) {
+  let best = 0;
+  for (const slotDefinition of window.GAME_RULES.equipmentSlots) {
+    if (slotDefinition.cosmetic || slotItemTypes(slotDefinition, snapshot).indexOf(item.slot) === -1) {
+      continue;
+    }
+    if (slotDefinition.key === "OFF_HAND" && isTwoHanded(snapshot.equipment.MAIN_HAND)) {
+      continue;
+    }
+    const variant = bestSuffixVariant(item, weights, slotDefinition.key);
+    const gain = itemScore(variant, weights, slotDefinition.key) - comparisonBaseline(slotDefinition, snapshot, variant, weights);
+    best = Math.max(best, gain);
+  }
+  return best;
+}
+
+function dungeonUpgradeCounts(character, snapshot) {
+  if (state.questie === null) {
+    return null;
+  }
+  const weights = characterWeights(character);
+  const skippedIds = equippedItemIds(snapshot);
+  for (const itemId of character.hiddenItemIds || []) {
+    skippedIds.add(itemId);
+  }
+  const counts = {};
+  for (const item of window.FOREVER_ITEMS) {
+    if (skippedIds.has(item.id) || !canUseItem(item, snapshot) || !isReputationWithinReach(item, snapshot)) {
+      continue;
+    }
+    const dungeons = itemDungeons(item, snapshot);
+    if (dungeons.size === 0 || !isWithinGoldLimit(cheapestCost(item, snapshot))) {
+      continue;
+    }
+    const gain = bestGainAnySlot(item, snapshot, weights);
+    if (gain <= 0) {
+      continue;
+    }
+    for (const name of dungeons) {
+      if (!counts[name]) {
+        counts[name] = { count: 0, bestGain: 0 };
+      }
+      counts[name].count += 1;
+      counts[name].bestGain = Math.max(counts[name].bestGain, Math.round(gain));
+    }
+  }
+  return counts;
+}
+
 function routeAvailability(item, snapshot, character) {
   const usableLevel = itemUsableLevel(item, snapshot);
   const sources = obtainableSources(item, snapshot);
