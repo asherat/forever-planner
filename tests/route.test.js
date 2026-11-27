@@ -75,3 +75,36 @@ test("dungeons only count for a zone when they are included", () => {
   character.route.legs[0].dungeons = true;
   assert.equal(context.legForZone(character, snapshot, "Zul'Farrak").zone, "Tanaris");
 });
+
+test("removing a zone in the middle asks how to fill its levels", () => {
+  const { context, character, snapshot } = freshRoute();
+  context.chooseZone(character, snapshot, "Riverglades");
+  context.chooseZone(character, snapshot, "Tanaris");
+  context.removeLeg(character, snapshot, 0);
+  const empty = evaluate(context, "routeEditor.emptyLevels");
+  assert.equal(empty.fromLevel, 42);
+  assert.equal(empty.toLevel, 45);
+  assert.equal(empty.removedZone, "Riverglades");
+  assert.equal(empty.nextZone, "Tanaris");
+});
+
+test("filling the empty levels puts the new zone back in the same place", () => {
+  const { context, character, snapshot } = freshRoute();
+  context.chooseZone(character, snapshot, "Riverglades");
+  context.chooseZone(character, snapshot, "Tanaris");
+  context.removeLeg(character, snapshot, 0);
+  context.fillEmptyLevels(character, "The Hinterlands");
+  const legs = context.routeLegs(character, snapshot);
+  assert.deepEqual([legs[0].zone, legs[1].zone], ["The Hinterlands", "Tanaris"]);
+  assert.equal(legs[0].toLevel, 45);
+  assert.equal(legs[1].fromLevel, 45);
+  assert.equal(evaluate(context, "routeEditor.emptyLevels"), null);
+});
+
+test("removing the last zone asks nothing", () => {
+  const { context, character, snapshot } = freshRoute();
+  context.chooseZone(character, snapshot, "Riverglades");
+  context.chooseZone(character, snapshot, "Tanaris");
+  context.removeLeg(character, snapshot, 1);
+  assert.equal(evaluate(context, "routeEditor.emptyLevels"), null);
+});

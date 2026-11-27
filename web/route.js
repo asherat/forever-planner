@@ -6,6 +6,7 @@ const TIER_COLORS = { S: "tier-orange", A: "tier-yellow", B: "tier-green", C: "t
 
 const routeEditor = {
   pendingGap: null,
+  emptyLevels: null,
   showAllZones: false
 };
 
@@ -243,6 +244,9 @@ function renderLeg(leg, index, snapshot) {
   if (zone !== null && leg.toLevel > zone.maxLevel + 1) {
     levels.appendChild(createElement("span", "route-warning", " past the zone's range, quests turn green"));
   }
+  if (zone !== null && leg.fromLevel + 1 < zone.minLevel) {
+    levels.appendChild(createElement("span", "route-warning", " · starts before the zone's level " + zone.minLevel + ", quests will be harder"));
+  }
   item.appendChild(levels);
 
   if (zone !== null && zone.dungeons && zone.dungeons.length > 0) {
@@ -298,9 +302,15 @@ function renderRoutePanel(character, snapshot) {
   if (legs.length > 0) {
     const list = createElement("ol", "route-legs");
     for (let index = 0; index < legs.length; index += 1) {
+      if (routeEditor.emptyLevels !== null && routeEditor.emptyLevels.index === index) {
+        list.appendChild(renderEmptyLevels(snapshot));
+      }
       list.appendChild(renderLeg(legs[index], index, snapshot));
     }
     container.appendChild(list);
+  }
+  if (routeEditor.emptyLevels !== null) {
+    return;
   }
   if (routeEditor.pendingGap !== null) {
     renderGapResolver(character, snapshot, container);
@@ -363,13 +373,54 @@ function updateLegEnd(character, snapshot, index, value) {
   route.legs = kept;
 }
 
-function removeLeg(character, index) {
+function removeLeg(character, snapshot, index) {
   const route = characterRoute(character);
+  const legs = routeLegs(character, snapshot);
+  routeEditor.emptyLevels = null;
+  if (index < legs.length - 1) {
+    routeEditor.emptyLevels = { index: index, fromLevel: legs[index].fromLevel, toLevel: legs[index].toLevel, removedZone: legs[index].zone, nextZone: legs[index + 1].zone };
+  }
   route.legs.splice(index, 1);
   if (route.legs.length === 0) {
     route.startLevel = null;
   }
   routeEditor.pendingGap = null;
+}
+
+function fillEmptyLevels(character, zoneName) {
+  const empty = routeEditor.emptyLevels;
+  characterRoute(character).legs.splice(empty.index, 0, { zone: zoneName, toLevel: empty.toLevel, dungeons: false });
+  routeEditor.emptyLevels = null;
+}
+
+function renderEmptyLevels(snapshot) {
+  const empty = routeEditor.emptyLevels;
+  const box = createElement("li", "route-gap");
+  box.appendChild(createElement("p", null, "Levels " + empty.fromLevel + "–" + empty.toLevel + " are empty now that " + empty.removedZone + " is gone. Where do you want to level instead?"));
+  const fillers = [];
+  for (const zone of nextZoneSuggestions(empty.fromLevel, snapshot.factionType, empty.nextZone).ready) {
+    if (zone.name !== empty.removedZone) {
+      fillers.push(zone);
+    }
+  }
+  for (const zone of fillers.slice(0, 3)) {
+    const fill = createElement("button", "route-gap-option " + TIER_COLORS[zone.tier]);
+    fill.type = "button";
+    fill.dataset.fillEmpty = zone.name;
+    fill.appendChild(tierBadge(zone.tier));
+    fill.append(" " + zone.name + " from " + empty.fromLevel + " to " + empty.toLevel);
+    box.appendChild(fill);
+  }
+  let startEarlyText = "Start " + empty.nextZone + " at " + empty.fromLevel;
+  const next = guideZone(empty.nextZone);
+  if (next !== null && next.minLevel > empty.fromLevel + 1) {
+    startEarlyText += " (quests will be harder)";
+  }
+  const stretch = createElement("button", "route-gap-option", startEarlyText);
+  stretch.type = "button";
+  stretch.dataset.keepStretch = "true";
+  box.appendChild(stretch);
+  return box;
 }
 
 function handleRouteClick(event) {
@@ -391,7 +442,11 @@ function handleRouteClick(event) {
   } else if (target.dataset.toggleZones !== undefined) {
     routeEditor.showAllZones = !routeEditor.showAllZones;
   } else if (target.dataset.removeLeg !== undefined) {
-    removeLeg(character, Number(target.dataset.removeLeg));
+    removeLeg(character, snapshot, Number(target.dataset.removeLeg));
+  } else if (target.dataset.fillEmpty !== undefined) {
+    fillEmptyLevels(character, target.dataset.fillEmpty);
+  } else if (target.dataset.keepStretch !== undefined) {
+    routeEditor.emptyLevels = null;
   } else {
     return;
   }
@@ -406,6 +461,7 @@ function handleRouteChange(event) {
     return;
   }
   const snapshot = state.snapshots[character.slug];
+  routeEditor.emptyLevels = null;
   if (target.dataset.legEnd !== undefined) {
     updateLegEnd(character, snapshot, Number(target.dataset.legEnd), target.value);
   } else if (target.dataset.legDungeons !== undefined) {
