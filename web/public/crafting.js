@@ -1131,5 +1131,3 @@ function startCrafting() {
   renderCrafting();
   readWowFolder(false).then(renderCrafting).catch(handleCraftingStartupError);
 }
-
-startCrafting();
