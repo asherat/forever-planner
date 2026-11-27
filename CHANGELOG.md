@@ -2,6 +2,10 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.81.0 — 2026-11-27
+
+- Each spec has its own gear plan, cat and bear included. Switching to Resto (or Bear) shows that spec's picks on the list and the paper doll instead of your Cat picks. Your existing picks stay with the spec you're on.
+
 ## v0.80.1 — 2026-11-27
 
 - Crafting costs on the gear page count every material at market price again, including ones you have: your materials are worth what they'd sell for, so this keeps the comparison with buying on the AH fair. "You have it" for gear stays.
