@@ -2,7 +2,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 
-const WEB_DIRECTORY = path.join(__dirname, "..", "..", "web");
+const WEB_DIRECTORY = path.join(__dirname, "..", "..", "web", "public");
 
 function createStorage() {
   const values = new Map();
