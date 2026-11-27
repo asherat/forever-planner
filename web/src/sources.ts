@@ -262,16 +262,6 @@ function inventoryInScope(snapshot: Snapshot) {
   });
 }
 
-export function ownedCount(itemId: number, snapshot: Snapshot): number {
-  let count = 0;
-  for (const character of inventoryInScope(snapshot)) {
-    for (const place of OWNED_PLACES) {
-      count += character[place][itemId] || 0;
-    }
-  }
-  return count;
-}
-
 function ownedSources(item: Item, snapshot: Snapshot): ItemSource[] {
   const selected = selectedCharacter();
   const ownName = (selected && selected.displayName) || "";
@@ -619,25 +609,16 @@ function materialUnitPrice(itemId: number, snapshot: Snapshot): number | null {
   return offer.price;
 }
 
-export function averageMaterialCost(source: CraftSource, snapshot: Snapshot): { total: number; missing: number; usesOwned: boolean } {
+export function averageMaterialCost(source: CraftSource, snapshot: Snapshot): { total: number; missing: number } {
   let total = 0;
   let missing = 0;
-  let usesOwned = false;
   for (const reagent of source.reagents) {
-    const owned = ownedCount(reagent.id, snapshot);
-    const needed = Math.max(0, reagent.quantity - owned);
-    if (owned > 0) {
-      usesOwned = true;
-    }
-    if (needed === 0) {
-      continue;
-    }
     const price = materialUnitPrice(reagent.id, snapshot);
     if (price === null) {
       missing += 1;
     } else {
-      total += price * needed;
+      total += price * reagent.quantity;
     }
   }
-  return { total: total, missing: missing, usesOwned: usesOwned };
+  return { total: total, missing: missing };
 }

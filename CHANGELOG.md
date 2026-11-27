@@ -2,6 +2,10 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.80.1 — 2026-11-27
+
+- Crafting costs on the gear page count every material at market price again, including ones you have: your materials are worth what they'd sell for, so this keeps the comparison with buying on the AH fair. "You have it" for gear stays.
+
 ## v0.80.0 — 2026-11-27
 
 - Upgrades you already have, in the bags, bank or mailbox of this character or an alt on the same realm type and faction, say so ("You have it, in your bank", "You have it on Bank Alt…: mail it over") and come first in your gear plan. Soulbound gear on alts is left out.
