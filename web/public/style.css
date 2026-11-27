@@ -1033,7 +1033,7 @@ legend {
 
 @media (max-width: 860px) {
   .crafting-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .crafting-summary {
@@ -1616,6 +1616,11 @@ legend {
   .settings-tabs [role="tab"] {
     padding: 8px 5px;
     font-size: 0.85rem;
+  }
+
+  .mode-buttons {
+    flex-wrap: wrap;
+    max-width: 100%;
   }
 }
 
