@@ -39,3 +39,9 @@ test("only counts vendors that are friendly to the character's faction", () => {
   assert.equal(context.isVendorSoldFor(2321, "H"), true);
   assert.equal(context.isVendorSoldFor(9999, "H"), false);
 });
+
+test("links a random-suffix item to its suffix on Wowhead", () => {
+  const context = loadCommon();
+  assert.equal(context.wowheadUrl({ id: 8214 }), "https://www.wowhead.com/forever/item=8214");
+  assert.equal(context.wowheadUrl({ id: 8214, suffix: { bonusId: 12727 } }), "https://www.wowhead.com/forever/item=8214?bonus=12727");
+});

@@ -62,6 +62,7 @@ Battle.net Forever namespaces are `static-forever-{region}`, `profile-forever-{r
 - **Quest chains are prerequisite trees, not lines.** The quest list shows every quest whose prerequisites are done (`QUESTIE.availableSteps`), never a single "step N of M". Battle.net can't see the quest log, so completed quests are the only progress signal.
 - **Refresh prunes the lists:** quest entries whose reward quest is completed or whose item is equipped, and crafting list items that are equipped.
 - **Every slot pairs a best upgrade with a quicker option you can reach now.** Rings and trinkets are paired so both picks never come from the same quest.
+- **Random-suffix items are scored as their best suffix for the selected spec.** The card names that suffix and links to it on Wowhead. Suffix stats come from the game files (`ItemXBonusTree` → `ItemBonus`, scaled by `RandPropPoints`); the roll chances are not in them, so none are shown.
 - **Upgrade cards show only sources, the region-average AH price and the crafted price.** Recipe knowledge belongs in the crafting tool.
 - **The crafting tool does not persist its items.** The crafting list on the gear page feeds it through "Craft all".
 - **Vendor materials beat the AH unless the AH is more than 15% cheaper.** The Bartering perk takes 5% off per rank.
