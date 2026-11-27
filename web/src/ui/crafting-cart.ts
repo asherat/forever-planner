@@ -1,4 +1,6 @@
 import "../legacy.ts";
+import { equippedItemIds, itemName } from "../sources.ts";
+import type { Snapshot } from "../types.ts";
 import { refreshVue } from "./render-tick.ts";
 
 export interface CartEntry {
@@ -74,4 +76,20 @@ export function craftAllHref(): string {
     parts.push(entry.itemId + ":" + entry.quantity);
   }
   return "crafting.html#items=" + parts.join(",");
+}
+
+export function pruneCraftingCart(snapshot: Snapshot): string[] {
+  const equipped = equippedItemIds(snapshot);
+  const kept: CartEntry[] = [];
+  const removedNames: string[] = [];
+  for (const entry of cartEntries()) {
+    if (equipped.has(entry.itemId)) {
+      removedNames.push(itemName(entry.itemId));
+    } else {
+      kept.push(entry);
+    }
+  }
+  state.craftingCart = kept;
+  writeStorage(STORAGE_KEYS.craftingCart, state.craftingCart);
+  return removedNames;
 }

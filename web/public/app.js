@@ -258,63 +258,9 @@ async function refreshCharacter(character) {
   setStatus("Updated from your last logout (" + new Date(profile.last_login_timestamp).toLocaleString() + ").", "success");
 }
 
-function pruneNotInterested(character, snapshot) {
-  const removedNames = [];
-  const keptItems = [];
-  for (const itemId of character.hiddenItemIds || []) {
-    const item = itemById(itemId);
-    if (item !== null && isUpgradeForAnySpec(item, character, snapshot)) {
-      keptItems.push(itemId);
-    } else {
-      removedNames.push(itemName(itemId));
-    }
-  }
-  const keptDungeons = [];
-  for (const dungeonName of character.skippedDungeons || []) {
-    if (state.questie === null || dungeonHasUpgrades(dungeonName, character, snapshot)) {
-      keptDungeons.push(dungeonName);
-    } else {
-      removedNames.push(dungeonName);
-    }
-  }
-  character.hiddenItemIds = keptItems;
-  character.skippedDungeons = keptDungeons;
-  saveSettings();
-  return removedNames;
-}
-
-function pruneCraftingCart(snapshot) {
-  const equipped = equippedItemIds(snapshot);
-  const kept = [];
-  const removedNames = [];
-  for (const entry of state.craftingCart) {
-    if (equipped.has(entry.itemId)) {
-      removedNames.push(itemName(entry.itemId));
-    } else {
-      kept.push(entry);
-    }
-  }
-  state.craftingCart = kept;
-  writeStorage(STORAGE_KEYS.craftingCart, state.craftingCart);
-  return removedNames;
-}
-
-function renderCharacterSelect() {
-  const select = document.getElementById("character-select");
-  select.replaceChildren();
-  for (const character of state.settings.characters) {
-    const option = createElement("option", null, character.displayName);
-    option.value = character.slug;
-    option.selected = character.slug === state.settings.selectedCharacterSlug;
-    select.appendChild(option);
-  }
-  select.hidden = state.settings.characters.length === 0;
-}
-
 function render() {
   refreshVue();
   clearSourceCache();
-  renderCharacterSelect();
   const character = selectedCharacter();
   const welcome = document.getElementById("welcome");
   const armory = document.getElementById("armory");
@@ -436,52 +382,6 @@ function questieItemIds() {
   return Array.from(itemIds);
 }
 
-async function handleRefreshClick() {
-  const character = selectedCharacter();
-  if (character === null) {
-    setStatus("Add a character in Settings first.", "error");
-    return;
-  }
-  const refreshButton = document.getElementById("refresh-button");
-  refreshButton.disabled = true;
-  try {
-    await refreshCharacter(character);
-    await readWowFolder(true);
-    const snapshot = state.snapshots[character.slug];
-    const removedNames = pruneQuestList(character, snapshot).concat(pruneCraftingCart(snapshot));
-    const outgrownNames = pruneNotInterested(character, snapshot);
-    const messages = [];
-    if (removedNames.length > 0) {
-      messages.push("Removed from your lists because you finished or equipped them: " + Array.from(new Set(removedNames)).join(", ") + ".");
-    }
-    if (outgrownNames.length > 0) {
-      messages.push("No longer upgrades, so dropped from your not-interested list: " + outgrownNames.join(", ") + ".");
-    }
-    if (messages.length > 0) {
-      setStatus("Updated. " + messages.join(" "), "success");
-    }
-    render();
-  } catch (error) {
-    setStatus(error.message, "error");
-  } finally {
-    refreshButton.disabled = false;
-  }
-}
-
-function handleCharacterSelectChange(event) {
-  state.settings.selectedCharacterSlug = event.target.value;
-  routeEditor.pendingGap = null;
-  saveSettings();
-  render();
-  readWowFolder(false).then(render).catch(handleTsmStartupError);
-}
-
-function bindEvents() {
-  document.getElementById("refresh-button").addEventListener("click", handleRefreshClick);
-  document.getElementById("settings-button").addEventListener("click", openSettings);
-  document.getElementById("character-select").addEventListener("change", handleCharacterSelectChange);
-}
-
 function handleTsmStartupError(error) {
   setStatus("Could not read your WoW folder: " + error.message, "error");
 }
@@ -490,7 +390,6 @@ function start() {
   observeRanking(queueTooltipChecks);
   enableMapPopovers();
   loadState();
-  bindEvents();
   if (!window.FOREVER_ITEMS) {
     setStatus("Game data is missing (web/data/items.js). Pull the latest version of the planner.", "error");
     return;

@@ -1,6 +1,8 @@
 import { ref } from "vue";
 import "../legacy.ts";
-import { itemName } from "../sources.ts";
+import { itemById, itemName } from "../sources.ts";
+import type { Character, Snapshot } from "../types.ts";
+import { dungeonHasUpgrades, isUpgradeForAnySpec } from "../upgrades.ts";
 
 export interface UndoAction {
   kind: "item" | "dungeon";
@@ -82,4 +84,29 @@ export function undoLastHide(): void {
   } else {
     restoreDungeon(undo.dungeonName);
   }
+}
+
+export function pruneNotInterested(character: Character, snapshot: Snapshot): string[] {
+  const removedNames: string[] = [];
+  const keptItems: number[] = [];
+  for (const itemId of character.hiddenItemIds || []) {
+    const item = itemById(itemId);
+    if (item !== null && isUpgradeForAnySpec(item, character, snapshot)) {
+      keptItems.push(itemId);
+    } else {
+      removedNames.push(itemName(itemId));
+    }
+  }
+  const keptDungeons: string[] = [];
+  for (const dungeonName of character.skippedDungeons || []) {
+    if (state.questie === null || dungeonHasUpgrades(dungeonName, character, snapshot)) {
+      keptDungeons.push(dungeonName);
+    } else {
+      removedNames.push(dungeonName);
+    }
+  }
+  character.hiddenItemIds = keptItems;
+  character.skippedDungeons = keptDungeons;
+  saveSettings();
+  return removedNames;
 }
