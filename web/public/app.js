@@ -395,7 +395,6 @@ function render() {
   state.upgradesBySlot = optionsBySlot;
 
   document.getElementById("lookahead-label").textContent = String(state.settings.lookaheadLevels);
-  renderPlayControls(character, snapshot);
   document.getElementById("route-credit").textContent = window.ZONE_GUIDE.credit;
   allOptions.sort(compareUpgradeOptions);
   state.upgradeOptions = allOptions;
@@ -429,58 +428,6 @@ function renderCharacterList() {
     row.appendChild(removeButton);
     list.appendChild(row);
   }
-}
-
-function renderChoiceGroup(container, name, choices, selectedValue) {
-  container.replaceChildren();
-  for (const choice of choices) {
-    const label = createElement("label", "choice");
-    const input = createElement("input");
-    input.type = "radio";
-    input.name = name;
-    input.value = choice.value;
-    input.checked = choice.value === selectedValue;
-    label.appendChild(input);
-    label.appendChild(createElement("span", null, choice.label));
-    container.appendChild(label);
-  }
-}
-
-function renderPlayControls(character, snapshot) {
-  const playstyleChoices = [];
-  for (const playstyleKey of Object.keys(window.GAME_RULES.playstyles)) {
-    const playstyle = window.GAME_RULES.playstyles[playstyleKey];
-    let label = playstyle.label;
-    if (playstyle.pvpRulesetLabel && isPvpRuleset(snapshot)) {
-      label = playstyle.pvpRulesetLabel;
-    }
-    playstyleChoices.push({ value: playstyleKey, label: label });
-  }
-  renderChoiceGroup(document.getElementById("playstyle-choices"), "playstyle", playstyleChoices, characterPlaystyle(character));
-  const goldLimitInput = document.getElementById("gold-limit");
-  goldLimitInput.value = "";
-  if (character.maxGoldPerUpgrade !== undefined && character.maxGoldPerUpgrade !== null) {
-    goldLimitInput.value = String(character.maxGoldPerUpgrade);
-  }
-  const specs = characterSpecs(character, snapshot);
-  const gearForGroup = document.getElementById("gear-for");
-  gearForGroup.hidden = specs.length < 2;
-  if (specs.length > 1) {
-    let gearFor = "main";
-    if (character.gearFor === "off") {
-      gearFor = "off";
-    }
-    renderChoiceGroup(document.getElementById("gear-for-choices"), "gear-for",
-      [{ value: "main", label: "Main: " + specLabel(specs[0]) }, { value: "off", label: "Off: " + specLabel(specs[1]) }], gearFor);
-  }
-  const feralGroup = document.getElementById("feral-form");
-  feralGroup.hidden = !hasFeralSpec(snapshot);
-  let feralForm = "cat";
-  if (character.feralForm === "bear") {
-    feralForm = "bear";
-  }
-  renderChoiceGroup(document.getElementById("feral-form-choices"), "feral-form",
-    [{ value: "cat", label: "Cat" }, { value: "bear", label: "Bear" }], feralForm);
 }
 
 function removeCharacter(slug) {
@@ -1011,35 +958,6 @@ function handleCharacterListClick(event) {
   }
 }
 
-function goldLimitFromInput(value) {
-  const gold = Number(value);
-  if (value.trim() === "" || !Number.isFinite(gold) || gold < 0) {
-    return null;
-  }
-  return gold;
-}
-
-function handlePlayControlsChange(event) {
-  const character = selectedCharacter();
-  if (character === null) {
-    return;
-  }
-  if (event.target.name === "playstyle") {
-    character.playstyle = event.target.value;
-  }
-  if (event.target.name === "feral-form") {
-    character.feralForm = event.target.value;
-  }
-  if (event.target.name === "gear-for") {
-    character.gearFor = event.target.value;
-  }
-  if (event.target.name === "gold-limit") {
-    character.maxGoldPerUpgrade = goldLimitFromInput(event.target.value);
-  }
-  saveSettings();
-  render();
-}
-
 function handleImportChange(event) {
   if (event.target.files.length > 0) {
     importSettings(event.target.files[0]);
@@ -1065,7 +983,6 @@ function bindEvents() {
   document.getElementById("import-input").addEventListener("change", handleImportChange);
   document.getElementById("character-select").addEventListener("change", handleCharacterSelectChange);
   document.getElementById("character-list").addEventListener("click", handleCharacterListClick);
-  document.getElementById("play-controls").addEventListener("change", handlePlayControlsChange);
   document.getElementById("found-characters").addEventListener("click", handleFoundCharacterClick);
   document.querySelector(".settings-tabs").addEventListener("click", handleSettingsTabClick);
   document.getElementById("settings-form").addEventListener("keydown", handleSettingsKeydown);
