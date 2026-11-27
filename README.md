@@ -40,6 +40,13 @@ It runs entirely in your browser. There is no server: your browser talks to Batt
 - The crafting tool expands each recipe and lets you choose per material: use what your characters have, buy from a vendor, buy on the auction house, or craft it. It shows the total, a shopping list, who has which materials and who can craft.
 - Your materials are shared down the list: the first craft uses them and the next ones get what's left. Reorder crafts with ↑ ↓, or switch sharing off to see each item's cost as if it had all your materials. Items that are cheaper to buy (or that you already have) are listed first.
 
+**Professions**
+
+- The Professions page plans the cheapest way to level a profession from your current skill (read from Battle.net) to any target, with your auction house and vendor prices. Each step says what to craft and about how many times: orange recipes always give a point, yellow and green ones less often, so the plan counts the extra crafts.
+- It lists the recipes to learn (trainer, or a pattern with where to get it and its price) and the materials for the steps you have left, marking the ones that are cheaper to craft yourself.
+- Your plan is saved per character and profession. Tick steps and materials as you go and come back later; steps below your skill tick themselves after a Refresh.
+- Enchanting only has its rods and oils for now: the enchants themselves aren't in the data yet.
+
 ## Setup
 
 1. Create a Battle.net API client at https://develop.battle.net/access/clients (any name; redirect URL `http://localhost`).

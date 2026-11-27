@@ -1,9 +1,12 @@
 const fs = require("node:fs");
 const path = require("node:path");
+const vm = require("node:vm");
 const { chromium } = require("playwright-core");
 const { ROOT, latestBuild, wait, wagoTable } = require("./wago.js");
 
 const CACHE_DIRECTORY = path.join(ROOT, "data", "cache", "wowhead");
+const RECIPES_FILE = path.join(ROOT, "web", "public", "data", "recipes.js");
+const CRAFTING_ITEMS_FILE = path.join(ROOT, "web", "public", "data", "crafting-items.js");
 const OUTPUT_FILE = path.join(ROOT, "web", "public", "data", "recipe-levels.js");
 const WOWHEAD_SKILL_URL = "https://www.wowhead.com/forever/skill=";
 const PAGE_SETTLE_MILLISECONDS = 6000;
@@ -12,6 +15,7 @@ const BROWSER_USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (
 const CACHE_DAYS = 30;
 const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000;
 const MAXIMUM_MISMATCH_SHARE = 0.05;
+const LEARNED_WITH_PROFESSION = "1";
 const PROFESSIONS = {
   Alchemy: 171,
   Blacksmithing: 164,
@@ -62,24 +66,75 @@ async function professionRecipes(browser, name, skillId) {
   return rows;
 }
 
-function gameTrivialLevels(abilities) {
-  const levels = new Map();
+function professionAbilities(abilities) {
+  const skillLines = Object.values(PROFESSIONS).map(String);
+  return abilities.filter(function isRankedRecipe(ability) {
+    return skillLines.indexOf(ability.SkillLine) !== -1 && Number(ability.TrivialSkillLineRankHigh) > 0;
+  });
+}
+
+function plannerData() {
+  const context = { window: {} };
+  vm.createContext(context);
+  vm.runInContext(fs.readFileSync(RECIPES_FILE, "utf8"), context);
+  vm.runInContext(fs.readFileSync(CRAFTING_ITEMS_FILE, "utf8"), context);
+  return context.window;
+}
+
+function unnamedRecipeNames(recipes, craftingItems, spellNames, abilities) {
+  const names = new Map();
+  for (const name of spellNames) {
+    names.set(name.ID, name.Name_lang);
+  }
+  const spells = new Map();
   for (const ability of abilities) {
-    levels.set(Number(ability.Spell), { yellow: Number(ability.TrivialSkillLineRankLow), grey: Number(ability.TrivialSkillLineRankHigh) });
+    spells.set(ability.ID, ability.Spell);
   }
-  return levels;
+  const unnamed = {};
+  for (const recipe of recipes) {
+    const spellName = names.get(spells.get(String(recipe.id)));
+    if (!craftingItems[recipe.itemId] && spellName) {
+      unnamed[recipe.id] = spellName;
+    }
+  }
+  return unnamed;
 }
 
-function learnLevel(row) {
+function patternSkillRanks(recipes, items) {
+  const requiredRanks = new Map();
+  for (const item of items) {
+    requiredRanks.set(item.ID, Number(item.RequiredSkillRank));
+  }
+  const ranks = new Map();
+  for (const recipe of recipes) {
+    if (recipe.teachingItemId && requiredRanks.get(String(recipe.teachingItemId)) > 0) {
+      ranks.set(String(recipe.id), requiredRanks.get(String(recipe.teachingItemId)));
+    }
+  }
+  return ranks;
+}
+
+function learnLevel(row, yellow) {
+  if (row === undefined || !hasColors(row)) {
+    return yellow;
+  }
   if (row.colors[0] > 0) {
-    return row.colors[0];
+    return Math.min(row.colors[0], yellow);
   }
-  return row.learnedAt || 0;
+  return Math.min(row.learnedAt || yellow, yellow);
 }
 
-function combinedLevels(row, game) {
-  const green = Math.floor((game.yellow + game.grey) / 2);
-  return [Math.min(learnLevel(row), game.yellow), game.yellow, green, game.grey];
+function recipeLevels(ability, row, patternRank) {
+  const yellow = Number(ability.TrivialSkillLineRankLow);
+  const grey = Number(ability.TrivialSkillLineRankHigh);
+  let learnedAt = learnLevel(row, yellow);
+  if (patternRank !== undefined) {
+    learnedAt = Math.min(patternRank, yellow);
+  }
+  if (ability.AcquireMethod === LEARNED_WITH_PROFESSION) {
+    learnedAt = 1;
+  }
+  return [learnedAt, yellow, Math.floor((yellow + grey) / 2), grey];
 }
 
 function hasColors(row) {
@@ -88,34 +143,45 @@ function hasColors(row) {
 
 async function main() {
   const build = await latestBuild();
-  const gameLevels = gameTrivialLevels(await wagoTable("SkillLineAbility", build));
+  const abilities = professionAbilities(await wagoTable("SkillLineAbility", build));
+  const planner = plannerData();
+  const patternRanks = patternSkillRanks(planner.FOREVER_RECIPES, await wagoTable("ItemSparse", build));
+  const recipeNames = unnamedRecipeNames(planner.FOREVER_RECIPES, planner.FOREVER_CRAFTING_ITEMS, await wagoTable("SpellName", build), abilities);
   const browser = await chromium.launch({ executablePath: process.env.CHROME || undefined });
-  const levels = {};
-  let compared = 0;
-  let mismatched = 0;
+  const wowheadRows = new Map();
   try {
     for (const name of Object.keys(PROFESSIONS)) {
-      const rows = (await professionRecipes(browser, name, PROFESSIONS[name])).filter(hasColors);
+      const rows = await professionRecipes(browser, name, PROFESSIONS[name]);
       for (const row of rows) {
-        const game = gameLevels.get(row.id);
-        if (game && game.grey > 0) {
-          levels[row.id] = combinedLevels(row, game);
-          compared += 1;
-          if (game.yellow !== row.colors[1] || game.grey !== row.colors[3]) {
-            mismatched += 1;
-          }
-        }
+        wowheadRows.set(row.id, row);
       }
-      console.error(name + ": " + rows.length + " recipes");
+      console.error(name + ": " + rows.length + " recipes on Wowhead");
     }
   } finally {
     await browser.close();
   }
+  const levels = {};
+  let compared = 0;
+  let mismatched = 0;
+  let withoutLearnLevel = 0;
+  for (const ability of abilities) {
+    const row = wowheadRows.get(Number(ability.Spell));
+    levels[ability.ID] = recipeLevels(ability, row, patternRanks.get(ability.ID));
+    if (row === undefined || !hasColors(row)) {
+      withoutLearnLevel += 1;
+      continue;
+    }
+    compared += 1;
+    if (Number(ability.TrivialSkillLineRankLow) !== row.colors[1] || Number(ability.TrivialSkillLineRankHigh) !== row.colors[3]) {
+      mismatched += 1;
+    }
+  }
   console.error("Checked against the game files: " + mismatched + " of " + compared + " recipes differ in yellow or grey");
+  console.error(withoutLearnLevel + " recipes have no learn level on Wowhead; they start at yellow");
   if (compared === 0 || mismatched / compared > MAXIMUM_MISMATCH_SHARE) {
     throw new Error("Too many recipes disagree with the game files; not writing " + OUTPUT_FILE);
   }
-  fs.writeFileSync(OUTPUT_FILE, "window.FOREVER_RECIPE_LEVELS = " + JSON.stringify(levels) + ";\n");
+  fs.writeFileSync(OUTPUT_FILE, "window.FOREVER_RECIPE_LEVELS = " + JSON.stringify(levels) + ";\nwindow.FOREVER_RECIPE_NAMES = " + JSON.stringify(recipeNames) + ";\n");
   console.error("Wrote " + Object.keys(levels).length + " recipes to " + path.relative(ROOT, OUTPUT_FILE));
 }
 

@@ -2,6 +2,11 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.83.0 — 2026-11-27
+
+- New Professions page: the cheapest way to level a profession with your prices, step by step ("125 → 130: craft 7× Heavy Leather"), with the recipes and patterns to learn and the materials to buy. Recipe colors come from the game files and Wowhead.
+- The plan is saved per character and profession, so you can buy the materials and carry on later: tick steps and materials as you go; steps below your Battle.net skill tick themselves.
+
 ## v0.82.1 — 2026-11-27
 
 - Fixed: Refresh could show your character as it was hours ago (old logout time, old gear) even though Battle.net already had the new data. The browser was reusing an old copy of your profile; Refresh now always asks Battle.net.
