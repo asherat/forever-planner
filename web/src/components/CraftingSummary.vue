@@ -3,7 +3,6 @@ import { computed } from "vue";
 import "../legacy.ts";
 import { crafting } from "../crafting-plan.ts";
 import type { PlanTotals } from "../crafting-plan.ts";
-import { renderTick } from "../ui/render-tick.ts";
 import { chooseBartering, crafterRow, includeCharacter, inventoryRows, shoppingText, takingPlaces, useInventory } from "../ui/crafting-page.ts";
 import CraftingItemLabel from "./CraftingItemLabel.vue";
 import MoneyAmount from "./MoneyAmount.vue";
@@ -28,7 +27,6 @@ const taking = computed(function takingView() {
 });
 
 const crafters = computed(function craftersView() {
-  renderTick.value;
   return props.totals.professions.map(crafterRow);
 });
 
@@ -45,12 +43,10 @@ const hasNoCrafters = computed(function nothingToCraft() {
 });
 
 const settings = computed(function listSettings() {
-  renderTick.value;
   return { bartering: String(crafting.list.barteringRank || 0), useInventory: crafting.list.useInventory, isLocked: !crafting.list.useInventory };
 });
 
 const inventory = computed(function inventoryView() {
-  renderTick.value;
   return inventoryRows();
 });
 

@@ -21,7 +21,6 @@ import { WOW_FOLDER } from "./wow-folder.ts";
 import * as notInterested from "./ui/not-interested.ts";
 import * as questList from "./ui/quest-list.ts";
 import * as upgradePicks from "./ui/upgrade-picks.ts";
-import { refreshVue } from "./ui/render-tick.ts";
 import { TIER_COLORS } from "./ui/tiers.ts";
 import * as upgrades from "./upgrades.ts";
 
@@ -41,7 +40,7 @@ exposeForDebugging(notInterested);
 exposeForDebugging(questList);
 exposeForDebugging(upgradePicks);
 exposeForDebugging(settings);
-exposeForDebugging({ refreshVue: refreshVue, TIER_COLORS: TIER_COLORS });
+exposeForDebugging({ TIER_COLORS: TIER_COLORS });
 exposeForDebugging(gear);
 exposeForDebugging(profile);
 exposeForDebugging(tooltipChecks);

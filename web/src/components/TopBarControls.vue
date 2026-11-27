@@ -1,18 +1,15 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import "../legacy.ts";
-import { renderTick } from "../ui/render-tick.ts";
 import { openSettings } from "../ui/settings.ts";
 import { characterOptions, isRefreshing, refreshSelectedCharacter, selectCharacter } from "../ui/top-bar.ts";
 import { state } from "../state.ts";
 
 const options = computed(function optionsView() {
-  renderTick.value;
   return characterOptions();
 });
 
 const selectedSlug = computed(function selectedView() {
-  renderTick.value;
   return state.settings.selectedCharacterSlug;
 });
 

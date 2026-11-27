@@ -1,7 +1,7 @@
 import "./legacy.ts";
 import { dungeonForArea, guideZone } from "./route.ts";
 import type { CraftSource, Item, ItemSource, QuestieItemDetail, QuestieQuest, ReputationRequirement, Snapshot } from "./types.ts";
-import { isVendorSoldFor, preferredOffer, priceFor, unitCost, vendorDiscountRate } from "./prices.ts";
+import { isVendorSoldFor, preferredOffer, priceFor, savedBarteringRank, unitCost, vendorDiscountRate } from "./prices.ts";
 import { selectedCharacter, state } from "./state.ts";
 
 export const CLASS_BITS: Record<string, number> = { Warrior: 1, Paladin: 2, Hunter: 4, Rogue: 8, Priest: 16, Shaman: 64, Mage: 128, Warlock: 256, Druid: 1024 };
@@ -291,7 +291,7 @@ function collectSourcesForCharacter(item: Item, snapshot: Snapshot): ItemSource[
       continue;
     }
     if (source.type === "vendor" && item.vendorPrice) {
-      sources.push(Object.assign({}, source, { price: item.vendorPrice * (1 - vendorDiscountRate()) }));
+      sources.push(Object.assign({}, source, { price: item.vendorPrice * (1 - vendorDiscountRate(savedBarteringRank())) }));
       continue;
     }
     sources.push(source);
@@ -546,7 +546,7 @@ function materialUnitPrice(itemId: number, snapshot: Snapshot): number | null {
   let vendor: { price: number } | null = null;
   const known = window.FOREVER_CRAFTING_ITEMS[itemId];
   if (known && known.vendorPrice && known.vendorPrice > 0 && isVendorSoldFor(itemId, factionLetter(snapshot.factionType))) {
-    vendor = { price: known.vendorPrice * (1 - vendorDiscountRate()) };
+    vendor = { price: known.vendorPrice * (1 - vendorDiscountRate(savedBarteringRank())) };
   }
   let auction: { price: number } | null = null;
   const auctionPrice = unitCost(itemId);
