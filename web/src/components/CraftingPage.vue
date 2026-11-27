@@ -60,7 +60,7 @@ function addSearched(): void {
   <section class="crafting-layout">
     <div class="crafting-list-column">
       <h2>Your crafting list</h2>
-      <div id="crafting-empty" class="panel muted" :hidden="hasPlans">Nothing here yet. Add an item above, or collect crafted items with "Add to crafting list" in the gear planner and press "Craft all".</div>
+      <div id="crafting-empty" class="panel muted" :hidden="hasPlans">Nothing here yet. Add an item above, or pick crafted upgrades on the gear page and press "Craft all" in your gear plan.</div>
       <ol id="crafting-list" class="crafting-list">
         <CraftingEntry v-for="row in plans" :key="row.key" :plan="row.plan" :index="row.index" />
       </ol>
