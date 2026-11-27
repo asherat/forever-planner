@@ -26,12 +26,33 @@ test("clicking a card picks it, clicking again unpicks it, and a slot can hold s
   assert.deepEqual(Object.keys(characterPlan(character)), []);
 });
 
-test("a plan saved with one pick per slot is read as lists", () => {
+test("a plan saved before plans were per spec moves to the spec you're gearing", () => {
   const helm = sampleItem({ id: 4, name: "Old Helm" });
   const { character } = resetPlanner([helm], { plan: { HEAD: { itemId: 4 } } });
-  assert.equal(isPicked(character, "HEAD", helm), true);
   moveOldListsIntoPlans();
+  assert.equal(character.plan, undefined);
   assert.deepEqual(characterPlan(character).HEAD, [{ itemId: 4 }]);
+  assert.equal(isPicked(character, "HEAD", helm), true);
+});
+
+test("each spec has its own plan, cat and bear included", () => {
+  const helm = sampleItem({ id: 5, name: "Cat Helm" });
+  const robe = sampleItem({ id: 6, name: "Healer Robe", slot: "CHEST" });
+  const { character, snapshot } = resetPlanner([helm, robe]);
+  snapshot.talentSpecs = ["druid-feral-cat", "druid-restoration"];
+  togglePick("HEAD", helm);
+  character.gearFor = "off";
+  assert.equal(isPicked(character, "HEAD", helm), false);
+  togglePick("CHEST", robe);
+  assert.equal(planGroups(character, snapshot).flatMap(function entriesOf(group) { return group.entries; }).length, 1);
+  character.gearFor = "main";
+  character.feralForm = "bear";
+  assert.equal(isPicked(character, "HEAD", helm), false);
+  assert.deepEqual(Object.keys(characterPlan(character)), []);
+  character.feralForm = "cat";
+  assert.equal(isPicked(character, "HEAD", helm), true);
+  assert.equal(isPicked(character, "CHEST", robe), false);
+  assert.deepEqual(Object.keys(character.plans).sort(), ["druid-feral-cat", "druid-restoration"]);
 });
 
 test("a random-suffix pick remembers its suffix", () => {
