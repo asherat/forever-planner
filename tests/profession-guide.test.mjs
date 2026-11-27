@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { resetPlanner, run } from "./helpers/realm.mjs";
 import { crafting, defaultCraftingList, indexRecipes } from "../web/src/crafting-plan.ts";
 import { buildGuide, levelingCosts, recipeColor, skillRankAt, skillUpChance } from "../web/src/profession-guide.ts";
-import { costStillToBuy, professionChoices, shoppingRows, stageRows, startGuidePage } from "../web/src/ui/profession-page.ts";
+import { compareProfessions, comparisonRows, costStillToBuy, professionChoices, shoppingRows, stageRows, startGuidePage } from "../web/src/ui/profession-page.ts";
 
 const LINEN = 2589;
 const WOOL = 2592;
@@ -304,4 +304,11 @@ test("plans the rod with the step's materials and names the enchant", () => {
   assert.equal(step.recipe.title, "Enchant Bracer - Minor Health");
   assert.equal(step.recipe.subtitle, "One enchant takes:");
   assert.deepEqual(stages[0].materials.map(function row(entry) { return [entry.itemId, entry.quantity]; }), [[DUST, "10×"]]);
+});
+
+test("compares only primary professions, since secondary ones give no legacy points", () => {
+  const character = setUp(LINEN_FROM_70_TO_80);
+  run("state.snapshots['test-hero'].professions = [{ name: 'Leatherworking', skillPoints: 50 }, { name: 'Skinning', skillPoints: 50 }]");
+  compareProfessions();
+  assert.deepEqual(comparisonRows(character).map(function nameOf(row) { return row.name; }), ["Leatherworking"]);
 });
