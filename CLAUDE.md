@@ -137,6 +137,7 @@ A refactor must not change anything a player sees: compare the built site agains
 - Build DOM with `createElement` and `textContent`, never `innerHTML` with data.
 - English identifiers, descriptive names, no abbreviations.
 - Guard only against real data gaps, such as Questie or TSM not being connected.
+- `npm run lint` (ESLint, `eslint.config.js`) enforces named functions and no ternaries in `web/src`, and runs in CI before the tests.
 - **Type sizes come from the scale in `:root`** (`--text-xs`, `--text-sm`, `--text-md`, `--text-h3`, `--text-h2`, `--text-h1`); don't add a raw `font-size`. Dates shown to the player go through `shortDateTime` (`dates.ts`).
 - **Say a thing once.** A tool page starts with an `h1` and one muted line (`.page-heading`), not a panel; longer explanations go behind a `<details>`. The top bar holds the folder button (Connect, then Refresh).
 - Every plain data `<script>` and stylesheet URL carries `?build=__BUILD__`; Vite hashes the files it bundles. The deploy workflow builds with Vite, then stamps `__BUILD__` and `__VERSION__` (the latest tag) into `dist/*.html`.

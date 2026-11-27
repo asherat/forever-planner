@@ -307,7 +307,7 @@ def compact_item(item):
     stats = {}
     for stat in preview.get("stats") or []:
         if "type" in stat:
-            stats[stat["type"]["type"]] = stat["value"]
+            stats[stat["type"]["type"].rstrip(",")] = stat["value"]
     equip_effects = []
     for spell in preview.get("spells") or []:
         description = spell.get("description", "")

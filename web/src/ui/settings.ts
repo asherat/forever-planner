@@ -243,7 +243,7 @@ function applyImportedText(text: string): void {
     saveSettings();
     render();
     setStatus("Settings loaded.", "success");
-  } catch (error) {
+  } catch {
     setStatus("That file is not a valid settings file.", "error");
   }
 }

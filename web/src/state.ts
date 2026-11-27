@@ -83,7 +83,7 @@ export function readStorage<Value>(key: string, fallback: Value): Value {
       return fallback;
     }
     return JSON.parse(raw);
-  } catch (error) {
+  } catch {
     return fallback;
   }
 }

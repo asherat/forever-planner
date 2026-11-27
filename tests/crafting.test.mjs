@@ -160,3 +160,13 @@ test("in list order the first craft takes your materials; switched off, each cra
   assert.equal(plans[0].root.children[0].ownUsed, 4);
   assert.equal(plans[1].root.children[0].ownUsed, 4);
 });
+
+test("buys a few of something whose recipe makes more than is needed, when the whole batch costs more", () => {
+  const options = { recipes: [{ id: 2, profession: "Alchemy", itemId: POTION, quantity: 5, reagents: [[LEATHER, 1]] }], prices: { [LEATHER]: auction(300), [POTION]: auction(100) } };
+  setUp(Object.assign({ entries: [{ itemId: POTION, quantity: 1 }] }, options));
+  assert.equal(planList()[0].root.mode, "buy");
+  assert.equal(planList()[0].root.cost, 100);
+  setUp(Object.assign({ entries: [{ itemId: POTION, quantity: 4 }] }, options));
+  assert.equal(planList()[0].root.mode, "craft");
+  assert.equal(planList()[0].root.cost, 300);
+});

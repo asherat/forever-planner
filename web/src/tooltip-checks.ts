@@ -75,7 +75,7 @@ async function lookUpTooltipRequirement(itemId: number): Promise<void> {
     }
     const tooltip = await response.json();
     state.tooltipRequirements[itemId] = { reputations: parseTooltipRequirements(tooltip.tooltip || ""), checkedAt: Date.now() };
-  } catch (error) {
+  } catch {
     failedLookup(itemId);
   }
 }

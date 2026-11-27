@@ -133,11 +133,13 @@ export const crafting: { list: CraftingList; recipesByItem: Map<number, Recipe[]
 export function loadCraftingList(): void {
   crafting.list = Object.assign(defaultCraftingList(), readStorage(STORAGE_KEYS.crafting, {}));
   crafting.list.entries = [];
+  crafting.list.overrides = {};
 }
 
 export function saveCraftingList(): void {
   const saved: Partial<CraftingList> = Object.assign({}, crafting.list);
   delete saved.entries;
+  delete saved.overrides;
   writeStorage(STORAGE_KEYS.crafting, saved);
 }
 
@@ -462,6 +464,16 @@ function craftRemainder(node: PlanNode, remaining: number, pool: StockPool, over
   }
 }
 
+function isWholeBatchDearerThanBuying(itemId: number, quantity: number, depth: number, path: number[]): boolean {
+  const cheapest = cheapestRecipe(itemId, depth, path);
+  const offer = buyOffer(itemId);
+  if (cheapest === null || offer === null || cheapest.recipe.quantity === 1) {
+    return false;
+  }
+  const batches = Math.ceil(quantity / cheapest.recipe.quantity);
+  return offer.price * quantity < cheapest.unitCost * cheapest.recipe.quantity * batches;
+}
+
 function planNode(itemId: number, quantity: number, pool: StockPool, overrides: Record<string, PlanMode>, depth: number, path: number[]): PlanNode {
   const available = stockAvailable(pool, itemId);
   let mode = overrides[itemId] || defaultMode(itemId, available, depth, path);
@@ -487,6 +499,12 @@ function planNode(itemId: number, quantity: number, pool: StockPool, overrides: 
   }
   if (remaining === 0) {
     return node;
+  }
+  if (howToGetRest === "craft" && overrides[itemId] === undefined && isWholeBatchDearerThanBuying(itemId, remaining, depth, path)) {
+    howToGetRest = "buy";
+    if (node.mode === "craft") {
+      node.mode = "buy";
+    }
   }
   if (howToGetRest === "craft") {
     craftRemainder(node, remaining, pool, overrides, depth, path);
