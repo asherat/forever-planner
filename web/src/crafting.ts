@@ -5,6 +5,7 @@ import { currentPriceScope, indexRecipes, loadCraftingList } from "./crafting-pl
 import { exposeToLegacy } from "./legacy.ts";
 import { QUESTIE } from "./questie.ts";
 import { TSM } from "./tsm.ts";
+import { WOW_FOLDER } from "./wow-folder.ts";
 import { addFromLocationHash, handleHashChange } from "./ui/crafting-page.ts";
 import { refreshVue } from "./ui/render-tick.ts";
 
@@ -22,6 +23,7 @@ function handleStartupError(error: Error): void {
 
 window.TSM = TSM;
 window.QUESTIE = QUESTIE;
+window.WOW_FOLDER = WOW_FOLDER;
 exposeToLegacy({ currentPriceScope: currentPriceScope, questieItemIds: questieItemIds, questieQuestIds: questieQuestIds, refreshVue: refreshVue });
 enableMapPopovers();
 loadState();
