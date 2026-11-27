@@ -2026,3 +2026,8 @@ legend {
 .summary-details summary {
   font-weight: 600;
 }
+
+.shopping-copy {
+  margin: 8px 0 0;
+  font-size: var(--text-sm);
+}

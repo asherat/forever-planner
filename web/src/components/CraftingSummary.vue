@@ -8,6 +8,7 @@ import { takingPlaces } from "../ui/inventory-text.ts";
 import CraftingItemLabel from "./CraftingItemLabel.vue";
 import MoneyAmount from "./MoneyAmount.vue";
 import MoneyOrUnknown from "./MoneyOrUnknown.vue";
+import ShoppingCopyButtons from "./ShoppingCopyButtons.vue";
 
 const props = defineProps<{ totals: PlanTotals }>();
 
@@ -29,6 +30,16 @@ const taking = computed(function takingView() {
 
 const crafters = computed(function craftersView() {
   return props.totals.professions.map(crafterRow);
+});
+
+const shoppingExport = computed(function linesToCopy() {
+  return props.totals.shopping.map(function lineOf(line) {
+    return { itemId: line.itemId, quantity: line.quantity, fromVendor: line.offer !== null && line.offer.where === "vendor" };
+  });
+});
+
+const hasShopping = computed(function somethingToBuy() {
+  return props.totals.shopping.length > 0;
 });
 
 const hasNoShopping = computed(function nothingToBuy() {
@@ -84,6 +95,7 @@ function characterToggled(name: string, event: Event): void {
         <li v-if="hasNoShopping" class="muted">Nothing to buy.</li>
         <li v-for="line in shopping" :key="line.key" class="summary-row"><span class="summary-label"><CraftingItemLabel :item-id="line.itemId" />{{ line.quantity }}</span><span v-if="line.hasPrice" class="summary-value"><MoneyAmount :copper="line.cost" />{{ line.where }}</span><span v-else class="muted">no price</span></li>
       </ul>
+      <ShoppingCopyButtons v-if="hasShopping" list-name="Forever crafting" :lines="shoppingExport" />
     </section>
     <section v-if="hasTaking" class="panel">
       <h2>Take from your characters</h2>

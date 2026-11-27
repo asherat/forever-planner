@@ -2,6 +2,10 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.91.0 — 2026-11-27
+
+- Every shopping list can be copied: "Copy for TSM · Auctionator · as text" under each rank's buy list on Professions, under the full "still to buy" list, and under the Crafting shopping list. TSM gets an importable item list, Auctionator a shopping list named after the plan, and text has the amounts. Things you buy from a vendor are left out of the two auction house formats, and so is anything you've ticked as bought.
+
 ## v0.90.1 — 2026-11-27
 
 - Hunters: plain "attack power" on an item now counts as ranged attack power too, so Beast Mastery and Marksmanship see those items as upgrades.
