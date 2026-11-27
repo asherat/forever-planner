@@ -63,7 +63,7 @@ export function rankedCandidatesForSlot(slotDefinition: SlotDefinition, snapshot
     if (itemTypes.indexOf(item.slot) === -1 || equippedIds.has(item.id) || hiddenIds.has(item.id)) {
       continue;
     }
-    if (!canUseItem(item, snapshot) || !suitsSpec(item, specKey) || !isReputationWithinReach(item, snapshot)) {
+    if (!canUseItem(item, snapshot) || !suitsSpec(item, specKey, snapshot) || !isReputationWithinReach(item, snapshot)) {
       continue;
     }
     const variant = bestSuffixVariant(item, weights, slotDefinition.key);
@@ -244,7 +244,7 @@ export function compareUpgradeOptions(first: { priority: number }, second: { pri
 
 export function isUpgradeForAnySpec(item: Item, character: Character, snapshot: Snapshot): boolean {
   for (const specKey of characterSpecs(character, snapshot)) {
-    if (suitsSpec(item, specKey) && bestGainAnySlot(item, snapshot, weightsForSpec(character, specKey)) > 0) {
+    if (suitsSpec(item, specKey, snapshot) && bestGainAnySlot(item, snapshot, weightsForSpec(character, specKey)) > 0) {
       return true;
     }
   }

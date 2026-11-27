@@ -1,5 +1,5 @@
 import "./legacy.ts";
-import { itemById, itemFaction } from "./sources.ts";
+import { armorTrainingLevel, itemById, itemFaction, itemUsableLevel } from "./sources.ts";
 import type { Character, Item, Proficiencies, RandomSuffix, SlotDefinition, Snapshot, TalentSpecializations, Weights } from "./types.ts";
 import { state } from "./state.ts";
 
@@ -230,12 +230,26 @@ export function canUseItem(item: Item, snapshot: Snapshot): boolean {
 
 const ARMOR_TYPES = ["Cloth", "Leather", "Mail", "Plate"];
 
-export function suitsSpec(item: Item, specKey: string): boolean {
-  const armorTypes = rules().specs[specKey].armorTypes;
-  if (!armorTypes || item.slot === "CLOAK" || ARMOR_TYPES.indexOf(item.itemSubclass) === -1) {
+export function bestArmorType(className: string, level: number): string | null {
+  const proficiencies = rules().classProficiencies[className];
+  if (!proficiencies) {
+    return null;
+  }
+  let best: string | null = null;
+  for (const armorType of ARMOR_TYPES) {
+    if (proficiencies.armor.indexOf(armorType) !== -1 && armorTrainingLevel(className, armorType) <= level) {
+      best = armorType;
+    }
+  }
+  return best;
+}
+
+export function suitsSpec(item: Item, specKey: string, snapshot: Snapshot): boolean {
+  if (!rules().specs[specKey].bestArmorOnly || item.slot === "CLOAK" || ARMOR_TYPES.indexOf(item.itemSubclass) === -1) {
     return true;
   }
-  return armorTypes.indexOf(item.itemSubclass) !== -1;
+  const levelWorn = Math.max(snapshot.level, itemUsableLevel(item, snapshot));
+  return item.itemSubclass === bestArmorType(snapshot.className, levelWorn);
 }
 
 export function isTwoHanded(item: Item | null | undefined): boolean {
