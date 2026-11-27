@@ -83,6 +83,14 @@ export interface Character {
   [field: string]: unknown;
 }
 
+export interface Settings {
+  region: string;
+  characters: Character[];
+  selectedCharacterSlug: string | null;
+  lookaheadLevels: number;
+  [field: string]: unknown;
+}
+
 export interface SavedLeg {
   zone: string | null;
   toLevel: number;
