@@ -3,6 +3,7 @@ import { dungeonForArea, guideZone, isRouteActive, legForSource } from "../route
 import { CLASS_BITS, completedQuests, equippedItemIds, itemById, itemName, sourcesForCharacter } from "../sources.ts";
 import type { Character, Snapshot } from "../types.ts";
 import type { ChainStep, Place } from "../questie.ts";
+import { saveSettings, selectedCharacter, setStatus, state } from "../state.ts";
 
 export interface QuestListEntry {
   questId: number;

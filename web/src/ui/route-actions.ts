@@ -1,6 +1,7 @@
 import "../legacy.ts";
 import { chooseZone, fillEmptyLevels, removeLeg, resolveGap, routeEditor, startNextZoneEarlier, updateLegEnd } from "../route.ts";
 import type { Character, Snapshot } from "../types.ts";
+import { saveSettings, selectedCharacter, state } from "../state.ts";
 
 function withCharacter(change: (character: Character, snapshot: Snapshot) => void): void {
   const character = selectedCharacter();

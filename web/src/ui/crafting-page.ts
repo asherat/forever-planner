@@ -6,6 +6,11 @@ import type { ItemSource } from "../types.ts";
 import { mapTargetAttributes } from "./map-target.ts";
 import type { MapAttributes } from "./map-target.ts";
 import { refreshVue } from "./render-tick.ts";
+import { inventoryStatusText, questieStatusText, readWowFolder, tsmStatusText } from "../folder-data.ts";
+import { placeForSource } from "../map-popover.ts";
+import { WOWHEAD_URL } from "../prices.ts";
+import { setStatus, state } from "../state.ts";
+import { WOW_FOLDER } from "../wow-folder.ts";
 
 const RECIPE_SOURCES_SHOWN = 2;
 const CRAFTING_MODES: Record<string, string> = { own: "Have", vendor: "Vendor", ah: "AH", craft: "Craft" };
@@ -520,11 +525,11 @@ export async function connectCraftingFolder(): Promise<void> {
   }
   try {
     const folder = await window.showDirectoryPicker({ id: "wow-folder", mode: "read" });
-    if ((await window.WOW_FOLDER.addonsDirectory(folder)) === null) {
+    if ((await WOW_FOLDER.addonsDirectory(folder)) === null) {
       setStatus("That folder has no Interface/AddOns inside. Pick your World of Warcraft or _forever_ folder.", "error");
       return;
     }
-    await window.WOW_FOLDER.storeHandle(window.WOW_FOLDER.folderKey, folder);
+    await WOW_FOLDER.storeHandle(WOW_FOLDER.folderKey, folder);
     await refreshCraftingData();
   } catch (error) {
     if ((error as Error).name !== "AbortError") {

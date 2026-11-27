@@ -2,6 +2,7 @@
 import { computed } from "vue";
 import "../legacy.ts";
 import type { Item } from "../types.ts";
+import { qualityClass, wowheadUrl } from "../prices.ts";
 
 const props = defineProps<{ item: Item }>();
 

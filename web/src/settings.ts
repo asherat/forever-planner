@@ -1,5 +1,6 @@
 import "./legacy.ts";
 import type { Character, Settings } from "./types.ts";
+import { DEFAULT_LOOKAHEAD_LEVELS, MAX_LOOKAHEAD_LEVELS, REGIONS, defaultSettings } from "./state.ts";
 
 export function clampedLookahead(value: unknown): number {
   const levels = Math.round(Number(value));

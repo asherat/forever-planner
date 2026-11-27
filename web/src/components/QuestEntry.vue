@@ -9,6 +9,8 @@ import type { QuestListEntry } from "../ui/quest-list.ts";
 import ItemIcon from "./ItemIcon.vue";
 import QuestPlace from "./QuestPlace.vue";
 import WowheadLink from "./WowheadLink.vue";
+import { WOWHEAD_URL } from "../prices.ts";
+import { state } from "../state.ts";
 
 const AVAILABLE_STEPS_SHOWN = 2;
 

@@ -2,7 +2,7 @@ import fs from "node:fs";
 import vm from "node:vm";
 
 const PUBLIC_DIRECTORY = new URL("../../web/public/", import.meta.url);
-const CLASSIC_SCRIPTS = ["game-rules.js", "data/dungeons.js", "zone-guide.js", "common.js", "app.js"];
+const CLASSIC_DATA = ["game-rules.js", "data/dungeons.js", "zone-guide.js"];
 
 function createStorage() {
   const values = new Map();
@@ -27,9 +27,13 @@ function createStorage() {
 
 globalThis.window = globalThis;
 globalThis.localStorage = createStorage();
-for (const fileName of CLASSIC_SCRIPTS) {
+for (const fileName of CLASSIC_DATA) {
   vm.runInThisContext(fs.readFileSync(new URL(fileName, PUBLIC_DIRECTORY), "utf8"), { filename: fileName });
 }
+for (const modulePath of ["state.ts", "prices.ts", "battle-net.ts", "map-popover.ts", "folder-data.ts"]) {
+  Object.assign(globalThis, await import("../../web/src/" + modulePath));
+}
+vm.runInThisContext(fs.readFileSync(new URL("app.js", PUBLIC_DIRECTORY), "utf8"), { filename: "app.js" });
 Object.assign(globalThis, await import("../../web/src/route.ts"));
 Object.assign(globalThis, await import("../../web/src/sources.ts"));
 Object.assign(globalThis, await import("../../web/src/scoring.ts"));
@@ -45,7 +49,7 @@ export function run(expression) {
 export function resetPlanner(items, characterOverrides) {
   globalThis.FOREVER_ITEMS = items || [];
   resetSourceCaches();
-  run("state.settings = defaultSettings(); state.snapshots = {}; state.tsm = null; state.questie = null; state.undo = null; state.tooltipRequirements = {};");
+  run("state.settings = defaultSettings(); state.snapshots = {}; state.tsm = null; state.questie = null; state.inventory = null; state.tooltipRequirements = {};");
   const state = run("state");
   const character = Object.assign({ slug: "test-hero", displayName: "Test Hero", hiddenItemIds: [] }, characterOverrides);
   state.settings.characters.push(character);

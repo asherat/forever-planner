@@ -3,6 +3,9 @@ import "../legacy.ts";
 import { characterSpecs, specLabel } from "../scoring.ts";
 import { clampedLookahead, validatedSettings } from "../settings.ts";
 import { refreshVue } from "./render-tick.ts";
+import { inventoryStatusText, questieStatusText, readWowFolder, tsmStatusText } from "../folder-data.ts";
+import { STORAGE_KEYS, characterSlug, findCharacter, saveSettings, saveSnapshots, setStatus, state, writeStorage } from "../state.ts";
+import { WOW_FOLDER } from "../wow-folder.ts";
 
 export const SETTINGS_TABS = [
   { key: "characters", label: "Characters" },
@@ -194,12 +197,12 @@ export async function connectWowFolder(): Promise<void> {
   }
   try {
     const folder = await window.showDirectoryPicker({ id: "wow-folder", mode: "read" });
-    if ((await window.WOW_FOLDER.addonsDirectory(folder)) === null) {
+    if ((await WOW_FOLDER.addonsDirectory(folder)) === null) {
       setStatus("That folder has no Interface/AddOns inside. Pick your World of Warcraft or _forever_ folder.", "error");
       return;
     }
-    await window.WOW_FOLDER.storeHandle(window.WOW_FOLDER.folderKey, folder);
-    await window.WOW_FOLDER.forgetHandle(window.WOW_FOLDER.legacyTsmFileKey);
+    await WOW_FOLDER.storeHandle(WOW_FOLDER.folderKey, folder);
+    await WOW_FOLDER.forgetHandle(WOW_FOLDER.legacyTsmFileKey);
     setStatus("Reading Questie and TSM data…", "info");
     await readWowFolder(true);
     setStatus("WoW folder connected.", "success");
@@ -212,8 +215,8 @@ export async function connectWowFolder(): Promise<void> {
 }
 
 export async function disconnectWowFolder(): Promise<void> {
-  await window.WOW_FOLDER.forgetHandle(window.WOW_FOLDER.folderKey);
-  await window.WOW_FOLDER.forgetHandle(window.WOW_FOLDER.legacyTsmFileKey);
+  await WOW_FOLDER.forgetHandle(WOW_FOLDER.folderKey);
+  await WOW_FOLDER.forgetHandle(WOW_FOLDER.legacyTsmFileKey);
   state.tsm = null;
   state.questie = null;
   state.inventory = null;

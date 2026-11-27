@@ -1,6 +1,8 @@
 import "./legacy.ts";
 import { dungeonForArea, guideZone } from "./route.ts";
 import type { CraftSource, Item, ItemSource, QuestieItemDetail, QuestieQuest, ReputationRequirement, Snapshot } from "./types.ts";
+import { isVendorSoldFor, preferredOffer, priceFor, unitCost, vendorDiscountRate } from "./prices.ts";
+import { selectedCharacter, state } from "./state.ts";
 
 export const CLASS_BITS: Record<string, number> = { Warrior: 1, Paladin: 2, Hunter: 4, Rogue: 8, Priest: 16, Shaman: 64, Mage: 128, Warlock: 256, Druid: 1024 };
 export const REPUTATION_TIER_NAMES = ["Hated", "Hostile", "Unfriendly", "Neutral", "Friendly", "Honored", "Revered", "Exalted"];
