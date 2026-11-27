@@ -1491,6 +1491,7 @@ legend {
 
 .settings-panel {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   padding: 16px 18px 20px;
   align-content: start;
@@ -1593,11 +1594,24 @@ legend {
 
 @media (max-width: 480px) {
   .add-character {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .add-character input {
+    min-width: 0;
   }
 
   .add-character button {
     grid-column: 1 / -1;
+  }
+
+  .settings-tabs {
+    padding: 0 8px;
+  }
+
+  .settings-tabs [role="tab"] {
+    padding: 8px 5px;
+    font-size: 0.85rem;
   }
 }
 

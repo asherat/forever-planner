@@ -2,6 +2,10 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.60.1 — 2026-11-27
+
+- Fixed: on a phone, the Settings dialog was cut off on the right (the character line, the surname field and the Backup tab). It now fits the screen.
+
 ## v0.60.0 — 2026-11-27
 
 - Behind the scenes: the Settings dialog (characters, Battle.net, WoW folder, backup) now runs on Vue. It looks and works the same.
