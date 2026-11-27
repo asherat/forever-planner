@@ -178,3 +178,24 @@ test("an item you can only buy says so instead of listing chance drops and chest
   planner.resetSourceCaches();
   assert.equal(auctionOnlyText(ring, snapshot), "");
 });
+
+test("feral only gets leather armor; resto may still use cloth, and cloaks are fine for both", () => {
+  const source = [{ type: "quest", questId: 950, quest: "Mask Quest", zone: "Tanaris" }];
+  const clothMask = sampleItem({ id: 80, name: "White Bandit Mask", slot: "HEAD", itemSubclass: "Cloth", stats: { AGILITY: 11, STRENGTH: 11, INTELLECT: 9 }, sources: source });
+  const leatherCap = sampleItem({ id: 81, name: "Leather Cap", slot: "HEAD", itemSubclass: "Leather", stats: { AGILITY: 4, INTELLECT: 2 }, sources: [{ type: "quest", questId: 951, quest: "Cap Quest", zone: "Tanaris" }] });
+  const clothCloak = sampleItem({ id: 82, name: "Agile Cloak", slot: "CLOAK", itemSubclass: "Cloth", stats: { AGILITY: 5 }, sources: [{ type: "quest", questId: 952, quest: "Cloak Quest", zone: "Tanaris" }] });
+  const { context, character, snapshot } = loadPlanner([clothMask, leatherCap, clothCloak]);
+  snapshot.talentSpecs = ["druid-feral-cat", "druid-restoration"];
+  const head = context.slotDefinitionByKey("HEAD");
+  const back = context.slotDefinitionByKey("BACK");
+  const names = function candidateNames(slot) {
+    return context.rankedCandidatesForSlot(slot, snapshot, character).map(function nameOf(candidate) { return candidate.item.name; });
+  };
+  assert.deepEqual(names(head), ["Leather Cap"]);
+  assert.deepEqual(names(back), ["Agile Cloak"]);
+  character.gearFor = "off";
+  context.resetSourceCaches();
+  assert.equal(names(head)[0], "White Bandit Mask");
+  character.gearFor = "main";
+  assert.equal(context.isUpgradeForAnySpec(clothMask, character, snapshot), true);
+});

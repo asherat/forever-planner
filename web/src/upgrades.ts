@@ -1,6 +1,6 @@
 import "./legacy.ts";
 import { isRouteActive, legsForSource } from "./route.ts";
-import { bestGainAnySlot, bestSuffixVariant, canUseItem, characterSpecs, characterWeights, comparisonBaseline, isTwoHanded, itemScore, slotDefinitionByKey, slotItemTypes, weightsForSpec } from "./scoring.ts";
+import { activeSpec, bestGainAnySlot, bestSuffixVariant, canUseItem, characterSpecs, characterWeights, comparisonBaseline, isTwoHanded, itemScore, slotDefinitionByKey, slotItemTypes, suitsSpec, weightsForSpec } from "./scoring.ts";
 import { cheapestCost, earliestSourceLevel, equippedItemIds, hasEasySource, hasKnownSource, hasOwnProfessionCraft, isBuyableOnAuctionHouse, isReputationWithinReach, isWithinGoldLimit, itemDungeons, itemUsableLevel, obtainableSources, sourcesForCharacter } from "./sources.ts";
 import type { BlockList, Candidate, Character, Item, PairedUpgradeOptions, RouteLeg, SlotDefinition, Snapshot, UpgradeOptions } from "./types.ts";
 import { state } from "./state.ts";
@@ -57,12 +57,13 @@ export function rankedCandidatesForSlot(slotDefinition: SlotDefinition, snapshot
   const equippedIds = equippedItemIds(snapshot);
   const hiddenIds = new Set(character.hiddenItemIds || []);
   const routeActive = isRouteActive(character);
+  const specKey = activeSpec(character);
   const candidates: Candidate[] = [];
   for (const item of window.FOREVER_ITEMS) {
     if (itemTypes.indexOf(item.slot) === -1 || equippedIds.has(item.id) || hiddenIds.has(item.id)) {
       continue;
     }
-    if (!canUseItem(item, snapshot) || !isReputationWithinReach(item, snapshot)) {
+    if (!canUseItem(item, snapshot) || !suitsSpec(item, specKey) || !isReputationWithinReach(item, snapshot)) {
       continue;
     }
     const variant = bestSuffixVariant(item, weights, slotDefinition.key);
@@ -243,7 +244,7 @@ export function compareUpgradeOptions(first: { priority: number }, second: { pri
 
 export function isUpgradeForAnySpec(item: Item, character: Character, snapshot: Snapshot): boolean {
   for (const specKey of characterSpecs(character, snapshot)) {
-    if (bestGainAnySlot(item, snapshot, weightsForSpec(character, specKey)) > 0) {
+    if (suitsSpec(item, specKey) && bestGainAnySlot(item, snapshot, weightsForSpec(character, specKey)) > 0) {
       return true;
     }
   }

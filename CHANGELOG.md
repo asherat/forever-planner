@@ -2,6 +2,10 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.72.0 — 2026-11-27
+
+- Feral druids are only suggested leather armor. Cloth with good stats (like White Bandit Mask) no longer shows up for Feral, since Bear Form multiplies the armor on your gear and Feral uses one set for both forms. Restoration can still get cloth.
+
 ## v0.71.0 — 2026-11-27
 
 - Hover maps now show every zone fully explored, as on a discovered map in game: roads, towns and terrain instead of the blank undiscovered parchment.
