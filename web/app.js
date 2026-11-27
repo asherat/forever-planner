@@ -868,11 +868,11 @@ function isEasySource(source, snapshot) {
   return false;
 }
 
-function hasEasySource(item, snapshot) {
+function hasEasySource(item, snapshot, countAuctionHouse) {
   if (!meetsReputation(item, snapshot)) {
     return false;
   }
-  if (isListedOnAuctionHouse(item)) {
+  if (countAuctionHouse && isListedOnAuctionHouse(item)) {
     return true;
   }
   for (const source of sourcesForCharacter(item, snapshot)) {
@@ -1019,12 +1019,12 @@ function hasOwnProfessionCraft(item, snapshot) {
   return false;
 }
 
-function quickerPassMatches(pass, candidate, snapshot) {
+function quickerPassMatches(pass, candidate, snapshot, countAuctionHouse) {
   if (pass === "easy-now") {
-    return isUsableNow(candidate, snapshot) && hasEasySource(candidate.item, snapshot);
+    return isUsableNow(candidate, snapshot) && hasEasySource(candidate.item, snapshot, countAuctionHouse);
   }
   if (pass === "easy-soon") {
-    return hasEasySource(candidate.item, snapshot);
+    return hasEasySource(candidate.item, snapshot, countAuctionHouse);
   }
   if (pass === "own-profession") {
     return hasOwnProfessionCraft(candidate.item, snapshot);
@@ -1032,13 +1032,18 @@ function quickerPassMatches(pass, candidate, snapshot) {
   return isUsableNow(candidate, snapshot);
 }
 
+function isEasyOnlyOnAuctionHouse(item, snapshot) {
+  return hasEasySource(item, snapshot, true) && !hasEasySource(item, snapshot, false);
+}
+
 function quickerOption(best, candidates, snapshot) {
+  const countAuctionHouse = !isEasyOnlyOnAuctionHouse(best.item, snapshot);
   for (const pass of QUICKER_PASSES) {
-    if (quickerPassMatches(pass, best, snapshot)) {
+    if (quickerPassMatches(pass, best, snapshot, countAuctionHouse)) {
       return null;
     }
     for (const candidate of candidates) {
-      if (candidate.item.name !== best.item.name && quickerPassMatches(pass, candidate, snapshot)) {
+      if (candidate.item.name !== best.item.name && quickerPassMatches(pass, candidate, snapshot, countAuctionHouse)) {
         return candidate;
       }
     }

@@ -2,6 +2,10 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.33.0 — 2026-11-27
+
+- When the best upgrade is something you'd have to buy on the auction house, the quicker option now shows the best one you can get without the auction house, such as a quest reward.
+
 ## v0.32.0 — 2026-11-27
 
 - About 4,200 more items: the ones WoW Forever keeps hidden from Battle.net until players discover them, such as Bigger Rock on Bigger Stick from Eye of Mugg. They come from the WoW Forever simulator's item database, with their stats, quests and reputation requirements, so you see them before you get them.
