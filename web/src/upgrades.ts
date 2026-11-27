@@ -1,6 +1,6 @@
 import "./legacy.ts";
 import { isRouteActive, legsForSource } from "./route.ts";
-import { activeSpec, bestGainAnySlot, bestSuffixVariant, canUseItem, characterSpecs, characterWeights, comparisonBaseline, isTwoHanded, itemScore, slotDefinitionByKey, slotItemTypes, suitsSpec, weightsForSpec } from "./scoring.ts";
+import { activeSpec, bestGainAnySlot, bestSuffixVariant, canUseItem, characterSpecs, characterWeights, comparisonBaseline, isTwoHanded, isWorthwhileGain, itemScore, slotDefinitionByKey, slotItemTypes, suitsSpec, weightsForSpec } from "./scoring.ts";
 import { cheapestCost, earliestSourceLevel, equippedItemIds, hasEasySource, hasKnownSource, hasOwnProfessionCraft, isBuyableOnAuctionHouse, isReputationWithinReach, isWithinGoldLimit, itemDungeons, itemUsableLevel, obtainableSources, sourcesForCharacter } from "./sources.ts";
 import type { BlockList, Candidate, Character, Item, PairedUpgradeOptions, RouteLeg, SlotDefinition, Snapshot, UpgradeOptions } from "./types.ts";
 import { state } from "./state.ts";
@@ -67,7 +67,7 @@ export function rankedCandidatesForSlot(slotDefinition: SlotDefinition, snapshot
     }
     const variant = bestSuffixVariant(item, weights, slotDefinition.key);
     const gain = itemScore(variant, weights, slotDefinition.key) - comparisonBaseline(slotDefinition, snapshot, variant, weights);
-    if (gain <= 0 || !hasKnownSource(variant, snapshot) || !isWithinGoldLimit(cheapestCost(variant, snapshot))) {
+    if (!isWorthwhileGain(gain, snapshot, weights) || !hasKnownSource(variant, snapshot) || !isWithinGoldLimit(cheapestCost(variant, snapshot))) {
       continue;
     }
     let availableLevel = Math.max(itemUsableLevel(item, snapshot), earliestSourceLevel(variant, snapshot));
@@ -232,7 +232,8 @@ export function compareUpgradeOptions(first: { priority: number }, second: { pri
 
 export function isUpgradeForAnySpec(item: Item, character: Character, snapshot: Snapshot): boolean {
   for (const specKey of characterSpecs(character, snapshot)) {
-    if (suitsSpec(item, specKey, snapshot) && bestGainAnySlot(item, snapshot, weightsForSpec(character, specKey)) > 0) {
+    const weights = weightsForSpec(character, specKey);
+    if (suitsSpec(item, specKey, snapshot) && isWorthwhileGain(bestGainAnySlot(item, snapshot, weights), snapshot, weights)) {
       return true;
     }
   }
