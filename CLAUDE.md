@@ -32,7 +32,7 @@ A static site built with Vite from `web/` and served by GitHub Pages. There is n
 - **The wowsims/forever item database** (`assets/database/db.json`, MIT) fills in the items Forever hides from Battle.net and the game files until players discover them (new Forever items, and many relocated Classic ones). `data/build.py` adds every phase 1 item it has that Battle.net doesn't, marked `fromSimulator`, with quest and reputation sources; drops and vendors for them come from Questie at runtime like for any other item. Their icons come from Wowhead's icon CDN by name.
 - **Wowhead** is used for three things only:
   - the nether tooltip API, to fill in reputation requirements that Battle.net omits (cached 14 days, failures retried after 1 day);
-  - the level each recipe is learned at, which is the start of its orange range (`tools/build-recipe-levels.js` reads the recipe list on each Forever profession page in a headless browser). The game files have no learn level; yellow and grey come from them (`SkillLineAbility`), and green is halfway between, as in the game. Wowhead's orange 0 means the recipe is learned at its yellow level, which its `learnedat` says. The builder refuses to write if more than 5% of recipes disagree with the game files on yellow or grey (79 of 2195 did in 2026-11, mostly late Blacksmithing);
+  - the level each recipe is learned at, which is the start of its orange range (`tools/build-recipe-levels.js` reads the recipe list on each Forever profession page in a headless browser). Everything else comes from the game files: a Battle.net recipe ID is a `SkillLineAbility` ID, which gives yellow and grey; green is halfway between, as in the game; recipes with `AcquireMethod` 1 come with the profession and are learned at 1. Wowhead's orange 0 means no orange range (its `learnedat` then equals yellow); recipes Wowhead has no colors for also start at yellow. The builder refuses to write if more than 5% of recipes disagree with the game files on yellow or grey (79 of 2195 did in 2026-11, mostly late Blacksmithing);
   - outbound links to `https://www.wowhead.com/forever/{item|quest|npc}=ID`.
 
 | File | Role |
@@ -60,7 +60,7 @@ A static site built with Vite from `web/` and served by GitHub Pages. There is n
 | `web/public/data/*.js` | Generated game data. Don't edit by hand |
 | `web/public/maps/*.jpg` | Generated hover maps, one per `uiMapId` |
 | `data/build.py` | Crawls the Battle.net Forever API, wago.tools and the wowsims item database and writes `web/public/data/*.js` |
-| `tools/build-recipe-levels.js` | Writes `web/public/data/recipe-levels.js`: recipe spell ID → `[orange, yellow, green, grey]` skill levels (learn level from Wowhead, the rest from the game files) |
+| `tools/build-recipe-levels.js` | Writes `web/public/data/recipe-levels.js`: Battle.net recipe ID → `[orange, yellow, green, grey]` skill levels (learn level from Wowhead, the rest from the game files) |
 | `tools/wago.js` | Shared wago.tools download, latest build and table reader for the Node builders |
 | `tools/build-maps.js` | Stitches the game's map tiles plus all explored-area overlays (wago.tools CASC; BLP2 in DXT1, DXT1 with 1-bit alpha, and DXT5) into 560 px JPEGs |
 

@@ -12,6 +12,7 @@ const BROWSER_USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (
 const CACHE_DAYS = 30;
 const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000;
 const MAXIMUM_MISMATCH_SHARE = 0.05;
+const LEARNED_WITH_PROFESSION = "1";
 const PROFESSIONS = {
   Alchemy: 171,
   Blacksmithing: 164,
@@ -62,24 +63,31 @@ async function professionRecipes(browser, name, skillId) {
   return rows;
 }
 
-function gameTrivialLevels(abilities) {
-  const levels = new Map();
-  for (const ability of abilities) {
-    levels.set(Number(ability.Spell), { yellow: Number(ability.TrivialSkillLineRankLow), grey: Number(ability.TrivialSkillLineRankHigh) });
-  }
-  return levels;
+function professionAbilities(abilities) {
+  const skillLines = Object.values(PROFESSIONS).map(String);
+  return abilities.filter(function isRankedRecipe(ability) {
+    return skillLines.indexOf(ability.SkillLine) !== -1 && Number(ability.TrivialSkillLineRankHigh) > 0;
+  });
 }
 
-function learnLevel(row) {
+function learnLevel(row, yellow) {
+  if (row === undefined || !hasColors(row)) {
+    return yellow;
+  }
   if (row.colors[0] > 0) {
-    return row.colors[0];
+    return Math.min(row.colors[0], yellow);
   }
-  return row.learnedAt || 0;
+  return Math.min(row.learnedAt || yellow, yellow);
 }
 
-function combinedLevels(row, game) {
-  const green = Math.floor((game.yellow + game.grey) / 2);
-  return [Math.min(learnLevel(row), game.yellow), game.yellow, green, game.grey];
+function recipeLevels(ability, row) {
+  const yellow = Number(ability.TrivialSkillLineRankLow);
+  const grey = Number(ability.TrivialSkillLineRankHigh);
+  let learnedAt = learnLevel(row, yellow);
+  if (ability.AcquireMethod === LEARNED_WITH_PROFESSION) {
+    learnedAt = 1;
+  }
+  return [learnedAt, yellow, Math.floor((yellow + grey) / 2), grey];
 }
 
 function hasColors(row) {
@@ -88,30 +96,38 @@ function hasColors(row) {
 
 async function main() {
   const build = await latestBuild();
-  const gameLevels = gameTrivialLevels(await wagoTable("SkillLineAbility", build));
+  const abilities = professionAbilities(await wagoTable("SkillLineAbility", build));
   const browser = await chromium.launch({ executablePath: process.env.CHROME || undefined });
-  const levels = {};
-  let compared = 0;
-  let mismatched = 0;
+  const wowheadRows = new Map();
   try {
     for (const name of Object.keys(PROFESSIONS)) {
-      const rows = (await professionRecipes(browser, name, PROFESSIONS[name])).filter(hasColors);
+      const rows = await professionRecipes(browser, name, PROFESSIONS[name]);
       for (const row of rows) {
-        const game = gameLevels.get(row.id);
-        if (game && game.grey > 0) {
-          levels[row.id] = combinedLevels(row, game);
-          compared += 1;
-          if (game.yellow !== row.colors[1] || game.grey !== row.colors[3]) {
-            mismatched += 1;
-          }
-        }
+        wowheadRows.set(row.id, row);
       }
-      console.error(name + ": " + rows.length + " recipes");
+      console.error(name + ": " + rows.length + " recipes on Wowhead");
     }
   } finally {
     await browser.close();
   }
+  const levels = {};
+  let compared = 0;
+  let mismatched = 0;
+  let withoutLearnLevel = 0;
+  for (const ability of abilities) {
+    const row = wowheadRows.get(Number(ability.Spell));
+    levels[ability.ID] = recipeLevels(ability, row);
+    if (row === undefined || !hasColors(row)) {
+      withoutLearnLevel += 1;
+      continue;
+    }
+    compared += 1;
+    if (Number(ability.TrivialSkillLineRankLow) !== row.colors[1] || Number(ability.TrivialSkillLineRankHigh) !== row.colors[3]) {
+      mismatched += 1;
+    }
+  }
   console.error("Checked against the game files: " + mismatched + " of " + compared + " recipes differ in yellow or grey");
+  console.error(withoutLearnLevel + " recipes have no learn level on Wowhead; they start at yellow");
   if (compared === 0 || mismatched / compared > MAXIMUM_MISMATCH_SHARE) {
     throw new Error("Too many recipes disagree with the game files; not writing " + OUTPUT_FILE);
   }
