@@ -10,15 +10,15 @@ export interface ExportLine {
 export type ExportKind = "tsm" | "auctionator" | "text";
 
 const PASTE_HINTS: Record<ExportKind, string> = {
-  tsm: "Vendor items are left out. In TSM, open Groups, press Import and paste it.",
+  tsm: "Vendor items are left out. Paste it in the search box of TSM's Shopping tab.",
   auctionator: "Vendor items are left out. In Auctionator's Shopping tab, press Import and paste it.",
   text: "Paste it anywhere."
 };
 
-export function tsmGroupText(lines: ExportLine[]): string {
-  return lines.map(function itemString(line) {
-    return "i:" + line.itemId;
-  }).join(",");
+export function tsmSearchText(lines: ExportLine[]): string {
+  return lines.map(function exactSearch(line) {
+    return craftingItem(line.itemId).name + "/exact/x" + line.quantity;
+  }).join(";");
 }
 
 export function auctionatorListText(listName: string, lines: ExportLine[]): string {
@@ -47,7 +47,7 @@ export function exportedLines(kind: ExportKind, lines: ExportLine[]): ExportLine
 export function exportText(kind: ExportKind, listName: string, lines: ExportLine[]): string {
   const exported = exportedLines(kind, lines);
   if (kind === "tsm") {
-    return tsmGroupText(exported);
+    return tsmSearchText(exported);
   }
   if (kind === "auctionator") {
     return auctionatorListText(listName, exported);
