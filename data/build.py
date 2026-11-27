@@ -32,6 +32,7 @@ TEACHING_ITEM_PREFIXES = ["Pattern: ", "Plans: ", "Formula: ", "Recipe: ", "Sche
 
 EQUIPPABLE_ITEM_CLASSES = {"Armor", "Weapon"}
 EXCLUDED_QUALITIES = {"POOR"}
+EXCLUDED_QUEST_NAME_PATTERN = re.compile(r"^DNT$|^<TXT>")
 EXCLUDED_NAME_PATTERN = re.compile(r"^\[TMP\]|\bTEST\b|^QA|\[PH\]|Monster -|^Deprecated", re.IGNORECASE)
 ICON_FILE_PATTERN = re.compile(r"/icons/\d+/(\d+)\.jpg$")
 FERAL_ATTACK_POWER_PATTERN = re.compile(r"\+(\d+) Attack Power in Cat, Bear, and Dire Bear forms only")
@@ -846,6 +847,25 @@ def simulator_items(known_item_ids, reputation_names_by_id):
     return records
 
 
+def build_dungeons():
+    dungeons = json.loads((ROOT / "data" / "dungeons.json").read_text())
+    area_index = cached_get("quest-area-index", "/data/wow/quest/area/index")
+    area_ids = {}
+    for area in area_index.get("areas", []):
+        area_ids[area["name"]] = area["id"]
+    for dungeon in dungeons:
+        quest_ids = []
+        for area_name in dungeon["areas"]:
+            if area_name not in area_ids:
+                continue
+            area = cached_get(f"quest-area/{area_ids[area_name]}", f"/data/wow/quest/area/{area_ids[area_name]}")
+            for quest in (area or {}).get("quests", []):
+                if not EXCLUDED_QUEST_NAME_PATTERN.search(quest.get("name", "")):
+                    quest_ids.append(quest["id"])
+        dungeon["questIds"] = sorted(set(quest_ids))
+    return dungeons
+
+
 def zone_names():
     area_index = cached_get("quest-area-index", "/data/wow/quest/area/index")
     names = {}
@@ -905,6 +925,7 @@ def main():
 
     write_javascript_global("items.js", "FOREVER_ITEMS", compact_items)
     write_javascript_global("zones.js", "FOREVER_ZONES", zone_names())
+    write_javascript_global("dungeons.js", "FOREVER_DUNGEONS", build_dungeons())
     write_javascript_global("maps.js", "FOREVER_MAPS", build_maps())
     write_javascript_global("reputations.js", "FOREVER_REPUTATIONS", reputation_names())
     recipes = build_recipe_list()

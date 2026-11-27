@@ -643,7 +643,7 @@ function routeAvailability(item, snapshot, character) {
     if (!source.zone) {
       continue;
     }
-    const leg = legForZone(character, snapshot, source.zone);
+    const leg = legForSource(character, snapshot, source);
     if (leg === null || usableLevel > leg.toLevel + 1) {
       continue;
     }
@@ -1633,7 +1633,7 @@ function offPathZone(entry, character, snapshot) {
   }
   for (const source of sourcesForCharacter(item, snapshot)) {
     if (source.type === "quest" && source.questId === entry.questId) {
-      if (guideZone(source.zone) !== null && legForZone(character, snapshot, source.zone) === null) {
+      if ((guideZone(source.zone) !== null || dungeonForArea(source.zone) !== null) && legForSource(character, snapshot, source) === null) {
         return source.zone;
       }
       return null;
