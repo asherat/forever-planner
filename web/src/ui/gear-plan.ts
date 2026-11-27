@@ -185,6 +185,10 @@ function routePlacement(item: Item, snapshot: Snapshot, character: Character, so
   if (source === null) {
     return null;
   }
+  return legPlacement(leg, character, snapshot, source);
+}
+
+function legPlacement(leg: RouteLeg, character: Character, snapshot: Snapshot, source: ItemSource): Placement {
   return {
     key: "route:" + leg.zone + ":" + leg.fromLevel,
     title: leg.zone + " (" + leg.fromLevel + "–" + leg.toLevel + ")",
@@ -193,6 +197,21 @@ function routePlacement(item: Item, snapshot: Snapshot, character: Character, so
     kind: source.type as PlanKind,
     source: source
   };
+}
+
+function zonePlacement(zoneName: string, source: ItemSource): Placement {
+  return { key: "place:" + zoneName, title: zoneName, order: ELSEWHERE_ORDER, sortName: zoneName, kind: source.type as PlanKind, source: source };
+}
+
+function vendorPlacement(vendor: ItemSource, snapshot: Snapshot, character: Character): Placement {
+  if (!vendor.zone) {
+    return { key: "vendors", title: "Vendors", order: ELSEWHERE_ORDER, sortName: "~Vendors", kind: "vendor", source: vendor };
+  }
+  const leg = routeLegOfZone(character, snapshot, vendor.zone);
+  if (leg !== null) {
+    return legPlacement(leg, character, snapshot, vendor);
+  }
+  return zonePlacement(vendor.zone, vendor);
 }
 
 function zoneOfDungeon(dungeonName: string): string | null {
@@ -241,7 +260,7 @@ function freePlacement(sources: ItemSource[], snapshot: Snapshot, character: Cha
   if (dungeon !== null) {
     return dungeonPlacement(dungeon.name, source, snapshot, character);
   }
-  return { key: "place:" + source.zone, title: source.zone, order: ELSEWHERE_ORDER, sortName: source.zone, kind: source.type as PlanKind, source: source };
+  return zonePlacement(source.zone, source);
 }
 
 function placement(item: Item, snapshot: Snapshot, character: Character): Placement {
@@ -256,14 +275,14 @@ function placement(item: Item, snapshot: Snapshot, character: Character): Placem
   }
   const vendor = firstOfType(sources, "vendor");
   if (vendor !== null) {
-    return { key: "buy", title: "Buy", order: BUY_ORDER, sortName: "Buy", kind: "vendor", source: vendor };
+    return vendorPlacement(vendor, snapshot, character);
   }
   const craft = firstCraftSource(sources);
   if (craft !== null) {
     return { key: "craft", title: "Craft", order: CRAFT_ORDER, sortName: "Craft", kind: "craft", source: craft };
   }
   if (isBuyableOnAuctionHouse(item)) {
-    return { key: "buy", title: "Buy", order: BUY_ORDER, sortName: "Buy", kind: "auction", source: null };
+    return { key: "buy", title: "Buy on the auction house", order: BUY_ORDER, sortName: "Buy", kind: "auction", source: null };
   }
   return { key: "other", title: "Other", order: OTHER_ORDER, sortName: "Other", kind: "unknown", source: null };
 }

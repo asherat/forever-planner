@@ -49,22 +49,25 @@ test("the plan is grouped by where: buy and craft first, then path zones in orde
     sampleItem({ id: 10, name: "Tanaris Helm", slot: "HEAD", sources: [{ type: "quest", questId: 100, quest: "Desert Quest", zone: "Tanaris" }] }),
     sampleItem({ id: 11, name: "Vale Boots", slot: "FEET", sources: [{ type: "drop", npcId: 5, npc: "Named Raptor", zone: "Stranglethorn Vale" }] }),
     sampleItem({ id: 12, name: "Far Belt", slot: "WAIST", sources: [{ type: "quest", questId: 101, quest: "Far Quest", zone: "Desolace" }] }),
-    sampleItem({ id: 13, name: "Vendor Gloves", slot: "HAND", sources: [{ type: "vendor", npcId: 6, npc: "Trader", zone: "Orgrimmar", price: 5000 }] }),
+    sampleItem({ id: 13, name: "Vendor Gloves", slot: "HAND", sources: [{ type: "vendor", npcId: 6, npc: "Trader", zone: "Tanaris", price: 5000 }] }),
+    sampleItem({ id: 16, name: "City Cloak", slot: "CLOAK", sources: [{ type: "vendor", npcId: 7, npc: "Tailor", zone: "Orgrimmar", price: 800 }] }),
+    sampleItem({ id: 17, name: "Auction Bracers", slot: "WRIST", sources: [] }),
     sampleItem({ id: 14, name: "Crafted Bracers", slot: "WRIST", sources: [{ type: "craft", profession: "Leatherworking", recipeId: 1, reagents: [] }] }),
     sampleItem({ id: 15, name: "Troll Ring", slot: "FINGER", itemSubclass: "Miscellaneous", sources: [{ type: "drop", npcId: 9, npc: "Troll Boss", zone: "Zul'Farrak" }] })
   ];
-  const { character, snapshot } = resetPlanner(items, { route: { startLevel: 40, legs: [{ zone: "Stranglethorn Vale", toLevel: 44 }, { zone: "Tanaris", toLevel: 48 }] } });
+  const { character, snapshot, state } = resetPlanner(items, { route: { startLevel: 40, legs: [{ zone: "Stranglethorn Vale", toLevel: 44 }, { zone: "Tanaris", toLevel: 48 }] } });
   snapshot.level = 40;
-  for (const [slotKey, item] of [["HEAD", items[0]], ["FEET", items[1]], ["WAIST", items[2]], ["HANDS", items[3]], ["WRIST", items[4]], ["FINGER_1", items[5]]]) {
+  state.tsm = { prices: { 17: { marketValue: 30000, minBuyout: 30000, numAuctions: 4 } } };
+  for (const [slotKey, item] of [["HEAD", items[0]], ["FEET", items[1]], ["WAIST", items[2]], ["HANDS", items[3]], ["WRIST", items[4]], ["FINGER_1", items[5]], ["BACK", items[6]], ["WRIST", items[7]]]) {
     togglePick(slotKey, item);
   }
   const groups = planGroups(character, snapshot);
-  assert.deepEqual(groups.map(function titleOf(group) { return group.title; }), ["Buy", "Craft", "Stranglethorn Vale (40–44)", "Tanaris (44–48)", "Zul'Farrak (dungeon in Tanaris)", "Desolace"]);
-  assert.equal(groups[0].entries[0].kind, "vendor");
-  assert.equal(groups[0].entries[0].price, 5000);
+  assert.deepEqual(groups.map(function titleOf(group) { return group.title; }), ["Buy on the auction house", "Craft", "Stranglethorn Vale (40–44)", "Tanaris (44–48)", "Zul'Farrak (dungeon in Tanaris)", "Desolace", "Orgrimmar"]);
+  assert.equal(groups[0].entries[0].kind, "auction");
   assert.equal(groups[1].entries[0].kind, "craft");
   assert.equal(groups[2].entries[0].kind, "drop");
-  assert.equal(groups[3].entries[0].kind, "quest");
+  assert.deepEqual(groups[3].entries.map(function kindOf(entry) { return entry.kind; }).sort(), ["quest", "vendor"]);
+  assert.equal(groups[6].entries[0].price, 800);
 });
 
 test("Refresh drops picks you equipped or outgrew", () => {

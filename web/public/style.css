@@ -394,6 +394,16 @@ button:disabled {
   color: var(--bg);
 }
 
+.picked-marker {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+
+.slot-picked .icon-small {
+  opacity: 1;
+  outline: 2px solid var(--accent);
+}
+
 .slot-upgrade:hover .icon-small,
 .slot-upgrade:focus-visible .icon-small {
   opacity: 1;
