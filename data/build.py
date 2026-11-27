@@ -284,6 +284,8 @@ def compact_item(item):
         "stats": stats,
         "effects": equip_effects,
     }
+    if item.get("purchase_price", 0) > 0:
+        record["vendorPrice"] = item["purchase_price"]
     if record["requiredLevel"] > 0:
         record["usableLevel"] = record["requiredLevel"]
     else:

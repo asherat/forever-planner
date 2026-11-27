@@ -731,6 +731,22 @@ legend {
   font-weight: 400;
 }
 
+.gold-limit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gold-limit input {
+  width: 7em;
+  padding: 6px 8px;
+  font: inherit;
+  color: var(--fg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
 .choices {
   display: inline-flex;
   border: 1px solid var(--border);

@@ -2,6 +2,13 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.34.0 — 2026-11-27
+
+- "Max gold per upgrade" per character: upgrades that cost more to buy or craft are left out, and expensive auction house listings no longer count as a quick option.
+- Auction house prices show what you pay per point of gain, e.g. "≈ 26s per attack power".
+- Items that drop from many different creatures (trash and world drops) no longer count as something you can go and get; they show up only when they're on the auction house. Boss drops still count.
+- Vendor items know their price, so the gold limit applies to them too.
+
 ## v0.33.0 — 2026-11-27
 
 - When the best upgrade is something you'd have to buy on the auction house, the quicker option now shows the best one you can get without the auction house, such as a quest reward.

@@ -16,6 +16,8 @@ const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000;
 const tooltipChecks = { pending: new Set(), running: false };
 const REPUTATION_TIER_NAMES = ["Hated", "Hostile", "Unfriendly", "Neutral", "Friendly", "Honored", "Revered", "Exalted"];
 const CREATURE_RANKS = { 1: "elite", 2: "rare elite", 3: "boss", 4: "rare" };
+const COPPER_PER_GOLD = 10000;
+const FARMABLE_DROP_CREATURE_LIMIT = 3;
 const MAIN_STATS = ["STRENGTH", "AGILITY", "INTELLECT", "ATTACK_POWER", "RANGED_ATTACK_POWER", "SPELL_POWER", "SPELL_HEALING_DONE"];
 
 function fetchProfile(characterSlugValue, path) {
@@ -590,6 +592,9 @@ function rankedCandidatesForSlot(slotDefinition, snapshot, character) {
     if (!hasKnownSource(item, snapshot)) {
       continue;
     }
+    if (!isWithinGoldLimit(cheapestCost(item, snapshot))) {
+      continue;
+    }
     let availableLevel = Math.max(itemUsableLevel(item, snapshot), earliestSourceLevel(item, snapshot));
     let routeLeg = null;
     if (routeActive) {
@@ -627,7 +632,7 @@ function rankedCandidatesForSlot(slotDefinition, snapshot, character) {
 function routeAvailability(item, snapshot, character) {
   const usableLevel = itemUsableLevel(item, snapshot);
   const sources = sourcesForCharacter(item, snapshot);
-  if (sources.length === 0 || isListedOnAuctionHouse(item)) {
+  if (sources.length === 0 || isBuyableOnAuctionHouse(item)) {
     return { level: usableLevel, leg: null };
   }
   let best = null;
@@ -835,8 +840,19 @@ function sourcesForCharacter(item, snapshot) {
     }
   }
   const ownLetter = factionLetter(snapshot.factionType);
+  const dropCreatures = dropCreatureCount(detail.sources);
+  if (dropCreatures > FARMABLE_DROP_CREATURE_LIMIT) {
+    sources.push({ type: "world-drop", count: dropCreatures });
+  }
   for (const source of detail.sources) {
+    if (dropCreatures > FARMABLE_DROP_CREATURE_LIMIT && isDropSource(source)) {
+      continue;
+    }
     if (source.type === "vendor" && source.friendlyTo && source.friendlyTo.indexOf(ownLetter) === -1) {
+      continue;
+    }
+    if (source.type === "vendor" && item.vendorPrice) {
+      sources.push(Object.assign({}, source, { price: item.vendorPrice * (1 - vendorDiscountRate()) }));
       continue;
     }
     sources.push(source);
@@ -844,9 +860,82 @@ function sourcesForCharacter(item, snapshot) {
   return sources;
 }
 
+function isDropSource(source) {
+  return source.type === "drop" || source.type === "more-drops" || source.type === "world-drop";
+}
+
+function dropCreatureCount(sources) {
+  let count = 0;
+  for (const source of sources) {
+    if (source.type === "drop") {
+      count += 1;
+    }
+    if (source.type === "more-drops" || source.type === "world-drop") {
+      count += source.count;
+    }
+  }
+  return count;
+}
+
+function isObtainableSource(source) {
+  return source.type !== "world-drop";
+}
+
+function obtainableSources(item, snapshot) {
+  return sourcesForCharacter(item, snapshot).filter(isObtainableSource);
+}
+
 function isListedOnAuctionHouse(item) {
   const price = priceFor(item.id);
   return price !== null && price.listed > 0;
+}
+
+function goldLimitInCopper() {
+  const character = selectedCharacter();
+  if (character === null || character.maxGoldPerUpgrade === undefined || character.maxGoldPerUpgrade === null) {
+    return null;
+  }
+  return character.maxGoldPerUpgrade * COPPER_PER_GOLD;
+}
+
+function isWithinGoldLimit(price) {
+  const limit = goldLimitInCopper();
+  if (limit === null || price === null || price === undefined) {
+    return true;
+  }
+  return price <= limit;
+}
+
+function isBuyableOnAuctionHouse(item) {
+  return isListedOnAuctionHouse(item) && isWithinGoldLimit(averagePrice(item.id));
+}
+
+function sourceCost(source, snapshot) {
+  if (source.type === "vendor") {
+    if (source.price === undefined) {
+      return null;
+    }
+    return source.price;
+  }
+  if (source.type === "craft") {
+    const cost = averageMaterialCost(source, snapshot);
+    if (cost.missing > 0) {
+      return null;
+    }
+    return cost.total;
+  }
+  return 0;
+}
+
+function cheapestCost(item, snapshot) {
+  let cheapest = averagePrice(item.id);
+  for (const source of obtainableSources(item, snapshot)) {
+    const cost = sourceCost(source, snapshot);
+    if (cost !== null && (cheapest === null || cost < cheapest)) {
+      cheapest = cost;
+    }
+  }
+  return cheapest;
 }
 
 function knowsRecipe(snapshot, source) {
@@ -859,8 +948,11 @@ function knowsRecipe(snapshot, source) {
 }
 
 function isEasySource(source, snapshot) {
-  if (source.type === "quest" || source.type === "vendor") {
+  if (source.type === "quest") {
     return true;
+  }
+  if (source.type === "vendor") {
+    return isWithinGoldLimit(source.price);
   }
   if (source.type === "craft") {
     return knowsRecipe(snapshot, source);
@@ -868,11 +960,11 @@ function isEasySource(source, snapshot) {
   return false;
 }
 
-function hasEasySource(item, snapshot, countAuctionHouse) {
+function hasEasySource(item, snapshot) {
   if (!meetsReputation(item, snapshot)) {
     return false;
   }
-  if (countAuctionHouse && isListedOnAuctionHouse(item)) {
+  if (isBuyableOnAuctionHouse(item)) {
     return true;
   }
   for (const source of sourcesForCharacter(item, snapshot)) {
@@ -986,11 +1078,11 @@ function sourceLevel(source, usableLevel) {
 
 function earliestSourceLevel(item, snapshot) {
   const usableLevel = itemUsableLevel(item, snapshot);
-  if (isListedOnAuctionHouse(item)) {
+  if (isBuyableOnAuctionHouse(item)) {
     return usableLevel;
   }
   let earliest = null;
-  for (const source of sourcesForCharacter(item, snapshot)) {
+  for (const source of obtainableSources(item, snapshot)) {
     const level = sourceLevel(source, usableLevel);
     if (earliest === null || level < earliest) {
       earliest = level;
@@ -1003,7 +1095,7 @@ function earliestSourceLevel(item, snapshot) {
 }
 
 function hasKnownSource(item, snapshot) {
-  return sourcesForCharacter(item, snapshot).length > 0 || isListedOnAuctionHouse(item);
+  return obtainableSources(item, snapshot).length > 0 || isBuyableOnAuctionHouse(item);
 }
 
 function isUsableNow(candidate, snapshot) {
@@ -1019,12 +1111,12 @@ function hasOwnProfessionCraft(item, snapshot) {
   return false;
 }
 
-function quickerPassMatches(pass, candidate, snapshot, countAuctionHouse) {
+function quickerPassMatches(pass, candidate, snapshot) {
   if (pass === "easy-now") {
-    return isUsableNow(candidate, snapshot) && hasEasySource(candidate.item, snapshot, countAuctionHouse);
+    return isUsableNow(candidate, snapshot) && hasEasySource(candidate.item, snapshot);
   }
   if (pass === "easy-soon") {
-    return hasEasySource(candidate.item, snapshot, countAuctionHouse);
+    return hasEasySource(candidate.item, snapshot);
   }
   if (pass === "own-profession") {
     return hasOwnProfessionCraft(candidate.item, snapshot);
@@ -1032,18 +1124,13 @@ function quickerPassMatches(pass, candidate, snapshot, countAuctionHouse) {
   return isUsableNow(candidate, snapshot);
 }
 
-function isEasyOnlyOnAuctionHouse(item, snapshot) {
-  return hasEasySource(item, snapshot, true) && !hasEasySource(item, snapshot, false);
-}
-
 function quickerOption(best, candidates, snapshot) {
-  const countAuctionHouse = !isEasyOnlyOnAuctionHouse(best.item, snapshot);
   for (const pass of QUICKER_PASSES) {
-    if (quickerPassMatches(pass, best, snapshot, countAuctionHouse)) {
+    if (quickerPassMatches(pass, best, snapshot)) {
       return null;
     }
     for (const candidate of candidates) {
-      if (candidate.item.name !== best.item.name && quickerPassMatches(pass, candidate, snapshot, countAuctionHouse)) {
+      if (candidate.item.name !== best.item.name && quickerPassMatches(pass, candidate, snapshot)) {
         return candidate;
       }
     }
@@ -1059,7 +1146,7 @@ function candidatePriority(candidate, snapshot) {
 }
 
 function questOnlyIds(item, snapshot) {
-  if (isListedOnAuctionHouse(item)) {
+  if (isBuyableOnAuctionHouse(item)) {
     return null;
   }
   const questIds = [];
@@ -1378,7 +1465,7 @@ function renderOption(label, candidate, snapshot, character, slotDefinition) {
   option.appendChild(sourceList);
 
   const craftSource = firstCraftSource(sources);
-  const prices = renderOptionPrices(item, craftSource, snapshot);
+  const prices = renderOptionPrices(item, craftSource, snapshot, candidate.gain, specPreset(activeSpec(character)).unit);
   if (prices !== null) {
     option.appendChild(prices);
   }
@@ -1760,7 +1847,7 @@ function averageMaterialCost(source, snapshot) {
   return { total: total, missing: missing };
 }
 
-function renderOptionPrices(item, craftSource, snapshot) {
+function renderOptionPrices(item, craftSource, snapshot, gain, unit) {
   if (state.tsm === null) {
     return null;
   }
@@ -1768,6 +1855,9 @@ function renderOptionPrices(item, craftSource, snapshot) {
   const auctionPrice = averagePrice(item.id);
   if (auctionPrice !== null) {
     line.append("AH ", renderMoney(auctionPrice));
+    if (gain > 0) {
+      line.append(" (≈ ", renderMoney(Math.round(auctionPrice / gain)), " per " + unit + ")");
+    }
   }
   if (craftSource !== null) {
     const cost = averageMaterialCost(craftSource, snapshot);
@@ -2043,6 +2133,11 @@ function renderPlayControls(character, snapshot) {
     playstyleChoices.push({ value: playstyleKey, label: label });
   }
   renderChoiceGroup(document.getElementById("playstyle-choices"), "playstyle", playstyleChoices, characterPlaystyle(character));
+  const goldLimitInput = document.getElementById("gold-limit");
+  goldLimitInput.value = "";
+  if (character.maxGoldPerUpgrade !== undefined && character.maxGoldPerUpgrade !== null) {
+    goldLimitInput.value = String(character.maxGoldPerUpgrade);
+  }
   const specs = characterSpecs(character, snapshot);
   const gearForGroup = document.getElementById("gear-for");
   gearForGroup.hidden = specs.length < 2;
@@ -2620,6 +2715,14 @@ function handleCharacterListClick(event) {
   }
 }
 
+function goldLimitFromInput(value) {
+  const gold = Number(value);
+  if (value.trim() === "" || !Number.isFinite(gold) || gold < 0) {
+    return null;
+  }
+  return gold;
+}
+
 function handlePlayControlsChange(event) {
   const character = selectedCharacter();
   if (character === null) {
@@ -2633,6 +2736,9 @@ function handlePlayControlsChange(event) {
   }
   if (event.target.name === "gear-for") {
     character.gearFor = event.target.value;
+  }
+  if (event.target.name === "gold-limit") {
+    character.maxGoldPerUpgrade = goldLimitFromInput(event.target.value);
   }
   saveSettings();
   render();
