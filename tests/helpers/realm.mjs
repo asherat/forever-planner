@@ -2,7 +2,7 @@ import fs from "node:fs";
 import vm from "node:vm";
 
 const PUBLIC_DIRECTORY = new URL("../../web/public/", import.meta.url);
-const CLASSIC_SCRIPTS = ["game-rules.js", "data/dungeons.js", "zone-guide.js", "common.js", "route-panel.js", "app.js"];
+const CLASSIC_SCRIPTS = ["game-rules.js", "data/dungeons.js", "zone-guide.js", "common.js", "app.js"];
 
 function createStorage() {
   const values = new Map();
