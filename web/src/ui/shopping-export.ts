@@ -16,8 +16,8 @@ const PASTE_HINTS: Record<ExportKind, string> = {
 };
 
 export function tsmSearchText(lines: ExportLine[]): string {
-  return lines.map(function exactSearch(line) {
-    return craftingItem(line.itemId).name + "/exact/x" + line.quantity;
+  return lines.map(function itemSearch(line) {
+    return "i:" + line.itemId + "/x" + line.quantity;
   }).join(";");
 }
 
