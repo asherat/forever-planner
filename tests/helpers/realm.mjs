@@ -2,7 +2,7 @@ import fs from "node:fs";
 import vm from "node:vm";
 
 const PUBLIC_DIRECTORY = new URL("../../web/public/", import.meta.url);
-const CLASSIC_SCRIPTS = ["game-rules.js", "data/dungeons.js", "zone-guide.js", "common.js", "route.js", "upgrades.js", "app.js"];
+const CLASSIC_SCRIPTS = ["game-rules.js", "data/dungeons.js", "zone-guide.js", "common.js", "route.js", "app.js"];
 
 function createStorage() {
   const values = new Map();
@@ -32,6 +32,7 @@ for (const fileName of CLASSIC_SCRIPTS) {
 }
 Object.assign(globalThis, await import("../../web/src/sources.ts"));
 Object.assign(globalThis, await import("../../web/src/scoring.ts"));
+Object.assign(globalThis, await import("../../web/src/upgrades.ts"));
 
 export const planner = globalThis;
 
@@ -42,7 +43,7 @@ export function run(expression) {
 export function resetPlanner(items, characterOverrides) {
   globalThis.FOREVER_ITEMS = items || [];
   resetSourceCaches();
-  run("state.settings = defaultSettings(); state.snapshots = {}; state.tsm = null; state.questie = null; state.undo = null;");
+  run("state.settings = defaultSettings(); state.snapshots = {}; state.tsm = null; state.questie = null; state.undo = null; state.tooltipRequirements = {};");
   const state = run("state");
   const character = Object.assign({ slug: "test-hero", displayName: "Test Hero", hiddenItemIds: [] }, characterOverrides);
   state.settings.characters.push(character);

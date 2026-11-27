@@ -2,6 +2,10 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.50.0 — 2026-11-27
+
+- Behind the scenes: ranking upgrades, the quicker option and ring/trinket pairing are rewritten in TypeScript. Recommendations are unchanged.
+
 ## v0.49.0 — 2026-11-27
 
 - Behind the scenes: where items come from (sources, reputation, prices, gold limit) is rewritten in TypeScript. Recommendations are unchanged.

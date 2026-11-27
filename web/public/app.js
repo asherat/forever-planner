@@ -3,6 +3,7 @@ const AVAILABLE_STEPS_SHOWN = 2;
 const WOWHEAD_TOOLTIP_URL = "https://nether.wowhead.com/forever/tooltip/item/";
 const MAX_TOOLTIP_CHECKS_PER_RUN = 60;
 const TOOLTIP_CHECK_BATCH = 4;
+const TOOLTIP_CHECKS_PER_SLOT = 5;
 const TOOLTIP_CACHE_DAYS = 14;
 const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000;
 const tooltipChecks = { pending: new Set(), running: false };
@@ -125,6 +126,14 @@ function isTooltipLookupFresh(itemId) {
     maximumAge = DAY_IN_MILLISECONDS;
   }
   return Date.now() - (looked.checkedAt || 0) < maximumAge;
+}
+
+function queueTooltipChecks(candidates, snapshot) {
+  for (const candidate of candidates.slice(0, TOOLTIP_CHECKS_PER_SLOT)) {
+    if (needsTooltipCheck(candidate.item, snapshot)) {
+      tooltipChecks.pending.add(candidate.item.id);
+    }
+  }
 }
 
 function needsTooltipCheck(item, snapshot) {
@@ -1980,6 +1989,7 @@ function handleTsmStartupError(error) {
 }
 
 function start() {
+  observeRanking(queueTooltipChecks);
   enableMapPopovers();
   loadState();
   bindEvents();
