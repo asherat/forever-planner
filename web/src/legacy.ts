@@ -30,6 +30,8 @@ declare global {
   function vendorDiscountRate(): number;
   function isVendorSoldFor(itemId: number, factionLetter: string): boolean;
   function saveSettings(): void;
+  function mapZone(zoneName: string): unknown;
+  function dungeonEntrance(dungeonName: string): { zone: string; x: number; y: number } | null;
   function render(): void;
   function qualityClass(quality: string): string;
   function iconUrlForItem(item: Item): string;
