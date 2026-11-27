@@ -282,6 +282,30 @@ export function slotDefinitionByKey(slotKey: string): SlotDefinition | null {
   return null;
 }
 
+const MINIMUM_GEAR_SHARE = 0.01;
+
+export function gearScore(snapshot: Snapshot, weights: Weights): number {
+  let total = 0;
+  for (const slotDefinition of rules().equipmentSlots) {
+    if (!slotDefinition.cosmetic) {
+      total += itemScore(snapshot.equipment[slotDefinition.key], weights, slotDefinition.key);
+    }
+  }
+  return total;
+}
+
+export function gearShare(gain: number, snapshot: Snapshot, weights: Weights): number {
+  const total = gearScore(snapshot, weights);
+  if (total <= 0) {
+    return 1;
+  }
+  return gain / total;
+}
+
+export function isWorthwhileGain(gain: number, snapshot: Snapshot, weights: Weights): boolean {
+  return gain > 0 && gearShare(gain, snapshot, weights) >= MINIMUM_GEAR_SHARE;
+}
+
 export function bestGainAnySlot(item: Item, snapshot: Snapshot, weights: Weights): number {
   let best = 0;
   for (const slotDefinition of rules().equipmentSlots) {
