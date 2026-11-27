@@ -16,6 +16,7 @@ const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000;
 const tooltipChecks = { pending: new Set(), running: false };
 const REPUTATION_TIER_NAMES = ["Hated", "Hostile", "Unfriendly", "Neutral", "Friendly", "Honored", "Revered", "Exalted"];
 const CREATURE_RANKS = { 1: "elite", 2: "rare elite", 3: "boss", 4: "rare" };
+const MAIN_STATS = ["STRENGTH", "AGILITY", "INTELLECT", "ATTACK_POWER", "RANGED_ATTACK_POWER", "SPELL_POWER", "SPELL_HEALING_DONE"];
 
 function fetchProfile(characterSlugValue, path) {
   return fetchFromBattleNet("/profile/wow/character/" + encodeURIComponent(characterSlugValue) + path, "profile");
@@ -70,6 +71,7 @@ function compactEquipment(equipment) {
       id: equippedItem.item.id,
       name: equippedItem.name,
       quality: equippedItem.quality.type,
+      armor: 0,
       slot: equippedItem.inventory_type.type,
       stats: stats,
       itemSubclass: "",
@@ -78,6 +80,9 @@ function compactEquipment(equipment) {
     };
     if (equippedItem.item_subclass) {
       record.itemSubclass = equippedItem.item_subclass.name;
+    }
+    if (equippedItem.armor) {
+      record.armor = equippedItem.armor.value;
     }
     for (const spell of equippedItem.spells || []) {
       if (spell.description) {
@@ -395,26 +400,58 @@ function isPvpRuleset(snapshot) {
   return snapshot.ruleset === window.GAME_RULES.pvpRuleset;
 }
 
-function playstyleMultipliers(character) {
-  const playstyle = window.GAME_RULES.playstyles[characterPlaystyle(character)];
-  if (playstyle.pvpRulesetMultipliers && isPvpRuleset(state.snapshots[character.slug])) {
-    return playstyle.pvpRulesetMultipliers;
-  }
-  return playstyle.multipliers;
+function specPreset(specKey) {
+  return window.GAME_RULES.specPresets[window.GAME_RULES.specs[specKey].preset];
 }
 
-function specWeights(specKey, multipliers) {
-  const presetKey = window.GAME_RULES.specs[specKey].preset;
-  const weights = Object.assign({}, window.GAME_RULES.specPresets[presetKey].weights);
-  for (const statKey of Object.keys(multipliers)) {
+function mainStatWeight(weights) {
+  let strongest = 0;
+  for (const statKey of MAIN_STATS) {
+    strongest = Math.max(strongest, weights[statKey] || 0);
+  }
+  return strongest;
+}
+
+function characterWeights(character) {
+  const playstyle = window.GAME_RULES.playstyles[characterPlaystyle(character)];
+  const weights = Object.assign({}, specPreset(activeSpec(character)).weights);
+  for (const statKey of Object.keys(playstyle.multipliers)) {
     if (weights[statKey]) {
-      weights[statKey] = weights[statKey] * multipliers[statKey];
+      weights[statKey] = weights[statKey] * playstyle.multipliers[statKey];
     }
+  }
+  if (playstyle.pvpRulesetStaminaShare && isPvpRuleset(state.snapshots[character.slug])) {
+    weights.STAMINA = Math.max(weights.STAMINA || 0, playstyle.pvpRulesetStaminaShare * mainStatWeight(weights));
   }
   return weights;
 }
 
-function itemScore(item, weights) {
+function isRangedWeapon(item) {
+  return item.slot === "RANGED" || item.slot === "RANGEDRIGHT" || item.slot === "THROWN";
+}
+
+function weaponDamageWeight(item, weights, slotKey) {
+  if (isRangedWeapon(item)) {
+    return weights.RANGED_DPS || 0;
+  }
+  if (slotKey === "OFF_HAND" || item.slot === "WEAPONOFFHAND") {
+    return weights.OFF_HAND_DPS || 0;
+  }
+  return weights.MAIN_HAND_DPS || 0;
+}
+
+function itemArmor(item) {
+  if (item.armor !== undefined) {
+    return item.armor;
+  }
+  const known = itemById(item.id);
+  if (known === null) {
+    return 0;
+  }
+  return known.armor || 0;
+}
+
+function itemScore(item, weights, slotKey) {
   if (item === null || item === undefined) {
     return 0;
   }
@@ -424,8 +461,11 @@ function itemScore(item, weights) {
       score += item.stats[statKey] * weights[statKey];
     }
   }
-  if (item.weapon && weights.WEAPON_DPS) {
-    score += item.weapon.damagePerSecond * weights.WEAPON_DPS;
+  if (item.weapon) {
+    score += item.weapon.damagePerSecond * weaponDamageWeight(item, weights, slotKey);
+  }
+  if (weights.ARMOR) {
+    score += itemArmor(item) * weights.ARMOR;
   }
   return Math.round(score * 10) / 10;
 }
@@ -438,15 +478,15 @@ function itemWithSuffix(item, suffix) {
   return Object.assign({}, item, { name: item.name + " " + suffix.name, stats: stats, suffix: suffix });
 }
 
-function bestSuffixVariant(item, weights) {
+function bestSuffixVariant(item, weights, slotKey) {
   if (!item.randomSuffixes) {
     return item;
   }
   let best = item;
-  let bestScore = itemScore(item, weights);
+  let bestScore = itemScore(item, weights, slotKey);
   for (const suffix of item.randomSuffixes) {
     const variant = itemWithSuffix(item, suffix);
-    const score = itemScore(variant, weights);
+    const score = itemScore(variant, weights, slotKey);
     if (score > bestScore) {
       best = variant;
       bestScore = score;
@@ -508,9 +548,9 @@ function slotItemTypes(slotDefinition, snapshot) {
 function comparisonBaseline(slotDefinition, snapshot, item, weights) {
   const equipment = snapshot.equipment;
   if (slotDefinition.key === "MAIN_HAND" && isTwoHanded(item)) {
-    return itemScore(equipment.MAIN_HAND, weights) + itemScore(equipment.OFF_HAND, weights);
+    return itemScore(equipment.MAIN_HAND, weights, "MAIN_HAND") + itemScore(equipment.OFF_HAND, weights, "OFF_HAND");
   }
-  return itemScore(equipment[slotDefinition.key], weights);
+  return itemScore(equipment[slotDefinition.key], weights, slotDefinition.key);
 }
 
 function slotDefinitionByKey(slotKey) {
@@ -529,7 +569,7 @@ function rankedCandidatesForSlot(slotDefinition, snapshot, character) {
   }
   const itemTypes = slotItemTypes(slotDefinition, snapshot);
   const maximumLevel = snapshot.level + Number(state.settings.lookaheadLevels);
-  const weights = specWeights(activeSpec(character), playstyleMultipliers(character));
+  const weights = characterWeights(character);
   const equippedIds = equippedItemIds(snapshot);
   const hiddenIds = new Set(character.hiddenItemIds || []);
   const routeActive = isRouteActive(character);
@@ -563,8 +603,8 @@ function rankedCandidatesForSlot(slotDefinition, snapshot, character) {
     if (availableLevel > maximumLevel) {
       continue;
     }
-    const variant = bestSuffixVariant(item, weights);
-    const gain = itemScore(variant, weights) - comparisonBaseline(slotDefinition, snapshot, variant, weights);
+    const variant = bestSuffixVariant(item, weights, slotDefinition.key);
+    const gain = itemScore(variant, weights, slotDefinition.key) - comparisonBaseline(slotDefinition, snapshot, variant, weights);
     if (gain <= 0) {
       continue;
     }
@@ -614,14 +654,14 @@ function compareCandidates(first, second) {
   return second.gain - first.gain;
 }
 
-function gainBadge(value, label) {
+function gainBadge(value, label, unit) {
   const badge = createElement("span", "gain");
   if (value > 0) {
     badge.classList.add("gain-positive");
-    badge.textContent = label + " +" + value;
+    badge.textContent = label + " +" + value + " " + unit;
   } else if (value < 0) {
     badge.classList.add("gain-negative");
-    badge.textContent = label + " " + value;
+    badge.textContent = label + " " + value + " " + unit;
   } else {
     badge.textContent = label + " ±0";
   }
@@ -630,7 +670,7 @@ function gainBadge(value, label) {
 
 function gainBadges(candidate, character) {
   const gains = createElement("div", "gains");
-  gains.appendChild(gainBadge(candidate.gain, specLabel(activeSpec(character))));
+  gains.appendChild(gainBadge(candidate.gain, specLabel(activeSpec(character)), specPreset(activeSpec(character)).unit));
   return gains;
 }
 
@@ -1082,9 +1122,9 @@ function upgradeOptions(slotDefinition, snapshot, character, blocked) {
 }
 
 function pairedUpgradeOptions(slotDefinition, snapshot, character) {
-  const weights = specWeights(activeSpec(character), playstyleMultipliers(character));
+  const weights = characterWeights(character);
   const keys = [slotDefinition.key, slotDefinition.pairedWith];
-  if (itemScore(snapshot.equipment[keys[1]], weights) < itemScore(snapshot.equipment[keys[0]], weights)) {
+  if (itemScore(snapshot.equipment[keys[1]], weights, keys[1]) < itemScore(snapshot.equipment[keys[0]], weights, keys[0])) {
     keys.reverse();
   }
   const blocked = emptyBlockList();
@@ -1196,8 +1236,8 @@ function differenceClass(difference) {
   return "";
 }
 
-function specUsesWeaponDamage(character) {
-  return Boolean(specWeights(activeSpec(character), playstyleMultipliers(character)).WEAPON_DPS);
+function usesWeaponDamage(character, item, slotKey) {
+  return weaponDamageWeight(item, characterWeights(character), slotKey) > 0;
 }
 
 function renderComparisonTooltip(slotDefinition, snapshot, character, candidate) {
@@ -1225,7 +1265,7 @@ function renderComparisonTooltip(slotDefinition, snapshot, character, candidate)
     const damageDifference = Math.round((newDamage - currentDamage) * 10) / 10;
     let damageClass = differenceClass(damageDifference);
     let damageText = newDamage.toFixed(1) + " damage per second" + differenceText(damageDifference);
-    if (!specUsesWeaponDamage(character)) {
+    if (!usesWeaponDamage(character, upgradeItem, slotDefinition.key)) {
       damageClass = "tooltip-irrelevant";
       damageText += ", not used by your specs";
     }
