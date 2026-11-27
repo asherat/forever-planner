@@ -131,3 +131,17 @@ test("changing the Bartering rank updates the plan without a manual redraw", asy
   crafting.list.barteringRank = 2;
   assert.equal(total.value, 4 * 50 + 2 * 9);
 });
+
+test("in list order the first craft takes your materials; switched off, each craft can use all of them", () => {
+  const inventory = { characters: { Alt: holding({ [LEATHER]: 4 }) }, modifiedAt: 0, accountCount: 1 };
+  setUp({ entries: [{ itemId: ARMOR, quantity: 1 }, { itemId: ARMOR, quantity: 1 }], prices: { [LEATHER]: auction(50), [ARMOR]: auction(5000) }, inventory: inventory });
+  crafting.list.entries = [{ itemId: ARMOR, quantity: 1 }, { itemId: 5001, quantity: 1 }];
+  crafting.recipesByItem.set(5001, [{ id: 9, profession: "Leatherworking", itemId: 5001, quantity: 1, reagents: [[LEATHER, 4]] }]);
+  let plans = planList();
+  assert.equal(plans[0].root.children[0].ownUsed, 4);
+  assert.equal(plans[1].root.children[0].ownUsed, 0);
+  crafting.list.sharesMaterials = false;
+  plans = planList();
+  assert.equal(plans[0].root.children[0].ownUsed, 4);
+  assert.equal(plans[1].root.children[0].ownUsed, 4);
+});

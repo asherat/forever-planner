@@ -28,6 +28,7 @@ export interface CraftingList {
   excludedCharacters: string[];
   scope: string | null;
   barteringRank: number;
+  sharesMaterials: boolean;
 }
 
 export interface Offer {
@@ -116,7 +117,7 @@ type MarketCost = { cost: number; mode: string } | null;
 type StockPool = Map<number, Holding[]>;
 
 export function defaultCraftingList(): CraftingList {
-  return { entries: [], overrides: {}, useInventory: true, excludedCharacters: [], scope: null, barteringRank: 0 };
+  return { entries: [], overrides: {}, useInventory: true, excludedCharacters: [], scope: null, barteringRank: 0, sharesMaterials: true };
 }
 
 export const crafting: { list: CraftingList; recipesByItem: Map<number, Recipe[]>; marketCache: Map<number, MarketCost> } = reactive({
@@ -455,9 +456,13 @@ function planNode(itemId: number, quantity: number, pool: StockPool, depth: numb
 
 export function planList(): Plan[] {
   crafting.marketCache.clear();
-  const pool = createStockPool();
+  const sharedPool = createStockPool();
   const plans: Plan[] = [];
   for (const entry of crafting.list.entries) {
+    let pool = sharedPool;
+    if (!crafting.list.sharesMaterials) {
+      pool = createStockPool();
+    }
     const root = planNode(entry.itemId, entry.quantity, pool, 0, []);
     plans.push({ entry: entry, root: root, readyMadeCost: totalFor(buyOffer(entry.itemId), entry.quantity) });
   }
