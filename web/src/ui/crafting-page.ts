@@ -478,6 +478,18 @@ export function changeQuantity(index: number, value: string): void {
   saveCraftingList();
 }
 
+export function swapEntries(first: number, second: number): void {
+  const entries = crafting.list.entries;
+  const moved = entries[first];
+  entries[first] = entries[second];
+  entries[second] = moved;
+}
+
+export function shareMaterials(isShared: boolean): void {
+  crafting.list.sharesMaterials = isShared;
+  saveCraftingList();
+}
+
 export function chooseBartering(value: string): void {
   crafting.list.barteringRank = Number(value) || 0;
   saveCraftingList();

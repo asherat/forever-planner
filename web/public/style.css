@@ -905,6 +905,26 @@ legend {
   gap: 8px 14px;
 }
 
+.crafting-group-title {
+  margin: 4px 0 0;
+  font-size: 1rem;
+  color: var(--accent);
+}
+
+.crafting-share {
+  font-size: 0.9rem;
+}
+
+.crafting-move {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.crafting-move button {
+  padding: 0 8px;
+  line-height: 1.6;
+}
+
 .crafting-entry-title {
   flex: 1 1 200px;
   margin: 0;

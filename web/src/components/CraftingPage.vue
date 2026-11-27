@@ -2,7 +2,9 @@
 import { computed, ref } from "vue";
 import "../legacy.ts";
 import { aggregatePlans, planList } from "../crafting-plan.ts";
-import { addByName, connectCraftingFolder, dataStatusText, searchNames } from "../ui/crafting-page.ts";
+import { crafting } from "../crafting-plan.ts";
+import type { Plan } from "../crafting-plan.ts";
+import { addByName, connectCraftingFolder, dataStatusText, searchNames, shareMaterials } from "../ui/crafting-page.ts";
 import CraftingEntry from "./CraftingEntry.vue";
 import CraftingSummary from "./CraftingSummary.vue";
 import { state } from "../state.ts";
@@ -11,11 +13,62 @@ const search = ref("");
 const searchQuantity = ref("1");
 const names = searchNames();
 
-const plans = computed(function currentPlans() {
+interface PlanRow {
+  key: string;
+  index: number;
+  plan: Plan;
+  moveUp: number | null;
+  moveDown: number | null;
+}
+
+function isBoughtReadyMade(plan: Plan): boolean {
+  return plan.root.recipe === null;
+}
+
+const plans = computed(function currentPlans(): PlanRow[] {
   return planList().map(function entryOf(plan, index) {
-    return { key: index + ":" + plan.entry.itemId, index: index, plan: plan };
+    return { key: index + ":" + plan.entry.itemId, index: index, plan: plan, moveUp: null, moveDown: null };
   });
 });
+
+const boughtRows = computed(function boughtPlans() {
+  return plans.value.filter(function isBought(row) {
+    return isBoughtReadyMade(row.plan);
+  });
+});
+
+const craftedRows = computed(function craftedPlans(): PlanRow[] {
+  const crafted = plans.value.filter(function isCrafted(row) {
+    return !isBoughtReadyMade(row.plan);
+  });
+  return crafted.map(function withMoves(row, position) {
+    let moveUp: number | null = null;
+    let moveDown: number | null = null;
+    if (position > 0) {
+      moveUp = crafted[position - 1].index;
+    }
+    if (position < crafted.length - 1) {
+      moveDown = crafted[position + 1].index;
+    }
+    return { key: row.key, index: row.index, plan: row.plan, moveUp: moveUp, moveDown: moveDown };
+  });
+});
+
+const hasBought = computed(function anyBought() {
+  return boughtRows.value.length > 0;
+});
+
+const hasCrafted = computed(function anyCrafted() {
+  return craftedRows.value.length > 0;
+});
+
+const sharing = computed(function sharingView() {
+  return { isShared: crafting.list.sharesMaterials, isLocked: !crafting.list.useInventory };
+});
+
+function sharingToggled(event: Event): void {
+  shareMaterials((event.target as HTMLInputElement).checked);
+}
 
 const totals = computed(function planTotals() {
   return aggregatePlans(plans.value.map(function planOf(row) {
@@ -61,9 +114,19 @@ function addSearched(): void {
     <div class="crafting-list-column">
       <h2>Your crafting list</h2>
       <div id="crafting-empty" class="panel muted" :hidden="hasPlans">Nothing here yet. Add an item above, or pick crafted upgrades on the gear page and press "Craft all" in your gear plan.</div>
-      <ol id="crafting-list" class="crafting-list">
-        <CraftingEntry v-for="row in plans" :key="row.key" :plan="row.plan" :index="row.index" />
-      </ol>
+      <template v-if="hasBought">
+        <h3 class="crafting-group-title">No crafting needed: buy it or use what you have</h3>
+        <ol class="crafting-list">
+          <CraftingEntry v-for="row in boughtRows" :key="row.key" :plan="row.plan" :index="row.index" :move-up="null" :move-down="null" />
+        </ol>
+      </template>
+      <template v-if="hasCrafted">
+        <h3 v-if="hasBought" class="crafting-group-title">To craft</h3>
+        <label class="checkbox-line crafting-share"><input type="checkbox" :checked="sharing.isShared" :disabled="sharing.isLocked" @change="sharingToggled"> Use my materials in list order: the first craft takes them, the next ones get what's left. Reorder with ↑ ↓.</label>
+        <ol id="crafting-list" class="crafting-list">
+          <CraftingEntry v-for="row in craftedRows" :key="row.key" :plan="row.plan" :index="row.index" :move-up="row.moveUp" :move-down="row.moveDown" />
+        </ol>
+      </template>
     </div>
     <CraftingSummary :totals="totals" />
   </section>
