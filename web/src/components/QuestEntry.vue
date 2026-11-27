@@ -4,7 +4,7 @@ import "../legacy.ts";
 import { itemById, completedQuests } from "../sources.ts";
 import type { ChainStep } from "../questie.ts";
 import type { Character, Snapshot } from "../types.ts";
-import { completedStepCount, isChainStepForCharacter, offPathZone, removeFromQuestList } from "../ui/quest-list.ts";
+import { completedStepCount, isChainStepForCharacter, offPathZone, removeFromQuestList, savedQuestName } from "../ui/quest-list.ts";
 import type { QuestListEntry } from "../ui/quest-list.ts";
 import ItemIcon from "./ItemIcon.vue";
 import QuestPlace from "./QuestPlace.vue";
@@ -74,8 +74,22 @@ function stepView(step: ChainStep) {
   };
 }
 
-const shownSteps = computed(function stepsShown() {
-  return available.value.slice(0, AVAILABLE_STEPS_SHOWN).map(stepView);
+const nextStep = computed(function firstAvailable() {
+  if (available.value.length === 0) {
+    return null;
+  }
+  return stepView(available.value[0]);
+});
+
+const title = computed(function questTitle() {
+  if (nextStep.value !== null) {
+    return { name: nextStep.value.step.name, url: nextStep.value.url, level: nextStep.value.level };
+  }
+  return { name: savedQuestName(props.entry), url: WOWHEAD_URL + "quest=" + props.entry.questId, level: "" };
+});
+
+const otherSteps = computed(function alsoAvailable() {
+  return available.value.slice(1, AVAILABLE_STEPS_SHOWN).map(stepView);
 });
 
 const moreText = computed(function moreSteps() {
@@ -93,24 +107,23 @@ function remove(): void {
 <template>
   <li class="quest-entry">
     <div class="quest-entry-header">
-      <template v-if="item">
-        <ItemIcon :item="item" size="icon-small" />
-        <WowheadLink :item="item" />
-      </template>
+      <span class="quest-title"><a class="wowhead-link" :href="title.url" target="_blank" rel="noopener">{{ title.name }}</a><span class="muted">{{ title.level }}</span></span>
       <button type="button" class="cart-remove" aria-label="Remove from quest list" @click="remove">×</button>
     </div>
+    <QuestPlace v-if="nextStep" :place="nextStep.step.starter" />
     <div v-if="offPath" class="quest-off-path">
       {{ offPathText }}<button type="button" class="link" @click="remove">Remove it</button>
     </div>
-    <div v-if="needsQuestie" class="muted">Connect your WoW folder to see this quest's chain.</div>
+    <div v-if="needsQuestie" class="muted">Connect your WoW folder to see where it starts and the rest of its chain.</div>
     <div v-else-if="isChainDone" class="quest-done">Done: you completed the whole chain.</div>
     <template v-else>
       <div v-if="progress" class="muted">{{ progress }}</div>
-      <template v-for="shown in shownSteps" :key="shown.step.id">
-        <div class="quest-step"><a class="wowhead-link" :href="shown.url" target="_blank" rel="noopener">{{ shown.step.name }}</a>{{ shown.level }}</div>
+      <template v-for="shown in otherSteps" :key="shown.step.id">
+        <div class="quest-step">Also open: <a class="wowhead-link" :href="shown.url" target="_blank" rel="noopener">{{ shown.step.name }}</a>{{ shown.level }}</div>
         <QuestPlace :place="shown.step.starter" />
       </template>
       <div v-if="moreText" class="muted">{{ moreText }}</div>
     </template>
+    <div v-if="item" class="quest-reward">Reward: <ItemIcon :item="item" size="icon-small" /><WowheadLink :item="item" /></div>
   </li>
 </template>
