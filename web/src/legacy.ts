@@ -47,6 +47,8 @@ declare global {
   function mapZone(zoneName: string): unknown;
   function dungeonEntrance(dungeonName: string): { zone: string; x: number; y: number } | null;
   function render(): void;
+  function refreshCharacter(character: Character): Promise<void>;
+  function handleTsmStartupError(error: Error): void;
   function defaultSettings(): Settings;
   const DEFAULT_LOOKAHEAD_LEVELS: number;
   const MAX_LOOKAHEAD_LEVELS: number;
