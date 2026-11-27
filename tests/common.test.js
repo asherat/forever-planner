@@ -45,3 +45,10 @@ test("links a random-suffix item to its suffix on Wowhead", () => {
   assert.equal(context.wowheadUrl({ id: 8214 }), "https://www.wowhead.com/forever/item=8214");
   assert.equal(context.wowheadUrl({ id: 8214, suffix: { bonusId: 12727 } }), "https://www.wowhead.com/forever/item=8214?bonus=12727");
 });
+
+test("uses the Wowhead icon for items known only to the simulator", () => {
+  const context = loadCommon();
+  evaluate(context, "state.settings = defaultSettings(); window.GAME_RULES = { unknownIconId: 134400 };");
+  assert.equal(context.iconUrlForItem({ iconName: "inv_axe_02" }), "https://wow.zamimg.com/images/wow/icons/medium/inv_axe_02.jpg");
+  assert.equal(context.iconUrlForItem({ icon: 135274 }), "https://render.worldofwarcraft.com/forever-eu/icons/56/135274.jpg");
+});

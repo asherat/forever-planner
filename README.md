@@ -57,6 +57,8 @@ It runs entirely in your browser. There is no server: your browser talks to Batt
 ## Data sources and credits
 
 - Item, quest, recipe and zone data: the Battle.net API (WoW: Forever namespaces).
+- Items that Forever keeps out of the Battle.net API and the game files, with their stats and quest and reputation sources, plus the stat weights per spec: the [wowsims/forever](https://github.com/wowsims/forever) simulator's item database and presets (MIT).
+- Random suffix stats: the game's `ItemBonus` and `RandPropPoints` tables for the WoW: Forever build, from [wago.tools](https://wago.tools).
 - Item sources, quest levels and faction/class restrictions: your local QuestieDB install.
 - Prices and inventory: your local TradeSkillMaster data.
 - Maps: the game's own world map art (`UiMapArt` tiles) and zone positions (`UiMap`, `UiMapAssignment`) for the WoW: Forever build, from [wago.tools](https://wago.tools).

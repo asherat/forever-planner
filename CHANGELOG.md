@@ -2,6 +2,10 @@
 
 All notable changes to Forever Planner. Versions follow `vX.Y.Z` tags on `main`; the live site shows the current version in its header.
 
+## v0.32.0 — 2026-11-27
+
+- About 4,200 more items: the ones WoW Forever keeps hidden from Battle.net until players discover them, such as Bigger Rock on Bigger Stick from Eye of Mugg. They come from the WoW Forever simulator's item database, with their stats, quests and reputation requirements, so you see them before you get them.
+
 ## v0.31.0 — 2026-11-27
 
 - Every class and spec has its own stat weights, taken from the WoW Forever simulator instead of a few shared presets. Upgrades show their gain in attack power, spell power, healing or stamina.

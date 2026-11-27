@@ -22,6 +22,7 @@ A static site in `web/`, served by GitHub Pages. There is no server and no build
 - **Local WoW files** are read through the File System Access API, from a picked `World of Warcraft` or `_forever_` folder whose handle is kept in IndexedDB. The files are read, never uploaded.
   - Questie (`QuestieDB_Forever.toc`, base64 CBOR records, plus `support/Forever/Zones/dungeons.lua`) supplies item sources, quest data and dungeon entrances.
   - TradeSkillMaster supplies prices (`TradeSkillMaster_AppHelper/AppData.lua`, base-32 copper) and inventory (`WTF/Account/*/SavedVariables/TradeSkillMaster.lua`).
+- **The wowsims/forever item database** (`assets/database/db.json`, MIT) fills in the items Forever hides from Battle.net and the game files until players discover them (new Forever items, and many relocated Classic ones). `data/build.py` adds every phase 1 item it has that Battle.net doesn't, marked `fromSimulator`, with quest and reputation sources; drops and vendors for them come from Questie at runtime like for any other item. Their icons come from Wowhead's icon CDN by name.
 - **Wowhead** is used for two things only:
   - the nether tooltip API, to fill in reputation requirements that Battle.net omits (cached 14 days, failures retried after 1 day);
   - outbound links to `https://www.wowhead.com/forever/{item|quest|npc}=ID`.
@@ -38,7 +39,7 @@ A static site in `web/`, served by GitHub Pages. There is no server and no build
 | `web/tsm.js`, `web/wow-folder.js` | TSM price and inventory parsers, folder handle and file access |
 | `web/data/*.js` | Generated game data. Don't edit by hand |
 | `web/maps/*.jpg` | Generated hover maps, one per `uiMapId` |
-| `data/build.py` | Crawls the Battle.net Forever API and wago.tools and writes `web/data/*.js` |
+| `data/build.py` | Crawls the Battle.net Forever API, wago.tools and the wowsims item database and writes `web/data/*.js` |
 | `tools/build-maps.js` | Stitches the game's map tiles (wago.tools CASC, BLP2 DXT1) into 560 px JPEGs |
 
 ### Data rebuilds
