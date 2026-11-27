@@ -2,6 +2,7 @@ import type { QUESTIE } from "./questie.ts";
 import type { TSM } from "./tsm.ts";
 import type { Character, GameRules, GuideDungeon, Item, QuestieData, ReputationRequirement, Settings, Snapshot, ZoneGuide } from "./types.ts";
 import type { TsmPrices } from "./tsm.ts";
+import type { WOW_FOLDER } from "./wow-folder.ts";
 import type { Recipe } from "./crafting-plan.ts";
 
 declare global {
@@ -14,13 +15,7 @@ declare global {
     FOREVER_RECIPES: Recipe[];
     FOREVER_DUNGEONS: GuideDungeon[];
     ZONE_GUIDE: ZoneGuide;
-    WOW_FOLDER: {
-      folderKey: string;
-      legacyTsmFileKey: string;
-      addonsDirectory(folder: FileSystemDirectoryHandle): Promise<FileSystemDirectoryHandle | null>;
-      storeHandle(key: string, handle: FileSystemHandle): Promise<void>;
-      forgetHandle(key: string): Promise<void>;
-    };
+    WOW_FOLDER: typeof WOW_FOLDER;
     showDirectoryPicker?: (options: { id: string; mode: string }) => Promise<FileSystemDirectoryHandle>;
     start: () => void;
   }
