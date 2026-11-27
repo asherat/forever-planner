@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import "../legacy.ts";
-import { connectCraftingFolder, dataStatusText, recipeSource } from "../ui/crafting-page.ts";
-import { stepName } from "../profession-guide.ts";
+import { connectFolder, dataStatusText } from "../ui/folder-controls.ts";
 import { saveSettings, selectedCharacter, state } from "../state.ts";
-import { MAX_SKILL, PROFESSIONS, characterProfessions, characterSkill, chooseProfession, discardGuide, guideForm, isStepDone, makeGuide, materialsLeft, recipeById, savedGuide, startGuidePage, toggleBought, toggleStep } from "../ui/profession-page.ts";
+import { MAX_SKILL, characterSkill, chooseProfession, costStillToBuy, discardGuide, guideForm, guideSummary, makeGuide, professionChoices, savedGuide, shoppingRows, skillLine, stageRows, startGuidePage, toggleBought, toggleStageBought, toggleStep } from "../ui/profession-page.ts";
+import type { StageRow } from "../ui/profession-page.ts";
 import CraftingItemLabel from "./CraftingItemLabel.vue";
 import MoneyAmount from "./MoneyAmount.vue";
-import ProfessionGuideStep from "./ProfessionGuideStep.vue";
+import ProfessionGuideStage from "./ProfessionGuideStage.vue";
 
 const status = computed(function dataStatus() {
   return { text: dataStatusText(), isConnected: state.wowFolderConnected };
@@ -23,27 +23,16 @@ const selectedSlug = computed(function selectedSlugView() {
   return state.settings.selectedCharacterSlug || "";
 });
 
-const professions = computed(function professionChoices() {
-  const own = characterProfessions(selectedCharacter());
-  const others = PROFESSIONS.filter(function isNotOwn(name) {
-    return own.indexOf(name) === -1;
-  });
-  return own.map(function ownOption(name) {
-    return { name: name, label: name + " (yours)" };
-  }).concat(others.map(function otherOption(name) {
-    return { name: name, label: name };
-  }));
+const professions = computed(function professionOptions() {
+  return professionChoices(selectedCharacter());
 });
 
 const skill = computed(function currentSkill() {
   return characterSkill(selectedCharacter(), guideForm.profession);
 });
 
-const skillText = computed(function skillLine() {
-  if (skill.value === null) {
-    return "";
-  }
-  return "Your " + guideForm.profession + " skill on Battle.net: " + skill.value + ". Steps up to it are ticked by themselves after a Refresh.";
+const skillText = computed(function skillTextView() {
+  return skillLine(guideForm.profession, skill.value);
 });
 
 const saved = computed(function savedPlan() {
@@ -61,83 +50,30 @@ const makeLabel = computed(function makeButtonLabel() {
   return "Make a plan";
 });
 
-const steps = computed(function stepRows() {
+const stages = computed(function stagesView() {
   if (saved.value === null) {
     return [];
   }
-  const plan = saved.value;
-  return plan.guide.steps.map(function rowOf(step, index) {
-    return { key: index + ":" + step.recipeId, index: index, step: step, done: isStepDone(plan, step, index, skill.value) };
-  });
+  return stageRows(saved.value, skill.value);
 });
 
-const summary = computed(function planSummary() {
+const summary = computed(function summaryView() {
   if (saved.value === null) {
     return null;
   }
-  const guide = saved.value.guide;
-  let stuck = "";
-  if (guide.stuckAt !== null) {
-    stuck = "No recipe with known prices gives skill at " + guide.stuckAt + ". Connect your WoW folder for more prices, or check the auction house for patterns.";
-  }
-  const done = steps.value.filter(function isDone(row) {
-    return row.done;
-  }).length;
-  return {
-    title: guide.profession + " " + guide.from + " → " + guide.to,
-    made: "Planned on " + new Date(saved.value.createdAt).toLocaleString() + " with that day's prices. Make a new plan to use today's.",
-    progress: done + " of " + guide.steps.length + " steps done",
-    total: guide.total,
-    stuck: stuck
-  };
+  return guideSummary(saved.value, stages.value);
 });
 
-const lessons = computed(function lessonRows() {
-  if (saved.value === null) {
-    return [];
-  }
-  return saved.value.guide.lessons.map(function rowOf(lesson) {
-    const recipe = recipeById(lesson.recipeId);
-    let source = null;
-    if (recipe !== null && recipe.teachingItemId) {
-      source = recipeSource(recipe);
-    }
-    let where = "At a trainer, at skill " + lesson.learnAt;
-    if (lesson.teachingItemId !== null) {
-      where = "Pattern, usable at skill " + lesson.learnAt;
-    }
-    return { key: lesson.recipeId, name: stepName(lesson.recipeId, lesson.itemId), where: where, cost: lesson.cost, hasCost: lesson.cost > 0, source: source };
-  });
+const shopping = computed(function shoppingView() {
+  return shoppingRows(stages.value);
 });
 
-const hasLessons = computed(function anyLessons() {
-  return lessons.value.length > 0;
-});
-
-const materials = computed(function materialRows() {
-  if (saved.value === null) {
-    return [];
-  }
-  const plan = saved.value;
-  return materialsLeft(plan, skill.value).map(function rowOf(material) {
-    let label = "";
-    if (material.craft) {
-      label = "Cheaper to craft";
-    }
-    return { key: material.itemId, itemId: material.itemId, quantity: material.quantity + "×", cost: material.cost, bought: plan.boughtItemIds.indexOf(material.itemId) !== -1, how: label, inputId: "material-" + material.itemId };
-  });
-});
-
-const hasMaterials = computed(function anyMaterials() {
-  return materials.value.length > 0;
+const hasShopping = computed(function anyShopping() {
+  return shopping.value.length > 0;
 });
 
 const materialsCost = computed(function costLeft() {
-  return materials.value.filter(function notBought(row) {
-    return !row.bought;
-  }).reduce(function addCost(total, row) {
-    return total + row.cost;
-  }, 0);
+  return costStillToBuy(stages.value);
 });
 
 function characterChosen(event: Event): void {
@@ -156,9 +92,15 @@ function stepToggled(index: number): void {
   }
 }
 
-function materialToggled(itemId: number): void {
+function materialToggled(key: string): void {
   if (saved.value !== null) {
-    toggleBought(saved.value, itemId);
+    toggleBought(saved.value, key);
+  }
+}
+
+function stageToggled(stage: StageRow): void {
+  if (saved.value !== null) {
+    toggleStageBought(saved.value, stage);
   }
 }
 
@@ -170,10 +112,10 @@ function discard(): void {
 <template>
   <section class="panel crafting-intro">
     <h1>Professions</h1>
-    <p class="muted">The cheapest way to level a profession with today's auction house and vendor prices. Orange recipes always give a point; yellow and green ones give one less often, so the plan counts the extra crafts. Train the next rank at your trainer at 50, 125 and 200.</p>
+    <p class="muted">The cheapest way to level a profession with today's auction house and vendor prices. Orange recipes always give a point; yellow and green ones give one less often, so the plan counts the extra crafts. The plan is split by trainer rank, each with its own recipes to learn and materials to buy.</p>
     <p class="muted">{{ status.text }}</p>
     <div class="inline-fields">
-      <button type="button" :hidden="status.isConnected" @click="connectCraftingFolder">Connect WoW folder</button>
+      <button type="button" :hidden="status.isConnected" @click="connectFolder">Connect WoW folder</button>
     </div>
   </section>
 
@@ -199,9 +141,7 @@ function discard(): void {
       <h2>{{ summary.title }}</h2>
       <p class="muted">{{ summary.made }} {{ summary.progress }}.</p>
       <p v-if="summary.stuck" class="verdict-bad">{{ summary.stuck }}</p>
-      <ol class="crafting-list guide-steps">
-        <ProfessionGuideStep v-for="row in steps" :key="row.key" :step="row.step" :done="row.done" @toggle="stepToggled(row.index)" />
-      </ol>
+      <ProfessionGuideStage v-for="stage in stages" :key="stage.key" :stage="stage" @toggle-step="stepToggled" @toggle-bought="materialToggled" @toggle-all="stageToggled(stage)" />
       <div><button type="button" class="link" @click="discard">Remove this plan</button></div>
     </div>
     <aside class="crafting-summary">
@@ -210,27 +150,13 @@ function discard(): void {
         <div>{{ "Whole plan: " }}<MoneyAmount :copper="summary.total" /></div>
         <div>{{ "Still to buy: " }}<MoneyAmount :copper="materialsCost" /></div>
       </section>
-      <section v-if="hasMaterials" class="panel">
-        <h2>Materials for the steps left</h2>
-        <p class="muted summary-value">Tick what you've bought or made.</p>
+      <section v-if="hasShopping" class="panel">
+        <h2>Still to buy</h2>
+        <p class="muted summary-value">Everything not ticked in the stages, added up. Tick materials in each stage as you buy them.</p>
         <ul class="summary-list">
-          <li v-for="row in materials" :key="row.key" class="guide-material">
-            <input :id="row.inputId" type="checkbox" :checked="row.bought" @change="materialToggled(row.itemId)">
-            <label :for="row.inputId" class="guide-material-name">{{ row.quantity }} <CraftingItemLabel :item-id="row.itemId" /><span v-if="row.how" class="muted guide-material-how">{{ row.how }}</span></label>
+          <li v-for="row in shopping" :key="row.key" class="guide-shopping">
+            <span class="guide-material-name">{{ row.quantity }} <CraftingItemLabel :item-id="row.itemId" /><span v-if="row.how" class="muted guide-material-how">{{ row.how }}</span></span>
             <span class="summary-value"><MoneyAmount :copper="row.cost" /></span>
-          </li>
-        </ul>
-      </section>
-      <section v-if="hasLessons" class="panel">
-        <h2>Recipes to learn</h2>
-        <ul class="summary-list">
-          <li v-for="lesson in lessons" :key="lesson.key" class="summary-row">
-            <strong>{{ lesson.name }}</strong>
-            <span class="summary-value muted">{{ lesson.where }}<template v-if="lesson.hasCost">{{ ", about " }}<MoneyAmount :copper="lesson.cost" /></template></span>
-            <template v-if="lesson.source">
-              <span v-if="lesson.source.text" class="summary-value muted">{{ lesson.source.text }}</span>
-              <span v-for="line in lesson.source.lines" :key="line.key" :class="line.classes" v-bind="line.mapAttributes">{{ line.prefix }}<a v-if="line.npcUrl" :href="line.npcUrl" target="_blank" rel="noopener">{{ line.npcName }}</a>{{ line.suffix }}{{ line.coordinates }}</span>
-            </template>
           </li>
         </ul>
       </section>

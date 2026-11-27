@@ -2,7 +2,7 @@ import "./legacy.ts";
 import { dungeonForArea, guideZone } from "./route.ts";
 import type { CraftSource, Item, ItemSource, QuestieItemDetail, QuestieQuest, ReputationRequirement, Snapshot } from "./types.ts";
 import { isVendorSoldFor, preferredOffer, priceFor, savedBarteringRank, unitCost, vendorDiscountRate } from "./prices.ts";
-import { selectedCharacter, state } from "./state.ts";
+import { knowsRecipe, professionOf, selectedCharacter, state } from "./state.ts";
 
 export const CLASS_BITS: Record<string, number> = { Warrior: 1, Paladin: 2, Hunter: 4, Rogue: 8, Priest: 16, Shaman: 64, Mage: 128, Warlock: 256, Druid: 1024 };
 export const REPUTATION_TIER_NAMES = ["Hated", "Hostile", "Unfriendly", "Neutral", "Friendly", "Honored", "Revered", "Exalted"];
@@ -100,15 +100,6 @@ export function reputationRequirementText(item: Item, snapshot: Snapshot): strin
     return requirement.text + " (you have it)";
   }
   return requirement.text + " (you're " + current + ")";
-}
-
-function hasProfession(snapshot: Snapshot, professionName: string | undefined): boolean {
-  for (const profession of snapshot.professions) {
-    if (profession.name === professionName) {
-      return true;
-    }
-  }
-  return false;
 }
 
 function questieDetail(item: Item): QuestieItemDetail | null {
@@ -280,22 +271,41 @@ function ownedSources(item: Item, snapshot: Snapshot): ItemSource[] {
   return sources;
 }
 
-function collectSourcesForCharacter(item: Item, snapshot: Snapshot): ItemSource[] {
-  const sources: ItemSource[] = ownedSources(item, snapshot);
-  const detail = questieDetail(item);
-  const questLevels = new Map<number, QuestieQuest>();
-  const otherFactionQuestIds = new Set<number>();
-  const listedQuestIds = new Set<number>();
-  if (detail !== null) {
-    for (const quest of questieQuestsForCharacter(detail, snapshot)) {
-      questLevels.set(quest.id, quest);
-    }
-    for (const quest of detail.quests) {
-      if (quest.faction !== null && quest.faction !== snapshot.factionType) {
-        otherFactionQuestIds.add(quest.id);
-      }
+interface QuestContext {
+  questieQuests: Map<number, QuestieQuest>;
+  otherFactionQuestIds: Set<number>;
+}
+
+function questContext(detail: QuestieItemDetail | null, snapshot: Snapshot): QuestContext {
+  const context: QuestContext = { questieQuests: new Map(), otherFactionQuestIds: new Set() };
+  if (detail === null) {
+    return context;
+  }
+  for (const quest of questieQuestsForCharacter(detail, snapshot)) {
+    context.questieQuests.set(quest.id, quest);
+  }
+  for (const quest of detail.quests) {
+    if (quest.faction !== null && quest.faction !== snapshot.factionType) {
+      context.otherFactionQuestIds.add(quest.id);
     }
   }
+  return context;
+}
+
+function withQuestLevel(source: ItemSource, questId: number, context: QuestContext): ItemSource {
+  const characterQuest = context.questieQuests.get(questId);
+  if (characterQuest !== undefined) {
+    return Object.assign({}, source, { level: characterQuest.questLevel });
+  }
+  const knownQuest = questieQuest(questId);
+  if (!source.level && knownQuest !== null) {
+    return Object.assign({}, source, { level: knownQuest.questLevel });
+  }
+  return source;
+}
+
+function itemDataSources(item: Item, snapshot: Snapshot, context: QuestContext, listedQuestIds: Set<number>): ItemSource[] {
+  const sources: ItemSource[] = [];
   for (const source of item.sources || []) {
     if (source.faction && source.faction !== snapshot.factionType) {
       continue;
@@ -304,35 +314,35 @@ function collectSourcesForCharacter(item: Item, snapshot: Snapshot): ItemSource[
       sources.push(source);
       continue;
     }
-    if (otherFactionQuestIds.has(source.questId) || !isQuestForCharacter(source.questId, snapshot)) {
+    if (context.otherFactionQuestIds.has(source.questId) || !isQuestForCharacter(source.questId, snapshot)) {
       continue;
     }
     listedQuestIds.add(source.questId);
-    const questieLevel = questLevels.get(source.questId);
-    const knownQuest = questieQuest(source.questId);
-    if (!source.level && questieLevel === undefined && knownQuest !== null) {
-      sources.push(Object.assign({}, source, { level: knownQuest.questLevel }));
-    } else if (questieLevel !== undefined) {
-      sources.push(Object.assign({}, source, { level: questieLevel.questLevel }));
-    } else {
-      sources.push(source);
-    }
+    sources.push(withQuestLevel(source, source.questId, context));
   }
-  if (detail === null) {
-    return sources;
-  }
-  for (const quest of questLevels.values()) {
+  return sources;
+}
+
+function unlistedQuestieQuests(context: QuestContext, listedQuestIds: Set<number>): ItemSource[] {
+  const sources: ItemSource[] = [];
+  for (const quest of context.questieQuests.values()) {
     if (!listedQuestIds.has(quest.id)) {
       sources.push({ type: "quest", questId: quest.id, quest: quest.name, zone: quest.zone, level: quest.questLevel });
     }
   }
+  return sources;
+}
+
+function questieWorldSources(item: Item, detail: QuestieItemDetail, snapshot: Snapshot): ItemSource[] {
+  const sources: ItemSource[] = [];
   const ownLetter = factionLetter(snapshot.factionType);
   const dropCreatures = dropCreatureCount(detail.sources);
-  if (dropCreatures > FARMABLE_DROP_CREATURE_LIMIT) {
+  const isWorldDrop = dropCreatures > FARMABLE_DROP_CREATURE_LIMIT;
+  if (isWorldDrop) {
     sources.push({ type: "world-drop", count: dropCreatures });
   }
   for (const source of detail.sources) {
-    if (dropCreatures > FARMABLE_DROP_CREATURE_LIMIT && isDropSource(source)) {
+    if (isWorldDrop && isDropSource(source)) {
       continue;
     }
     const friendlyTo = source.friendlyTo;
@@ -346,6 +356,17 @@ function collectSourcesForCharacter(item: Item, snapshot: Snapshot): ItemSource[
     sources.push(source);
   }
   return sources;
+}
+
+function collectSourcesForCharacter(item: Item, snapshot: Snapshot): ItemSource[] {
+  const detail = questieDetail(item);
+  const context = questContext(detail, snapshot);
+  const listedQuestIds = new Set<number>();
+  const sources = ownedSources(item, snapshot).concat(itemDataSources(item, snapshot, context, listedQuestIds));
+  if (detail === null) {
+    return sources;
+  }
+  return sources.concat(unlistedQuestieQuests(context, listedQuestIds), questieWorldSources(item, detail, snapshot));
 }
 
 function isDropSource(source: ItemSource): boolean {
@@ -473,15 +494,6 @@ export function cheapestCost(item: Item, snapshot: Snapshot): number | null {
   return cheapest;
 }
 
-function knowsRecipe(snapshot: Snapshot, source: CraftSource): boolean {
-  for (const profession of snapshot.professions) {
-    if (profession.name === source.profession && (profession.recipeIds || []).indexOf(source.recipeId) !== -1) {
-      return true;
-    }
-  }
-  return false;
-}
-
 export function isEasySource(source: ItemSource, snapshot: Snapshot): boolean {
   if (source.type === "quest" || source.type === "owned") {
     return true;
@@ -493,7 +505,7 @@ export function isEasySource(source: ItemSource, snapshot: Snapshot): boolean {
     return isWithinGoldLimit(source.price);
   }
   if (isCraftSource(source)) {
-    return knowsRecipe(snapshot, source);
+    return knowsRecipe(snapshot, source.profession, source.recipeId);
   }
   return false;
 }
@@ -548,7 +560,7 @@ export function hasKnownSource(item: Item, snapshot: Snapshot): boolean {
 
 export function hasOwnProfessionCraft(item: Item, snapshot: Snapshot): boolean {
   for (const source of sourcesForCharacter(item, snapshot)) {
-    if (isCraftSource(source) && hasProfession(snapshot, source.profession)) {
+    if (isCraftSource(source) && professionOf(snapshot, source.profession) !== null) {
       return true;
     }
   }

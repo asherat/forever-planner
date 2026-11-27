@@ -1809,6 +1809,48 @@ legend {
   margin: 0;
 }
 
+.guide-stage {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.guide-stage-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 16px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 4px;
+}
+
+.guide-stage-header h2 {
+  margin: 0;
+}
+
+.guide-stage-training {
+  margin: 0;
+}
+
+.guide-stage-prep {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 10px;
+  align-items: start;
+}
+
+.guide-stage-prep h3 {
+  margin: 0 0 6px;
+}
+
+.guide-stage-prep-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .guide-steps {
   gap: 8px;
 }
@@ -1860,6 +1902,13 @@ legend {
 .guide-material {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 2px 8px;
+}
+
+.guide-shopping {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
   gap: 2px 8px;
 }
